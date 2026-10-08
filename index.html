@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Growing With Grace Childcare Ledger</title>
+<style>
+:root{--purple:#6f4a8e;--light:#f7f3fb;--ink:#25212a;--line:#ddd5e6}
+*{box-sizing:border-box}body{margin:0;font:16px system-ui,-apple-system,Segoe UI,sans-serif;background:#faf9fc;color:var(--ink)}
+header{background:var(--purple);color:white;padding:18px 16px}header h1{margin:0;font-size:1.35rem}header p{margin:5px 0 0;font-size:.92rem}
+main{max-width:1050px;margin:auto;padding:14px}.notice{background:#fff4d7;padding:12px;border-radius:10px;margin-bottom:12px;font-size:.93rem}
+nav{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}button,.tab{border:0;border-radius:9px;padding:10px 13px;background:#eee5f5;color:#342641;font-weight:650;cursor:pointer}button.primary{background:var(--purple);color:white}button.danger{background:#ffe5e5;color:#8c2020}button:disabled{opacity:.5}
+.panel{background:white;border:1px solid var(--line);border-radius:13px;padding:14px;margin:12px 0;box-shadow:0 2px 8px #25102a0a}
+h2{font-size:1.12rem;margin:0 0 12px}h3{font-size:1rem;margin:16px 0 8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+label{display:block;font-size:.88rem;font-weight:650;margin-bottom:4px}input,select,textarea{width:100%;padding:10px;border:1px solid #cfc5d8;border-radius:8px;background:white;font:inherit;color:inherit}textarea{min-height:65px}
+.field{margin-bottom:10px}.muted{color:#6c6572;font-size:.9rem}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:1}.metric{background:var(--light);padding:12px;border-radius:10px}.metric strong{display:block;font-size:1.25rem}
+table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}th{background:#f7f3fb}
+.tablewrap{overflow-x:auto}.hidden{display:none!important}.status{font-size:.9rem;padding:8px 0}.small{font-size:.82rem}
+@media print{header,nav,button,.noprint,.notice{display:none!important}body{background:white}main{max-width:none;padding:0}.panel{box-shadow:none;border:0} .hidden{display:none!important}}
+</style>
+</head>
+<body>
+<header><h1>Growing With Grace Christian Learning Center, LLC</h1><p>Childcare payment and invoice ledger</p></header>
+<main>
+<div class="notice"><strong>Important:</strong> This app is designed to store records in your Supabase project so you can access them on more than one device. Sign in with the same account on each device. Keep your Supabase publishable key private to your own setup; never use a service-role/secret key here.</div>
+<section class="panel" id="setup">
+<h2>Connect your database</h2>
+<p class="muted">Your project URL is already entered. Paste the <b>publishable</b> key from Supabase → API Keys. This is not your service-role or secret key.</p>
+<div class="field"><label for="projectUrl">Supabase project URL</label><input id="projectUrl" value="https://qyypwbokgzlkvdydxpsk.supabase.co"></div>
+<div class="field"><label for="anonKey">Publishable key</label><input id="anonKey" type="password" autocomplete="off" placeholder="Paste sb_publishable_… key"></div>
+<div class="row"><button class="primary" id="connectBtn">Connect</button><button id="forgetBtn">Clear key from this browser</button></div>
+<div id="connectionStatus" class="status">Not connected.</div>
+</section>
+
+<section class="panel hidden" id="authPanel">
+<h2>Sign in</h2><p class="muted">Use the same email and password on your notebook and iPhone.</p>
+<div class="grid"><div class="field"><label>Email</label><input id="email" type="email" autocomplete="username"></div><div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password"></div></div>
+<div class="row"><button class="primary" id="signInBtn">Sign in</button><button id="signUpBtn">Create account</button><button id="signOutBtn" class="hidden">Sign out</button></div><div id="authStatus" class="status"></div>
+</section>
+
+<div id="app" class="hidden">
+<div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected</div></div><button onclick="window.print()">Print / Save PDF</button></div></div>
+<nav class="noprint">
+<button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="reports">Reports</button>
+</nav>
+<section class="panel tabpage" id="page-dashboard"><h2>Dashboard</h2><div class="grid"><div class="metric"><span class="muted">Active children</span><strong id="countChildren">0</strong></div><div class="metric"><span class="muted">Charges recorded</span><strong id="sumCharges">$0.00</strong></div><div class="metric"><span class="muted">Payments recorded</span><strong id="sumPayments">$0.00</strong></div><div class="metric"><span class="muted">Outstanding balance</span><strong id="balance">$0.00</strong></div></div><p class="muted">Balances are calculated from all recorded charges and payments.</p></section>
+
+<section class="panel tabpage hidden" id="page-children"><h2>Children</h2><div class="grid">
+<div class="field"><label>Child's full name</label><input id="childName" placeholder="Child name"></div>
+<div class="field"><label>Rate category</label><select id="childCategory"><option>Infant</option><option>2-Year</option><option>3-Year</option><option>4-Year</option><option>5–12 Years</option><option>Before/After School Care</option></select></div>
+<div class="field"><label>Employee discount?</label><select id="childDiscount"><option value="false">No</option><option value="true">Yes</option></select></div></div><button class="primary" id="addChild">Add child</button>
+<h3>Current children</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Category</th><th>Employee discount</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
+
+<section class="panel tabpage hidden" id="page-rates"><h2>Rates</h2><p class="muted">These editable rates apply to new charges only. Previously recorded charges are not changed when you update a rate.</p>
+<div class="grid"><div class="field"><label>Category</label><select id="rateCategory"><option>Infant</option><option>2-Year</option><option>3-Year</option><option>4-Year</option><option>5–12 Years</option><option>Before/After School Care</option></select></div><div class="field"><label>Effective date</label><input type="date" id="rateDate"></div><div class="field"><label>School-day weekly rate ($)</label><input type="number" min="0" step=".01" id="schoolRate"></div><div class="field"><label>Non-school-day rate ($)</label><input type="number" min="0" step=".01" id="nonSchoolRate"></div><div class="field"><label>Summer weekly rate ($)</label><input type="number" min="0" step=".01" id="summerRate"></div><div class="field"><label>CCAP weekly rate ($)</label><input type="number" min="0" step=".01" id="ccapRate"></div><div class="field"><label>Employee discount (%)</label><input type="number" min="0" max="100" step=".01" id="discountRate"></div></div>
+<button class="primary" id="saveRate">Save rate schedule</button>
+<h3>Saved rate schedules</h3><div class="tablewrap"><table><thead><tr><th>Effective</th><th>Category</th><th>School day</th><th>Non-school day</th><th>Summer</th><th>CCAP</th><th>Employee discount</th></tr></thead><tbody id="ratesRows"></tbody></table></div></section>
+
+<section class="panel tabpage hidden" id="page-entry"><h2>Charges & Payments</h2><div class="grid">
+<div class="field"><label>Child</label><select id="txChild"></select></div><div class="field"><label>Entry type</label><select id="txType"><option>Charge</option><option>Payment</option></select></div>
+<div class="field"><label>Week starts (Monday)</label><input type="date" id="weekStart"></div><div class="field"><label>Week ends</label><input type="date" id="weekEnd"></div>
+<div class="field"><label>Entry date</label><input type="date" id="entryDate"></div><div class="field"><label>Category</label><select id="txCategory"><option>Regular daycare</option><option>CCAP</option><option>Non-school day</option><option>Summer</option><option>Enrollment fee</option><option>Registration/insurance</option><option>Activity fee</option><option>Late pickup</option><option>Late payment fee</option><option>Other</option></select></div>
+<div class="field"><label>Payment method (payments only)</label><select id="payMethod"><option>Cash</option><option>Check</option><option>Cash App</option><option>Direct deposit</option><option>CCAP</option><option>Other</option></select></div><div class="field"><label>Amount ($)</label><input type="number" min="0" step=".01" id="txAmount"></div>
+<div class="field" style="grid-column:1/-1"><label>Notes / check number / details</label><textarea id="txNotes"></textarea></div></div>
+<div class="row"><button class="primary" id="saveTx">Save entry</button><button id="fillRate">Fill weekly rate</button></div><p class="muted small">Suggested weekly rates from your fee schedule: Infant $245, 2-Year $240, 3-Year $235, 4-Year $230, 5–12 Years $225, Before/After School Care $150. Enrollment $100; registration/insurance $40; activity fee $35 where applicable. Confirm the applicable schedule before saving. Late pickup: $5/minute; late payment: $15/day.</p>
+<h3>Recent entries</h3><div class="tablewrap"><table><thead><tr><th>Date / week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method / notes</th></tr></thead><tbody id="txRows"></tbody></table></div></section>
+
+<section class="panel tabpage hidden" id="page-reports"><h2>Reports</h2><div class="grid"><div class="field"><label>Child</label><select id="reportChild"><option value="">All children</option></select></div><div class="field"><label>From date</label><input type="date" id="reportFrom"></div><div class="field"><label>Through date</label><input type="date" id="reportTo"></div><div class="field"><label>Entry type</label><select id="reportType"><option value="">All entries</option><option>Charge</option><option>Payment</option></select></div></div><button class="primary" id="runReport">Run report</button><button onclick="window.print()">Print / Save PDF</button><div id="reportSummary" class="status"></div><div class="tablewrap"><table><thead><tr><th>Date</th><th>Week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method</th><th>Notes</th></tr></thead><tbody id="reportRows"></tbody></table></div></section>
+</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+let sb=null,user=null,children=[],rates=[],txs=[];
+const $=id=>document.getElementById(id), money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD'});
+const today=()=>new Date().toISOString().slice(0,10);
+$('rateDate').value=today();$('entryDate').value=today();$('weekStart').value=today();$('weekEnd').value=today();
+function status(id,msg){$(id).textContent=msg}
+$('connectBtn').onclick=async()=>{
+ const url=$('projectUrl').value.trim(),key=$('anonKey').value.trim();
+ if(!url||!key){status('connectionStatus','Enter the publishable key first.');return}
+ try{sb=window.supabase.createClient(url,key);const {data,error}=await sb.auth.getSession();if(error)throw error;
+ $('authPanel').classList.remove('hidden');status('connectionStatus','Connected to Supabase. Sign in or create your account.');}
+ catch(e){status('connectionStatus','Could not connect: '+e.message)}
+};
+$('forgetBtn').onclick=()=>{$('anonKey').value='';sb=null;user=null;$('authPanel').classList.add('hidden');$('app').classList.add('hidden');status('connectionStatus','Key cleared from this page.');};
+$('signUpBtn').onclick=async()=>{if(!sb)return;const {data,error}=await sb.auth.signUp({email:$('email').value.trim(),password:$('password').value});status('authStatus',error?error.message:'Account request submitted. If email confirmation is enabled, check your email before signing in.')};
+$('signInBtn').onclick=async()=>{if(!sb)return;const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error){status('authStatus',error.message);return}user=data.user;await startApp()};
+$('signOutBtn').onclick=async()=>{await sb.auth.signOut();user=null;$('app').classList.add('hidden');$('signOutBtn').classList.add('hidden');status('authStatus','Signed out.')};
+async function startApp(){ $('app').classList.remove('hidden');$('signOutBtn').classList.remove('hidden');$('signedInAs').textContent='Signed in: '+user.email;status('authStatus','Signed in.');await loadAll(); }
+async function loadAll(){let results=await Promise.all([sb.from('daycare_children').select('*').order('name'),sb.from('daycare_rates').select('*').order('effective_date',{ascending:false}),sb.from('daycare_transactions').select('*').order('entry_date',{ascending:false})]);for(let i=0;i<results.length;i++){if(results[i].error){alert('Database error: '+results[i].error.message);return}}children=results[0].data||[];rates=results[1].data||[];txs=results[2].data||[];renderAll()}
+function renderAll(){renderChildren();renderRates();renderTx();renderDashboard();renderSelects()}
+function renderChildren(){ $('childrenRows').innerHTML=children.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.rate_category)}</td><td>${c.employee_discount?'Yes':'No'}</td><td><button class="danger" onclick="archiveChild('${c.id}')">Archive</button></td></tr>`).join('')||'<tr><td colspan="4">No children yet.</td></tr>'}
+function renderRates(){ $('ratesRows').innerHTML=rates.map(r=>`<tr><td>${r.effective_date}</td><td>${esc(r.category)}</td><td>${money(r.school_day)}</td><td>${money(r.non_school_day)}</td><td>${money(r.summer)}</td><td>${money(r.ccap)}</td><td>${r.employee_discount_percent||0}%</td></tr>`).join('')||'<tr><td colspan="7">No rate schedules saved yet.</td></tr>'}
+function renderTx(){ $('txRows').innerHTML=txs.slice(0,30).map(t=>`<tr><td>${t.entry_date}<br><span class="muted">${t.week_start}–${t.week_end}</span></td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')} ${esc(t.notes||'')}</td></tr>`).join('')||'<tr><td colspan="6">No entries yet.</td></tr>'}
+function renderDashboard(){const charges=txs.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),payments=txs.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('countChildren').textContent=children.filter(c=>c.active!==false).length;$('sumCharges').textContent=money(charges);$('sumPayments').textContent=money(payments);$('balance').textContent=money(charges-payments)}
+function renderSelects(){let opts=children.filter(c=>c.active!==false).map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.rate_category)}</option>`).join('');$('txChild').innerHTML=opts;$('reportChild').innerHTML='<option value="">All children</option>'+opts}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+$('addChild').onclick=async()=>{const name=$('childName').value.trim();if(!name)return alert('Enter the child’s name.');const {error}=await sb.from('daycare_children').insert({user_id:user.id,name,rate_category:$('childCategory').value,employee_discount:$('childDiscount').value==='true',active:true});if(error)return alert(error.message);$('childName').value='';await loadAll()};
+window.archiveChild=async id=>{if(!confirm('Archive this child? Existing transactions will be kept.'))return;const {error}=await sb.from('daycare_children').update({active:false}).eq('id',id).eq('user_id',user.id);if(error)return alert(error.message);await loadAll()};
+$('saveRate').onclick=async()=>{const obj={user_id:user.id,category:$('rateCategory').value,effective_date:$('rateDate').value,school_day:Number($('schoolRate').value||0),non_school_day:Number($('nonSchoolRate').value||0),summer:Number($('summerRate').value||0),ccap:Number($('ccapRate').value||0),employee_discount_percent:Number($('discountRate').value||0)};const {error}=await sb.from('daycare_rates').upsert(obj,{onConflict:'user_id,category,effective_date'});if(error)return alert(error.message);await loadAll();alert('Rate schedule saved. It will not change earlier charges.')};
+$('fillRate').onclick=()=>{const c=children.find(c=>c.id===$('txChild').value);if(!c)return alert('Add/select a child first.');const date=$('weekStart').value||today();const r=rates.filter(r=>r.category===c.rate_category&&r.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];if(!r)return alert('No saved rate for this category and date. Enter an amount manually or add a rate schedule.');let amt=$('txCategory').value==='CCAP'?r.ccap:$('txCategory').value==='Non-school day'?r.non_school_day:$('txCategory').value==='Summer'?r.summer:r.school_day;if(c.employee_discount&&$('txCategory').value!=='CCAP')amt=amt*(1-Number(r.employee_discount_percent||0)/100);$('txAmount').value=Number(amt||0).toFixed(2)};
+$('saveTx').onclick=async()=>{const child=children.find(c=>c.id===$('txChild').value);if(!child)return alert('Add a child first.');const amount=Number($('txAmount').value);if(!Number.isFinite(amount)||amount<0)return alert('Enter a valid amount.');const obj={user_id:user.id,child_id:child.id,week_start:$('weekStart').value,week_end:$('weekEnd').value,entry_date:$('entryDate').value,entry_type:$('txType').value,category:$('txCategory').value,payment_method:$('txType').value==='Payment' ? $('payMethod').value:null,amount,notes:$('txNotes').value.trim()};const {error}=await sb.from('daycare_transactions').insert(obj);if(error)return alert(error.message);$('txAmount').value='';$('txNotes').value='';await loadAll();alert('Entry saved.')};
+$('runReport').onclick=()=>{let list=txs.filter(t=>(!$('reportChild').value||t.child_id===$('reportChild').value)&&(!$('reportFrom').value||t.entry_date>=$('reportFrom').value)&&(!$('reportTo').value||t.entry_date<=$('reportTo').value)&&(!$('reportType').value||t.entry_type===$('reportType').value));$('reportRows').innerHTML=list.map(t=>`<tr><td>${t.entry_date}</td><td>${t.week_start}–${t.week_end}</td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')}</td><td>${esc(t.notes||'')}</td></tr>`).join('')||'<tr><td colspan="8">No matching entries.</td></tr>';const ch=list.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),pa=list.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('reportSummary').textContent=`${list.length} entries · Charges ${money(ch)} · Payments ${money(pa)} · Balance ${money(ch-pa)}`};
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x===b));document.querySelectorAll('.tabpage').forEach(x=>x.classList.add('hidden'));$('page-'+b.dataset.tab).classList.remove('hidden')});
+</script>
+</body></html>
