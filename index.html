@@ -49,7 +49,9 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
 <section class="panel tabpage hidden" id="page-children"><h2>Children</h2><div class="grid">
 <div class="field"><label>Child's full name</label><input id="childName" placeholder="Child name"></div>
 <div class="field"><label>Rate category</label><select id="childCategory"><option>Infant</option><option>2-Year</option><option>3-Year</option><option>4-Year</option><option>5–12 Years</option><option>Before/After School Care</option></select></div>
-<div class="field"><label>Employee discount?</label><select id="childDiscount"><option value="false">No</option><option value="true">Yes</option></select></div></div><button class="primary" id="addChild">Add child</button>
+
+<div class="field"><label>Employee discount (%)</label><input type="number" id="childDiscount" min="0" max="100" step="0.01" value="0" placeholder="0"></div>
+
 <h3>Current children</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Category</th><th>Employee discount</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
 
 <section class="panel tabpage hidden" id="page-rates"><h2>Rates</h2><p class="muted">These editable rates apply to new charges only. Previously recorded charges are not changed when you update a rate.</p>
