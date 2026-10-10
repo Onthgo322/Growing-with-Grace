@@ -74,6 +74,29 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
 <div class="row"><button class="primary" id="saveTx">Save entry</button><button id="fillRate">Fill weekly rate</button></div><p class="muted small">Suggested weekly rates from your fee schedule: Infant $245, 2-Year $240, 3-Year $235, 4-Year $230, 5–12 Years $225, Before/After School Care $150. Enrollment $100; registration/insurance $40; activity fee $35 where applicable. Confirm the applicable schedule before saving. Late pickup: $5/minute; late payment: $15/day.</p>
 <h3>Recent entries</h3><div class="tablewrap"><table><thead><tr><th>Date / week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method / notes</th></tr></thead><tbody id="txRows"></tbody></table></div></section>
 
+<section class="panel tabpage hidden" id="page-deleted">
+  <h2>Deleted Transactions</h2>
+  <p class="muted">Deleted entries are kept here for your records and do not count toward current balances.</p>
+  <button class="primary" id="loadDeleted">Refresh Deleted Transactions</button>
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Original Date</th>
+          <th>Child</th>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>Deletion Reason</th>
+          <th>Deleted On</th>
+        </tr>
+      </thead>
+      <tbody id="deletedRows">
+        <tr><td colspan="6">Click Refresh Deleted Transactions to load history.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
 <section class="panel tabpage hidden" id="page-reports"><h2>Reports</h2><div class="grid"><div class="field"><label>Child</label><select id="reportChild"><option value="">All children</option></select></div><div class="field"><label>From date</label><input type="date" id="reportFrom"></div><div class="field"><label>Through date</label><input type="date" id="reportTo"></div><div class="field"><label>Entry type</label><select id="reportType"><option value="">All entries</option><option>Charge</option><option>Payment</option></select></div></div><button class="primary" id="runReport">Run report</button><button onclick="window.print()">Print / Save PDF</button><div id="reportSummary" class="status"></div><div class="tablewrap"><table><thead><tr><th>Date</th><th>Week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method</th><th>Notes</th></tr></thead><tbody id="reportRows"></tbody></table></div></section>
 </div>
 </main>
@@ -98,6 +121,28 @@ $('signOutBtn').onclick=async()=>{await sb.auth.signOut();user=null;$('app').cla
 async function startApp(){ $('app').classList.remove('hidden');$('signOutBtn').classList.remove('hidden');$('signedInAs').textContent='Signed in: '+user.email;status('authStatus','Signed in.');await loadAll(); }
 
 
+
+async function loadDeletedTransactions(){
+  const {data,error}=await sb.from('daycare_transaction_history')
+    .select('*')
+    .order('transaction_id',{ascending:false});
+  if(error){
+    alert('Could not load deleted transactions: '+error.message);
+    return;
+  }
+  $('deletedRows').innerHTML=(data||[]).map(h=>{
+    const t=h.transaction_data||{};
+    const child=children.find(c=>c.id===t.child_id);
+    return `<tr>
+      <td>${esc(t.entry_date||'')}</td>
+      <td>${esc(child?.name||'Archived child')}</td>
+      <td>${esc(t.entry_type||'')}</td>
+      <td>${money(t.amount)}</td>
+      <td>${esc(h.deletion_reason||'')}</td>
+      <td>${esc(h.deleted_at||'')}</td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="6">No deleted transactions found.</td></tr>';
+}
  
 async function loadAll(){let results=await Promise.all([sb.from('daycare_children').select('*').order('name'),sb.from('daycare_rates').select('*').order('effective_date',{ascending:false}),sb.from('daycare_transactions').select('*').order('entry_date',{ascending:false})]);for(let i=0;i<results.length;i++){if(results[i].error){alert('Database error: '+results[i].error.message);return}}children=results[0].data||[];rates=results[1].data||[];txs=results[2].data||[];renderAll()}
 function renderAll(){renderChildren();renderRates();renderTx();renderDashboard();renderSelects()}
@@ -118,7 +163,18 @@ $('fillRate').onclick=()=>{const c=children.find(c=>c.id===$('txChild').value);i
 window.editTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id));if(!t)return alert('Transaction not found.');const entryDate=prompt('Entry date (YYYY-MM-DD):',t.entry_date||'');if(entryDate===null)return;const weekStart=prompt('Week starts (YYYY-MM-DD):',t.week_start||'');if(weekStart===null)return;const weekEnd=prompt('Week ends (YYYY-MM-DD):',t.week_end||'');if(weekEnd===null)return;const type=prompt('Entry type (Charge or Payment):',t.entry_type||'Charge');if(type===null)return;if(!['Charge','Payment'].includes(type))return alert('Entry type must be Charge or Payment.');const category=prompt('Category:',t.category||'Other');if(category===null)return;const amountText=prompt('Amount:',Number(t.amount||0).toFixed(2));if(amountText===null)return;const amount=Number(amountText);if(!Number.isFinite(amount)||amount<0)return alert('Enter a valid amount.');const notes=prompt('Notes / details:',t.notes||'');if(notes===null)return;let paymentMethod=t.payment_method||'';if(type==='Payment'){paymentMethod=prompt('Payment method:',paymentMethod||'Cash');if(paymentMethod===null)return;}else paymentMethod=null;const {error}=await sb.from('daycare_transactions').update({entry_date:entryDate,week_start:weekStart,week_end:weekEnd,entry_type:type,category,amount,notes,payment_method:paymentMethod}).eq('id',id).eq('user_id',user.id);if(error)return alert('Could not update transaction: '+error.message);await loadAll();alert('Transaction updated.')};
 window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id));if(!t)return alert('Transaction not found.');const reason=prompt('Why are you deleting this transaction? (Required)');if(reason===null)return;if(!reason.trim())return alert('Please enter a deletion reason.');if(!confirm('Move this transaction to history and remove it from current totals?'))return;const history={transaction_id:String(t.id),user_id:user.id,transaction_data:t,deletion_reason:reason.trim(),deleted_by:user.id};const {error:historyError}=await sb.from('daycare_transaction_history').insert(history);if(historyError)return alert('Could not save transaction history. Nothing was deleted. '+historyError.message);const {error}=await sb.from('daycare_transactions').delete().eq('id',id).eq('user_id',user.id);if(error)return alert('History was saved, but the transaction could not be removed from current records. '+error.message);await loadAll();alert('Transaction moved to history.')};
  $('saveTx').onclick=async()=>{const child=children.find(c=>c.id===$('txChild').value);if(!child)return alert('Add a child first.');const amount=Number($('txAmount').value);if(!Number.isFinite(amount)||amount<0)return alert('Enter a valid amount.');const obj={user_id:user.id,child_id:child.id,week_start:$('weekStart').value,week_end:$('weekEnd').value,entry_date:$('entryDate').value,entry_type:$('txType').value,category:$('txCategory').value,payment_method:$('txType').value==='Payment' ? $('payMethod').value:null,amount,notes:$('txNotes').value.trim()};const {error}=await sb.from('daycare_transactions').insert(obj);if(error)return alert(error.message);$('txAmount').value='';$('txNotes').value='';await loadAll();alert('Entry saved.')};
-$('runReport').onclick=()=>{let list=txs.filter(t=>(!$('reportChild').value||t.child_id===$('reportChild').value)&&(!$('reportFrom').value||t.entry_date>=$('reportFrom').value)&&(!$('reportTo').value||t.entry_date<=$('reportTo').value)&&(!$('reportType').value||t.entry_type===$('reportType').value));$('reportRows').innerHTML=list.map(t=>`<tr><td>${t.entry_date}</td><td>${t.week_start}–${t.week_end}</td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')}</td><td>${esc(t.notes||'')}</td></tr>`).join('')||'<tr><td colspan="8">No matching entries.</td></tr>';const ch=list.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),pa=list.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('reportSummary').textContent=`${list.length} entries · Charges ${money(ch)} · Payments ${money(pa)} · Balance ${money(ch-pa)}`};
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x===b));document.querySelectorAll('.tabpage').forEach(x=>x.classList.add('hidden'));$('page-'+b.dataset.tab).classList.remove('hidden')});
+
+$('loadDeleted').onclick=loadDeletedTransactions;
+
+ $('runReport').onclick=()=>{let list=txs.filter(t=>(!$('reportChild').value||t.child_id===$('reportChild').value)&&(!$('reportFrom').value||t.entry_date>=$('reportFrom').value)&&(!$('reportTo').value||t.entry_date<=$('reportTo').value)&&(!$('reportType').value||t.entry_type===$('reportType').value));$('reportRows').innerHTML=list.map(t=>`<tr><td>${t.entry_date}</td><td>${t.week_start}–${t.week_end}</td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')}</td><td>${esc(t.notes||'')}</td></tr>`).join('')||'<tr><td colspan="8">No matching entries.</td></tr>';const ch=list.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),pa=list.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('reportSummary').textContent=`${list.length} entries · Charges ${money(ch)} · Payments ${money(pa)} · Balance ${money(ch-pa)}`};
+
+document.querySelector('[data-tab="deleted"]').onclick=()=>{
+  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('primary',b.dataset.tab==='deleted'));
+  document.querySelectorAll('.tabpage').forEach(p=>p.classList.add('hidden'));
+  $('page-deleted').classList.remove('hidden');
+  loadDeletedTransactions();
+};
+
+ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x===b));document.querySelectorAll('.tabpage').forEach(x=>x.classList.add('hidden'));$('page-'+b.dataset.tab).classList.remove('hidden')});
 </script>
 </body></html>
