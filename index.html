@@ -73,7 +73,7 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-let sb=null,user=null,children=[],rates=[],txs=[];F
+let sb=null,user=null,children=[],rates=[],txs=[];
 const $=id=>document.getElementById(id), money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD'});
 const today=()=>new Date().toISOString().slice(0,10);
 $('rateDate').value=today();$('entryDate').value=today();$('weekStart').value=today();$('weekEnd').value=today();
