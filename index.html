@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Growing With Grace Childcare Ledger</title>
-<style>
+<style>window.editChild
 :root{--purple:#6f4a8e;--light:#f7f3fb;--ink:#25212a;--line:#ddd5e6}
 *{box-sizing:border-box}body{margin:0;font:16px system-ui,-apple-system,Segoe UI,sans-serif;background:#faf9fc;color:var(--ink)}
 header{background:var(--purple);color:white;padding:18px 16px}header h1{margin:0;font-size:1.35rem}header p{margin:5px 0 0;font-size:.92rem}
@@ -105,6 +105,7 @@ function renderDashboard(){const charges=txs.filter(t=>t.entry_type==='Charge').
 function renderSelects(){let opts=children.filter(c=>c.active!==false).map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.rate_category)}</option>`).join('');$('txChild').innerHTML=opts;$('reportChild').innerHTML='<option value="">All children</option>'+opts}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 $('addChild').onclick=async()=>{const name=$('childName').value.trim();if(!name)return alert('Enter the child’s name.');const {error}=await sb.from('daycare_children').insert({user_id:user.id,name,rate_category:$('childCategory').value,employee_discount:Number($('childDiscount').value)>0,employee_discount_percent:Number($('childDiscount').value||0) ,active:true});if(error)return alert(error.message);$('childName').value='';await loadAll()};
+window.editChild=async id=>{const c=children.find(x=>x.id===id);if(!c)return;const name=prompt('Child name:',c.name);if(name===null)return;if(!name.trim())return alert('Name cannot be blank.');const category=prompt('Rate category (Infant, 2-Year, 3-Year, 4-Year, 5–12 Years, Before/After School Care):',c.rate_category);if(category===null)return;const discount=prompt('Employee discount percentage (0–100):',Number(c.employee_discount_percent||0));if(discount===null)return;const pct=Number(discount);if(!Number.isFinite(pct)||pct<0||pct>100)return alert('Discount must be between 0 and 100.');const {error}=await sb.from('daycare_children').update({name:name.trim(),rate_category:category,employee_discount:pct>0,employee_discount_percent:pct}).eq('id',id).eq('user_id',user.id);if(error)return alert(error.message);await loadAll();alert('Child updated. Existing charges were not changed.')};
 
  window.archiveChild=async id=>{if(!confirm('Archive this child? Existing transactions will be kept.'))return;const {error}=await sb.from('daycare_children').update({active:false}).eq('id',id).eq('user_id',user.id);if(error)return alert(error.message);await loadAll()};
 $('saveRate').onclick=async()=>{const obj={user_id:user.id,category:$('rateCategory').value,effective_date:$('rateDate').value,school_day:Number($('schoolRate').value||0),non_school_day:Number($('nonSchoolRate').value||0),summer:Number($('summerRate').value||0),ccap:Number($('ccapRate').value||0),employee_discount_percent:Number($('discountRate').value||0)};const {error}=await sb.from('daycare_rates').upsert(obj,{onConflict:'user_id,category,effective_date'});if(error)return alert(error.message);await loadAll();alert('Rate schedule saved. It will not change earlier charges.')};
