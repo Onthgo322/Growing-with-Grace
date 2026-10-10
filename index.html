@@ -60,7 +60,14 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
  </div>
 <h3>Current children</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Category</th><th>Employee discount</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
 
-<section class="panel tabpage hidden" id="page-rates"><h2>Rates</h2><p class="muted">These editable rates apply to new charges only. Previously recorded charges are not changed when you update a rate.</p>
+<section class="panel tabpage hidden" id="page-ledger">
+  <button onclick="document.querySelector('[data-tab=&quot;children&quot;]').click()">← Back to Children</button>
+  <h2 id="ledgerTitle">Child Ledger</h2>
+  <p class="muted">Monthly charges, payments, and balances</p>
+  <div id="ledgerContent"></div>
+  <button onclick="window.print()">Print / Save as PDF</button>
+</section>
+ <section class="panel tabpage hidden" id="page-rates"><h2>Rates</h2><p class="muted">These editable rates apply to new charges only. Previously recorded charges are not changed when you update a rate.</p>
 <div class="grid"><div class="field"><label>Category</label><select id="rateCategory"><option>Infant</option><option>2-Year</option><option>3-Year</option><option>4-Year</option><option>5–12 Years</option><option>Before/After School Care</option></select></div><div class="field"><label>Effective date</label><input type="date" id="rateDate"></div><div class="field"><label>School-day weekly rate ($)</label><input type="number" min="0" step=".01" id="schoolRate"></div><div class="field"><label>Non-school-day rate ($)</label><input type="number" min="0" step=".01" id="nonSchoolRate"></div><div class="field"><label>Summer weekly rate ($)</label><input type="number" min="0" step=".01" id="summerRate"></div><div class="field"><label>CCAP weekly rate ($)</label><input type="number" min="0" step=".01" id="ccapRate"></div><div class="field"><label>Employee discount (%)</label><input type="number" min="0" max="100" step=".01" id="discountRate"></div></div>
 <button class="primary" id="saveRate">Save rate schedule</button>
 <h3>Saved rate schedules</h3><div class="tablewrap"><table><thead><tr><th>Effective</th><th>Category</th><th>School day</th><th>Non-school day</th><th>Summer</th><th>CCAP</th><th>Employee discount</th></tr></thead><tbody id="ratesRows"></tbody></table></div></section>
@@ -148,7 +155,148 @@ async function loadAll(){let results=await Promise.all([sb.from('daycare_childre
 function renderAll(){renderChildren();renderRates();renderTx();renderDashboard();renderSelects()}
 
 function renderChildren(){ $('childrenRows').innerHTML=children.filter(c=>c.active!==false).map(c=>`<tr><td><button onclick="openChildLedger('${c.id}')">${esc(c.name)}</button></td><td>${esc(c.rate_category)}</td><td>${Number(c.employee_discount_percent||0)}%</td><td><button onclick="editChild('${c.id}')">Edit</button> <button class="danger" onclick="archiveChild('${c.id}')">Archive</button></td></tr>`).join('')||'<tr><td colspan="4">No children yet.</td></tr>'}
+  const child = children.find(c => String(c.id) === String(childId));
+  if (!child) {
+    alert('Child not found.');
+    return;
+  }
 
+  $('ledgerTitle').textContent = child.name + ' — Monthly Ledger';
+  $('leyesdgerContent').innerHTML = '<p>Ledger for ' + esc(child.name) + ' is ready to be built.</p>';
+
+window.openChildLedger = function(childId) {
+  const child = children.find(c => String(c.id) === String(childId));
+  if (!child) {
+    alert('Child not found.');
+    return;
+  }
+
+  const transactions = txs.filter(t =>
+    String(t.child_id) === String(childId)
+  );
+
+  const currentYear = new Date().getFullYear();
+  const years = [...new Set([
+    currentYear,
+    ...transactions.map(t => Number((t.entry_date || '').slice(0, 4)))
+  ])].filter(y => y > 0).sort((a, b) => b - a);
+
+  $('ledgerTitle').textContent = child.name + ' — Monthly Ledger';
+
+  $('ledgerContent').innerHTML = `
+    <div class="field">
+      <label for="ledgerYear">Choose year</label>
+      <select id="ledgerYear">
+        ${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}
+      </select>
+    </div>
+    <div id="ledgerTables"></div>
+  `;
+
+  function drawLedger() {
+    const year = Number($('ledgerYear').value);
+    let balance = 0;
+    let yearCharges = 0;
+    let yearPayments = 0;
+    let html = '';
+
+    for (let month = 0; month < 12; month++) {
+      const monthStart = new Date(year, month, 1);
+      const monthEnd = new Date(year, month + 1, 0);
+      const firstMonday = new Date(monthStart);
+      firstMonday.setDate(firstMonday.getDate() - ((firstMonday.getDay() + 6) % 7));
+
+      let monthCharges = 0;
+      let monthPayments = 0;
+      let rows = '';
+
+      for (let week = 0; week < 6; week++) {
+        const start = new Date(firstMonday);
+        start.setDate(firstMonday.getDate() + week * 7);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+
+        if (start > monthEnd || end < monthStart) continue;
+
+        const from = start.toISOString().slice(0, 10);
+        const to = end.toISOString().slice(0, 10);
+
+        const entries = transactions.filter(t =>
+          t.entry_date >= from &&
+          t.entry_date <= to &&
+          Number((t.entry_date || '').slice(0, 4)) === year
+        );
+
+        const charges = entries
+          .filter(t => t.entry_type === 'Charge')
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+        const payments = entries
+          .filter(t => t.entry_type === 'Payment')
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+        monthCharges += charges;
+        monthPayments += payments;
+
+        rows += `<tr>
+          <td>${from} – ${to}</td>
+          <td>${money(charges)}</td>
+          <td>${money(payments)}</td>
+          <td>${money(charges - payments)}</td>
+        </tr>`;
+      }
+
+      balance += monthCharges - monthPayments;
+      yearCharges += monthCharges;
+      yearPayments += monthPayments;
+
+      html += `
+        <h3>${monthStart.toLocaleString('en-US', {month:'long'})} ${year}</h3>
+        <p>Beginning balance: <strong>${money(balance - monthCharges + monthPayments)}</strong></p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr>
+              <th>Week</th><th>Charges</th><th>Payments</th><th>Weekly Difference</th>
+            </tr></thead>
+            <tbody>${rows || '<tr><td colspan="4">No transactions</td></tr>'}</tbody>
+            <tfoot><tr>
+              <th>Month totals</th>
+              <th>${money(monthCharges)}</th>
+              <th>${money(monthPayments)}</th>
+              <th>${money(monthCharges - monthPayments)}</th>
+            </tr></tfoot>
+          </table>
+        </div>
+        <p>Ending balance: <strong>${money(balance)}</strong></p>
+      `;
+    }
+
+    html += `
+      <h3>${year} Year Totals</h3>
+      <p>Total charges: <strong>${money(yearCharges)}</strong></p>
+      <p>Total payments: <strong>${money(yearPayments)}</strong></p>
+      <p>Year-end balance: <strong>${money(balance)}</strong></p>
+    `;
+
+    $('ledgerTables').innerHTML = html;
+  }
+
+  $('ledgerYear').onchange = drawLedger;
+  drawLedger();
+
+  document.querySelectorAll('[data-tab]').forEach(b =>
+    b.classList.remove('primary')
+  );
+  document.querySelectorAll('.tabpage').forEach(p =>
+    p.classList.add('hidden')
+  );
+  $('page-ledger').classList.remove('hidden');
+};
+
+  document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('primary'));
+  document.querySelectorAll('.tabpage').forEach(p => p.classList.add('hidden'));
+  $('page-ledger').classList.remove('hidden');
+};
 function renderRates(){ $('ratesRows').innerHTML=rates.map(r=>`<tr><td>${r.effective_date}</td><td>${esc(r.category)}</td><td>${money(r.school_day)}</td><td>${money(r.non_school_day)}</td><td>${money(r.summer)}</td><td>${money(r.ccap)}</td><td>${Number(r.employee_discount_percent||0)}%</td></tr>`).join('')||'<tr><td colspan="7">No rate schedules saved yet.</td></tr>'}
 function renderTx(){ $('txRows').innerHTML=txs.slice(0,30).map(t=>`<tr><td>${t.entry_date}<br><span class="muted">${t.week_start}–${t.week_end}</span></td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')} ${esc(t.notes||'')}<br><button onclick="editTransaction('${t.id}')">Edit</button> <button class="danger" onclick="deleteTransaction('${t.id}')">Delete</button></td></tr>`).join('')||'<tr><td colspan="6">No entries yet.</td></tr>'}function renderTx(){ $('txRows').innerHTML=txs.slice(0,30).map(t=>`<tr><td>${t.entry_date}<br><span class="muted">${t.week_start}–${t.week_end}</span></td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')} ${esc(t.notes||'')}<br><button onclick="editTransaction('${t.id}')">Edit</button> <button class="danger" onclick="deleteTransaction('${t.id}')">Delete</button></td></tr>`).join('')||'<tr><td colspan="6">No entries yet.</td></tr>'}
  function renderDashboard(){const charges=txs.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),payments=txs.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('countChildren').textContent=children.filter(c=>c.active!==false).length;$('sumCharges').textContent=money(charges);$('sumPayments').textContent=money(payments);$('balance').textContent=money(charges-payments)}
