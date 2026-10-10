@@ -154,6 +154,7 @@ async function loadDeletedTransactions(){
 async function loadAll(){let results=await Promise.all([sb.from('daycare_children').select('*').order('name'),sb.from('daycare_rates').select('*').order('effective_date',{ascending:false}),sb.from('daycare_transactions').select('*').order('entry_date',{ascending:false})]);for(let i=0;i<results.length;i++){if(results[i].error){alert('Database error: '+results[i].error.message);return}}children=results[0].data||[];rates=results[1].data||[];txs=results[2].data||[];renderAll()}
 function renderAll(){renderChildren();renderRates();renderTx();renderDashboard();renderSelects()}
 
+
 function renderChildren(){
   $('childrenRows').innerHTML = children
     .filter(c => c.active !== false)
@@ -171,7 +172,6 @@ function renderChildren(){
 
 window.openChildLedger = function(childId){
   const child = children.find(c => String(c.id) === String(childId));
-
   if (!child) {
     alert('Child not found.');
     return;
@@ -188,7 +188,6 @@ window.openChildLedger = function(childId){
   ])].filter(y => y > 0).sort((a, b) => b - a);
 
   $('ledgerTitle').textContent = child.name + ' — Monthly Ledger';
-
   $('ledgerContent').innerHTML = `
     <div class="field">
       <label for="ledgerYear">Choose year</label>
@@ -206,6 +205,9 @@ window.openChildLedger = function(childId){
     let yearPayments = 0;
     let html = '';
 
+    const iso = d =>
+      `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
     for (let month = 0; month < 12; month++){
       const monthStart = new Date(year, month, 1);
       const monthEnd = new Date(year, month + 1, 0);
@@ -214,32 +216,60 @@ window.openChildLedger = function(childId){
       let monthPayments = 0;
       let rows = '';
 
-      for (let day = 1; day <= monthEnd.getDate(); day += 7){
-        const lastDay = Math.min(day + 6, monthEnd.getDate());
-        const from = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const to = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      // Each row represents Monday through Friday.
+      const firstMonday = new Date(monthStart);
+      firstMonday.setDate(
+        firstMonday.getDate() - ((firstMonday.getDay() + 6) % 7)
+      );
 
-        const entries = transactions.filter(t =>
-          t.entry_date >= from && t.entry_date <= to
-        );
+      for (let week = 0; week < 6; week++){
+        const monday = new Date(firstMonday);
+        monday.setDate(firstMonday.getDate() + week * 7);
+        if (monday > monthEnd) break;
 
-        const charges = entries
-          .filter(t => t.entry_type === 'Charge')
+        const friday = new Date(monday);
+        friday.setDate(monday.getDate() + 4);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+
+        const from = iso(monday);
+        const to = iso(friday);
+        const weekEnd = iso(sunday);
+
+        // Charges count only when dated Monday through Friday.
+        const charges = transactions
+          .filter(t =>
+            t.entry_type === 'Charge' &&
+            t.entry_date >= from &&
+            t.entry_date <= to &&
+            Number((t.entry_date || '').slice(0,4)) === year &&
+            Number((t.entry_date || '').slice(5,7)) === month + 1
+          )
           .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
-        const payments = entries
-          .filter(t => t.entry_type === 'Payment')
+        // Payments count even when received on a weekend.
+        const payments = transactions
+          .filter(t =>
+            t.entry_type === 'Payment' &&
+            t.entry_date >= from &&
+            t.entry_date <= weekEnd &&
+            Number((t.entry_date || '').slice(0,4)) === year &&
+            Number((t.entry_date || '').slice(5,7)) === month + 1
+          )
           .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
         monthCharges += charges;
         monthPayments += payments;
 
-        rows += `<tr>
-          <td>${from} – ${to}</td>
-          <td>${money(charges)}</td>
-          <td>${money(payments)}</td>
-          <td>${money(charges - payments)}</td>
-        </tr>`;
+        // Show only weeks that overlap this month.
+        if (friday >= monthStart && monday <= monthEnd){
+          rows += `<tr>
+            <td>${from} – ${to}</td>
+            <td>${money(charges)}</td>
+            <td>${money(payments)}</td>
+            <td>${money(charges - payments)}</td>
+          </tr>`;
+        }
       }
 
       balance += monthCharges - monthPayments;
@@ -252,12 +282,12 @@ window.openChildLedger = function(childId){
         <div class="tablewrap">
           <table>
             <thead><tr>
-              <th>Week</th>
+              <th>Monday–Friday</th>
               <th>Charges</th>
               <th>Payments</th>
               <th>Difference</th>
             </tr></thead>
-            <tbody>${rows}</tbody>
+            <tbody>${rows || '<tr><td colspan="4">No transactions</td></tr>'}</tbody>
             <tfoot><tr>
               <th>Month totals</th>
               <th>${money(monthCharges)}</th>
@@ -291,6 +321,7 @@ window.openChildLedger = function(childId){
   );
   $('page-ledger').classList.remove('hidden');
 };
+
 
 
 function renderRates(){ $('ratesRows').innerHTML=rates.map(r=>`<tr><td>${r.effective_date}</td><td>${esc(r.category)}</td><td>${money(r.school_day)}</td><td>${money(r.non_school_day)}</td><td>${money(r.summer)}</td><td>${money(r.ccap)}</td><td>${Number(r.employee_discount_percent||0)}%</td></tr>`).join('')||'<tr><td colspan="7">No rate schedules saved yet.</td></tr>'}
