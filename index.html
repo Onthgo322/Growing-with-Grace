@@ -20,7 +20,27 @@ label{display:block;font-size:.88rem;font-weight:650;margin-bottom:4px}input,sel
 .field{margin-bottom:10px}.muted{color:#6c6572;font-size:.9rem}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:1}.metric{background:var(--light);padding:12px;border-radius:10px}.metric strong{display:block;font-size:1.25rem}
 table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}th{background:#f7f3fb}
 .tablewrap{overflow-x:auto}.hidden{display:none!important}.status{font-size:.9rem;padding:8px 0}.small{font-size:.82rem}
-@media print{header,nav,button,.noprint,.notice{display:none!important}body{background:white}main{max-width:none;padding:0}.panel{box-shadow:none;border:0} .hidden{display:none!important}}
+
+@media print {
+  body * { visibility: hidden !important; }
+  .tabpage:not(.hidden),
+  .tabpage:not(.hidden) * { visibility: visible !important; }
+  .tabpage:not(.hidden) {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+  }
+  .tabpage:not(.hidden) button { display: none !important; }
+  body { background: white; }
+  main { max-width: none; padding: 0; }
+}
+
 </style>
 </head>
 <body>
