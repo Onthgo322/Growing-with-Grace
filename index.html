@@ -22,12 +22,12 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
 .tablewrap{overflow-x:auto}.hidden{display:none!important}.status{font-size:.9rem;padding:8px 0}.small{font-size:.82rem}
 
 @media print {
-  body * { visibility: hidden !important; }
- nav { display: none !important; }
- header, nav, body > footer { display: none !important; }
-  .tabpage:not(.hidden),
-  .tabpage:not(.hidden) * { visibility: visible !important; }
+  body * {
+    visibility: hidden !important;
+  }
+
   .tabpage:not(.hidden) {
+    visibility: visible !important;
     display: block !important;
     position: absolute;
     left: 0;
@@ -38,11 +38,27 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
     border: 0;
     box-shadow: none;
   }
-  .tabpage:not(.hidden) button { display: none !important; }
-  body { background: white; }
-  main { max-width: none; padding: 0; }
-}
 
+  .tabpage:not(.hidden) * {
+    visibility: visible !important;
+  }
+
+  .tabpage:not(.hidden) button,
+  nav,
+  header,
+  body > footer {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+  }
+
+  main {
+    max-width: none;
+    padding: 0;
+  }
+}
 </style>
 </head>
 <body>
