@@ -241,7 +241,7 @@ function renderChildren(){
   $('childrenRows').innerHTML = children
     .filter(c => c.active !== false)
     .map(c => `<tr>
-      <td><button onclick="openChildLedger('${c.id}')">${esc(c.name)}</button></td>
+      <td><button onclick="openChildLedger('${c.id}')">${esc(c.name)}</button>${c.date_of_birth ? `<br><small>${childAge(c.date_of_birth)}</small>` : ''}</td>
       <td>${esc(c.rate_category || '')}</td>
       <td>${Number(c.employee_discount_percent || 0)}%</td>
       <td>
@@ -251,6 +251,20 @@ function renderChildren(){
     </tr>`)
     .join('') || '<tr><td colspan="4">No children yet.</td></tr>';
 }
+function childAge(birthdate) {
+  if (!birthdate) return '';
+  const birth = new Date(birthdate + 'T12:00:00');
+  const todayDate = new Date();
+  let years = todayDate.getFullYear() - birth.getFullYear();
+  let months = todayDate.getMonth() - birth.getMonth();
+  if (todayDate.getDate() < birth.getDate()) months--;
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+  return `${years} years, ${months} months`;
+}
+ 
 
 window.openChildLedger = function(childId){
   const child = children.find(c => String(c.id) === String(childId));
