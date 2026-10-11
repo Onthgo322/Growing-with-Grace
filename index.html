@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Growing With Grace Childcare Ledger</title>
 <style>
+ 
 :root{--purple:#6f4a8e;--light:#f7f3fb;--ink:#25212a;--line:#ddd5e6}
 *{box-sizing:border-box}body{margin:0;font:16px system-ui,-apple-system,Segoe UI,sans-serif;background:#faf9fc;color:var(--ink)}
 header{background:var(--purple);color:white;padding:18px 16px}header h1{margin:0;font-size:1.35rem}header p{margin:5px 0 0;font-size:.92rem}
@@ -238,15 +239,12 @@ window.openChildLedger = function(childId){
 
         // Charges count only when dated Monday through Friday.
         const charges = transactions
+         
           .filter(t =>
             t.entry_type === 'Charge' &&
-            t.entry_date >= from &&
-            t.entry_date <= to &&
-            Number((t.entry_date || '').slice(0,4)) === year &&
-            Number((t.entry_date || '').slice(5,7)) === month + 1
+            t.week_start === from
           )
           .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
         // Payments count even when received on a weekend.
         const payments = transactions
           .filter(t =>
