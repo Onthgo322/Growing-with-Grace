@@ -210,7 +210,7 @@ $('connectBtn').onclick=async()=>{
  sb=window.supabase.createClient(url,key);
  const {data,error}=await sb.auth.getSession();if(error)throw error;
  $('authPanel').classList.remove('hidden');status('connectionStatus','Connected to Supabase. Sign in or create your account.');
- }catch(e){status('connectionStatus','Could not connect: '+e.message)}
+ }catch(e){status('connectionStatus','Could not connect: '+(e.message)||String(e))}
 };
  
 $('forgetBtn').onclick=()=>{$('anonKey').value='';sb=null;user=null;$('authPanel').classList.add('hidden');$('app').classList.add('hidden');status('connectionStatus','Key cleared from this page.');};
