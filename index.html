@@ -196,7 +196,18 @@ $('entryDate').value = today();
 setEntryWeek(today());
 $('entryDate').addEventListener('change', () => setEntryWeek($('entryDate').value));
  function status(id,msg){$(id).textContent=msg}
+const savedKey=localStorage.getItem('growingGraceSupabaseKey');
+if(savedKey)$('anonKey').value=savedKey; 
 $('connectBtn').onclick=async()=>{
+ const url=$('projectUrl').value.trim(),key=$('anonKey').value.trim();
+ if(!url||!key){status('connectionStatus','Enter the publishable key first.');return}
+ try{
+ localStorage.setItem('growingGraceSupabaseKey',key);
+ sb=window.supabase.createClient(url,key);
+ const {data,error}=await sb.auth.getSession();if(error)throw error;
+ $('authPanel').classList.remove('hidden');status('connectionStatus','Connected to Supabase. Sign in or create your account.');
+ }catch(e){status('connectionStatus','Could not connect: '+e.message)}
+};
  const url=$('projectUrl').value.trim(),key=$('anonKey').value.trim();
  if(!url||!key){status('connectionStatus','Enter the publishable key first.');return}
  try{sb=window.supabase.createClient(url,key);const {data,error}=await sb.auth.getSession();if(error)throw error;
