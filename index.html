@@ -458,7 +458,7 @@ $('saveRate').onclick=async()=>{const obj={user_id:user.id,category:$('rateCateg
 $('fillRate').onclick=()=>{
   const c=children.find(c=>c.id===$('txChild').value);
   if(!c)return alert('Add/select a child first.');
-  const date=$('weekStart').value||today();
+  const date=$('entryDate').value||$('weekStart').value||today();
   let category=c.rate_category;
   if(c.date_of_birth&&category!=='Before/After School Care'){
     const b=new Date(c.date_of_birth+'T12:00:00');
@@ -470,22 +470,24 @@ $('fillRate').onclick=()=>{
   const r=rates.filter(r=>r.category===category&&r.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
   if(!r)return alert('No saved rate for '+category+' on this date. Check the Rates page.');
   let amt=0;
-if($('txCategory').value==='CCAP'){
-  const schoolDays=Number($('ccapSchoolDays').value||0);
-  const nonSchoolDays=Number($('ccapNonSchoolDays').value||0);
-  const daycareDays=Number($('ccapDaycareDays').value||0);
-  if(schoolDays+nonSchoolDays>0){
-    amt=(Number(r.school_day||0)/5*schoolDays)+(Number(r.non_school_day||0)/5*nonSchoolDays);
+  if($('txCategory').value==='CCAP'){
+    const schoolDays=Number($('ccapSchoolDays').value||0);
+    const nonSchoolDays=Number($('ccapNonSchoolDays').value||0);
+    const daycareDays=Number($('ccapDaycareDays').value||0);
+    if(schoolDays+nonSchoolDays>0){
+      amt=(Number(r.school_day||0)/5*schoolDays)+(Number(r.summer||0)/5*nonSchoolDays);
+    }else{
+      const weekly=c.rate_type==='fixed'?Number(c.fixed_weekly_rate||0):Number(r.school_day||0)*(1-Number(c.employee_discount_percent||0)/100);
+      amt=weekly/5*daycareDays;
+    }
+  }else if(c.rate_type==='fixed'){
+    amt=Number(c.fixed_weekly_rate||0);
+    if($('txCategory').value==='Non-school day'||$('txCategory').value==='Summer')amt=amt/5;
   }else{
-    amt=Number(r.non_school_day||0)/5*daycareDays;
+    amt=$('txCategory').value==='Non-school day'?Number(r.non_school_day||0):$('txCategory').value==='Summer'?Number(r.summer||0):Number(r.school_day||0);
+    amt=amt*(1-Number(c.employee_discount_percent||0)/100);
   }
-  }
-  else{
-    amt=$('txCategory').value==='Non-school day'?r.non_school_day:$('txCategory').value==='Summer'?r.summer:r.school_day;
-    if(c.rate_type!=='fixed')amt=amt*(1-Number(c.employee_discount_percent||0)/100);
-    else if(c.fixed_weekly_rate!==null&&c.fixed_weekly_rate!==undefined)amt=Number(c.fixed_weekly_rate);
-  }
- $('txAmount').value=Number(amt||0).toFixed(2);
+  $('txAmount').value=Number(amt||0).toFixed(2);
 };
 const autoFillRate=()=>{if($('txType').value==='Charge')$('fillRate').onclick()};['txChild','txType','weekStart','txCategory'].forEach(id=>$(id).addEventListener('change',autoFillRate));
 function toggleCcapDayFields(){
