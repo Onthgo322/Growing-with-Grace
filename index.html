@@ -177,8 +177,24 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
 let sb=null,user=null,children=[],rates=[],txs=[];
 const $=id=>document.getElementById(id), money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD'});
 const today=()=>new Date().toISOString().slice(0,10);
-$('rateDate').value=today();$('entryDate').value=today();$('weekStart').value=today();$('weekEnd').value=today();
-function status(id,msg){$(id).textContent=msg}
+$('rateDate').value=today();
+
+function setEntryWeek(dateValue) {
+  if (!dateValue) return;
+  const d = new Date(dateValue + 'T12:00:00');
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  const iso = x => `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+  $('weekStart').value = iso(monday);
+  $('weekEnd').value = iso(friday);
+}
+
+$('entryDate').value = today();
+setEntryWeek(today());
+$('entryDate').addEventListener('change', () => setEntryWeek($('entryDate').value));
+ function status(id,msg){$(id).textContent=msg}
 $('connectBtn').onclick=async()=>{
  const url=$('projectUrl').value.trim(),key=$('anonKey').value.trim();
  if(!url||!key){status('connectionStatus','Enter the publishable key first.');return}
