@@ -22,46 +22,68 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
 .tablewrap{overflow-x:auto}.hidden{display:none!important}.status{font-size:.9rem;padding:8px 0}.small{font-size:.82rem}
 
 @media print {
+  @page {
+    size: auto;
+    margin: 12mm;
+  }
+
   body * {
     visibility: hidden !important;
   }
 
-  .tabpage:not(.hidden) {
+  #page-reports,
+  #page-reports * {
     visibility: visible !important;
+  }
+
+  #page-reports {
     display: block !important;
-    position: static !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
     width: 100% !important;
+    max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
+    font-size: 11pt !important;
   }
 
-  .tabpage:not(.hidden) * {
-    visibility: visible !important;
+  #page-reports h2 {
+    font-size: 18pt !important;
+    margin: 0 0 10pt !important;
   }
 
-  .tabpage:not(.hidden) button,
-  nav,
+  #page-reports > .grid,
+  #page-reports button,
   header,
-  footer {
+  nav,
+  footer,
+  #setup {
     display: none !important;
+  }
+
+  #page-reports .tablewrap {
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  #page-reports table {
+    width: 100% !important;
+    font-size: 10pt !important;
+    table-layout: auto !important;
+  }
+
+  #page-reports th,
+  #page-reports td {
+    padding: 5pt !important;
   }
 
   body {
     background: white !important;
   }
-
-  main {
-    max-width: none !important;
-    padding: 0 !important;
-  }
-
-  #page-reports > .grid {
-    display: none !important;
-  }
 }
-  
 
 
   
