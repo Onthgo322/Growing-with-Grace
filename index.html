@@ -29,15 +29,34 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
   .tabpage:not(.hidden) {
     visibility: visible !important;
     display: block !important;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    box-shadow: none;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
   }
+
+  .tabpage:not(.hidden) * {
+    visibility: visible !important;
+  }
+
+  .tabpage:not(.hidden) button,
+  nav,
+  header,
+  footer {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+}
 
   .tabpage:not(.hidden) * {
     visibility: visible !important;
