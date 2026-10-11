@@ -479,7 +479,12 @@ if($('txCategory').value==='CCAP'){
   }else{
     amt=Number(r.non_school_day||0)/5*daycareDays;
   }
-
+  }
+  else{
+    amt=$('txCategory').value==='Non-school day'?r.non_school_day:$('txCategory').value==='Summer'?r.summer:r.school_day;
+    if(c.rate_type!=='fixed')amt=amt*(1-Number(c.employee_discount_percent||0)/100);
+    else if(c.fixed_weekly_rate!==null&&c.fixed_weekly_rate!==undefined)amt=Number(c.fixed_weekly_rate);
+  }
  $('txAmount').value=Number(amt||0).toFixed(2);
 };
 const autoFillRate=()=>{if($('txType').value==='Charge')$('fillRate').onclick()};['txChild','txType','weekStart','txCategory'].forEach(id=>$(id).addEventListener('change',autoFillRate));
