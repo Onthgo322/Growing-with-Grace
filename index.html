@@ -208,12 +208,7 @@ $('connectBtn').onclick=async()=>{
  $('authPanel').classList.remove('hidden');status('connectionStatus','Connected to Supabase. Sign in or create your account.');
  }catch(e){status('connectionStatus','Could not connect: '+e.message)}
 };
- const url=$('projectUrl').value.trim(),key=$('anonKey').value.trim();
- if(!url||!key){status('connectionStatus','Enter the publishable key first.');return}
- try{sb=window.supabase.createClient(url,key);const {data,error}=await sb.auth.getSession();if(error)throw error;
- $('authPanel').classList.remove('hidden');status('connectionStatus','Connected to Supabase. Sign in or create your account.');}
- catch(e){status('connectionStatus','Could not connect: '+e.message)}
-};
+ 
 $('forgetBtn').onclick=()=>{$('anonKey').value='';sb=null;user=null;$('authPanel').classList.add('hidden');$('app').classList.add('hidden');status('connectionStatus','Key cleared from this page.');};
 $('signUpBtn').onclick=async()=>{if(!sb)return;const {data,error}=await sb.auth.signUp({email:$('email').value.trim(),password:$('password').value});status('authStatus',error?error.message:'Account request submitted. If email confirmation is enabled, check your email before signing in.')};
 $('signInBtn').onclick=async()=>{if(!sb)return;const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error){status('authStatus',error.message);return}user=data.user;await startApp()};
