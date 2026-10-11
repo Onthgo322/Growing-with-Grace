@@ -489,8 +489,8 @@ $('fillRate').onclick=()=>{
 };
 const autoFillRate=()=>{if($('txType').value==='Charge')$('fillRate').onclick()};['txChild','txType','weekStart','txCategory'].forEach(id=>$(id).addEventListener('change',autoFillRate));
 function toggleCcapDayFields(){
-  const show = $('txType').value === 'Charge' && $('txCategory').value === 'CCAP';
-  $('ccapDayFields').style.display = show ? '' : 'none';
+const show = $('txCategory').value === 'CCAP';
+ $('ccapDayFields').style.display = show ? '' : 'none';
   $('ccapNonSchoolField').style.display = show ? '' : 'none';
   $('ccapDaycareField').style.display = show ? '' : 'none';
   }
