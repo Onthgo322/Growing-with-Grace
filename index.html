@@ -482,12 +482,12 @@ $('fillRate').onclick=()=>{
       amt=weekly/5*daycareDays;
     }
   }else if(c.rate_type==='fixed'){
-    amt=Number(c.fixed_weekly_rate||0);
-    if($('txCategory').value==='Non-school day'||$('txCategory').value==='Summer')amt=amt/5;
-  }else{
-    amt=$('txCategory').value==='Non-school day'?Number(||0):$('txCategory').value==='Summer'?Number(r.summer||0):Number(r.school_day||0);
-    amt=amt*(1-Number(c.employee_discount_percent||0)/100);
-  }
+  amt=Number(c.fixed_weekly_rate||0);
+  if($('txCategory').value==='Non-school day'||$('txCategory').value==='Summer')amt=amt/5;
+}else{
+  amt=$('txCategory').value==='Non-school day'?Number(r.non_school_day||0):$('txCategory').value==='Summer'?Number(r.summer||0):Number(r.school_day||0);
+  amt=amt*(1-Number(c.employee_discount_percent||0)/100);
+}
   $('txAmount').value=Number(amt||0).toFixed(2);
 };
 const autoFillRate=()=>{if($('txType').value==='Charge')$('fillRate').onclick()};['txChild','txType','weekStart','txCategory'].forEach(id=>$(id).addEventListener('change',autoFillRate));
