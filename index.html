@@ -470,17 +470,21 @@ $('fillRate').onclick=()=>{
   const r=rates.filter(r=>r.category===category&&r.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
   if(!r)return alert('No saved rate for '+category+' on this date. Check the Rates page.');
   let amt=0;
-  if($('txCategory').value==='CCAP'){
-    const schoolDays=Number($('ccapSchoolDays').value||0);
-    const nonSchoolDays=Number($('ccapNonSchoolDays').value||0);
-    const daycareDays=Number($('ccapDaycareDays').value||0);
-    if(schoolDays+nonSchoolDays>0){
-      amt=(Number(r.school_day||0)/5*schoolDays)+(Number(r.summer||0)/5*nonSchoolDays);
-    }else{
-      amt=Number(r.ccap||0)/5*daycareDays;
-    }
-    amt=amt*(1-Number(c.employee_discount_percent||0)/100);
+if($('txCategory').value==='CCAP'){
+  const schoolDays=Number($('ccapSchoolDays').value||0);
+  const nonSchoolDays=Number($('ccapNonSchoolDays').value||0);
+  const daycareDays=Number($('ccapDaycareDays').value||0);
+  if(schoolDays+nonSchoolDays>0){
+    amt=(Number(r.school_day||0)/5*schoolDays)+(Number(r.non_school_day||0)/5*nonSchoolDays);
   }else{
+    amt=Number(r.non_school_day||0)/5*daycareDays;
+  }
+}else{
+  amt=$('txCategory').value==='Non-school day'?r.non_school_day:$('txCategory').value==='Summer'?r.summer:r.school_day;
+  if(c.rate_type==='fixed')amt=amt*(1-Number(c.employee_discount_percent||0)/100);
+  else if(c.fixed_weekly_rate!==null&&c.fixed_weekly_rate!==undefined)amt=Number(c.fixed_weekly_rate);
+}  
+}else{
     amt=$('txCategory').value==='Non-school day'?r.non_school_day:$('txCategory').value==='Summer'?r.summer:r.school_day;
     if(c.rate_type!=='fixed')amt=amt*(1-Number(c.employee_discount_percent||0)/100);
     else if(c.fixed_weekly_rate!==null&&c.fixed_weekly_rate!==undefined)amt=Number(c.fixed_weekly_rate);
