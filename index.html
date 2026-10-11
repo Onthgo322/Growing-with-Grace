@@ -471,12 +471,13 @@ $('fillRate').onclick=()=>{
   const r=rates.filter(r=>r.category===category&&r.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
   if(!r)return alert('No saved rate for '+category+' on this date. Check the Rates page.');
   let amt=0;
+ const ageRate=rates.filter(x=>x.category==='5–12 Years'&&x.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
   if($('txCategory').value==='CCAP'){
     const schoolDays=Number($('ccapSchoolDays').value||0);
     const nonSchoolDays=Number($('ccapNonSchoolDays').value||0);
     const daycareDays=Number($('ccapDaycareDays').value||0);
     if(schoolDays+nonSchoolDays>0){
-      amt=(Number(r.school_day||0)/5*schoolDays)+(Number(r.summer||0)/5*nonSchoolDays);
+amt=(Number(r.school_day||0)/5*schoolDays)+(Number(r.summer||0)/5*nonSchoolDays);
     }else{
       const weekly=c.rate_type==='fixed'?Number(c.fixed_weekly_rate||0):Number(r.school_day||0)*(1-Number(c.employee_discount_percent||0)/100);
       amt=weekly/5*daycareDays;
