@@ -23,34 +23,37 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
 
 @media print {
   @page {
-    size: auto;
-    margin: 12mm;
+    size: landscape;
+    margin: 10mm;
+  }
+
+  body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   body * {
     visibility: hidden !important;
   }
 
-  #page-reports,
-  #page-reports * {
-    visibility: visible !important;
-  }
-
   #page-reports {
     display: block !important;
-    position: static !important;
+    visibility: visible !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
     width: 100% !important;
-    max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
-    font-size: 11pt !important;
+    background: white !important;
+    font-size: 10pt !important;
   }
 
-  #page-reports h2 {
-    font-size: 18pt !important;
-    margin: 0 0 10pt !important;
+  #page-reports * {
+    visibility: visible !important;
   }
 
   #page-reports > .grid,
@@ -58,8 +61,14 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
   header,
   nav,
   footer,
-  #setup {
+  #setup,
+  #app > .panel:first-child {
     display: none !important;
+  }
+
+  #page-reports h2 {
+    font-size: 16pt !important;
+    margin: 0 0 10pt !important;
   }
 
   #page-reports .tablewrap {
@@ -69,17 +78,14 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
 
   #page-reports table {
     width: 100% !important;
-    font-size: 10pt !important;
-    table-layout: auto !important;
+    table-layout: fixed !important;
+    font-size: 9pt !important;
   }
 
   #page-reports th,
   #page-reports td {
-    padding: 5pt !important;
-  }
-
-  body {
-    background: white !important;
+    padding: 4pt !important;
+    overflow-wrap: anywhere !important;
   }
 }
 
