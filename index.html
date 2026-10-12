@@ -477,7 +477,7 @@ $('fillRate').onclick=()=>{
     const nonSchoolDays=Number($('ccapNonSchoolDays').value||0);
     const daycareDays=Number($('ccapDaycareDays').value||0);
     if(schoolDays+nonSchoolDays>0){
-amt=(Number(ageRate?.school_day||0)/5*schoolDays)+(Number(ageRate?.summer||0)/5*nonSchoolDays);
+amt=(Number(r.school_day||0)/5*schoolDays)+(Number(ageRate?.summer||0)/5*nonSchoolDays);
     }else{
       const weekly=c.rate_type==='fixed'?Number(c.fixed_weekly_rate||0):Number(r.school_day||0)*(1-Number(c.employee_discount_percent||0)/100);
       amt=weekly/5*daycareDays;
