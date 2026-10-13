@@ -424,6 +424,7 @@ monthCredits += credits;
             <td>${from} – ${to}</td>
             <td>${money(charges)}</td>
             <td>${money(payments)}</td>
+         <td>${money(credits)}</td>   
       <td>${money(payments + credits - charges)}</td>     
                      </tr>`;
         }
@@ -446,18 +447,17 @@ monthCredits += credits;
 <th>Credits</th>
 <th>Difference</th> 
                          </tr></thead>
-            <tbody>${rows || '<tr><td colspan="4">No transactions</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="5">No transactions</td></tr>'}</tbody>
             <tfoot><tr>
               <th>Month totals</th>
               <th>${money(monthCharges)}</th>
               <th>${money(monthPayments)}</th>
               <th>${money(monthCredits)}</th>
-              <th>${money(monthPayments + monthCredits - monthCharges)}</th>
+              <th>${money(balance)}</th>
                           </tr></tfoot>
           </table>
         </div>
-        <p>Ending balance: <strong>${money(balance)}</strong></p>
-      `;
+              `;
     }
 
     html += `
