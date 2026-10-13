@@ -596,6 +596,17 @@ function renderRates(){ $('ratesRows').innerHTML=rates.map(r=>`<tr><td>${r.effec
 function printReport(){
   document.body.dataset.printMode = 'report';
   window.print();
+function printTransactions(){
+  const childId = $('reportChild').value;
+  if(!childId) return alert('Please select a child in Reports first.');
+  window.openChildLedger(childId);
+  document.body.dataset.printMode = 'transactions';
+  setTimeout(() => window.print(), 500);
+  window.onafterprint = () => {
+    delete document.body.dataset.printMode;
+  };
+}
+ 
   window.onafterprint = () => {
     delete document.body.dataset.printMode;
   };
