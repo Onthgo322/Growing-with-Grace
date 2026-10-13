@@ -446,7 +446,7 @@ monthCredits += credits;
               <th>${money(monthCharges)}</th>
               <th>${money(monthPayments)}</th>
               <th>${money(monthCredits)}</th>
-              <th>${money(monthCharges - monthPayments - monthCredits)}</th>
+              <th>${money(monthPayments + monthCredits - monthCharges)}</th>
                           </tr></tfoot>
           </table>
         </div>
