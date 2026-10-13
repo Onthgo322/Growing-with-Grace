@@ -399,7 +399,16 @@ let yearCredits = 0;
             Number((t.entry_date || '').slice(5,7)) === month + 1
           )
           .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
+       
+        const credits = transactions
+          .filter(t =>
+            t.entry_type === 'Credit / Adjustment' &&
+            t.entry_date >= from &&
+            t.entry_date <= weekEnd &&
+            Number((t.entry_date || '').slice(0,4)) === year &&
+            Number((t.entry_date || '').slice(5,7)) === month + 1
+          )
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
         monthCharges += charges;
         monthPayments += payments;
 monthCredits += credits;
