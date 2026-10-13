@@ -605,8 +605,8 @@ function printReport(){
   const childId = $('reportChild').value;
   if(!childId) return alert('Please select a child in Reports first.');
   window.openChildLedger(childId);
-  setTimeout(() => window.print(), 500);
-}
+document.body.dataset.printMode = 'ledger'; setTimeout(() => window.print(), 500); window.onafterprint = () => { delete document.body.dataset.printMode; };
+ }
 
  function renderTx(){ $('txRows').innerHTML=txs.slice(0,30).map(t=>`<tr><td>${t.entry_date}<br><span class="muted">${t.week_start}–${t.week_end}</span></td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')} ${esc(t.notes||'')}<br><button onclick="editTransaction('${t.id}')">Edit</button> <button class="danger" onclick="deleteTransaction('${t.id}')">Delete</button></td></tr>`).join('')||'<tr><td colspan="6">No entries yet.</td></tr>'}function renderTx(){ $('txRows').innerHTML=txs.slice(0,30).map(t=>`<tr><td>${t.entry_date}<br><span class="muted">${t.week_start}–${t.week_end}</span></td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')} ${esc(t.notes||'')}<br><button onclick="editTransaction('${t.id}')">Edit</button> <button class="danger" onclick="deleteTransaction('${t.id}')">Delete</button></td></tr>`).join('')||'<tr><td colspan="6">No entries yet.</td></tr>'}
  function renderDashboard(){const charges=txs.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),payments=txs.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('countChildren').textContent=children.filter(c=>c.active!==false).length;$('sumCharges').textContent=money(charges);$('sumPayments').textContent=money(payments);$('balance').textContent=money(charges-payments)}
