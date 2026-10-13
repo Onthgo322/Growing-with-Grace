@@ -102,6 +102,9 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
     break-before: page;
     page-break-before: always;
   }
+ body[data-print-mode="report"] #page-ledger { display:none!important; }
+body[data-print-mode="ledger"] #page-reports { display:none!important; }
+
  
 }
 
@@ -128,7 +131,7 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
 </section>
 
 <div id="app" class="hidden">
-<div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected</div></div><button onclick="window.print()">Print / Save PDF</button></div></div>
+<div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected</div></div><button onclick="printReport()">Print / Save PDF</button></div></div>
 <nav class="noprint">
 <button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="reports">Reports</button>
  
@@ -198,7 +201,7 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
   </div>
 </section>
 
-<section class="panel tabpage hidden" id="page-reports"><h2>Reports</h2><div class="grid"><div class="field"><label>Child</label><select id="reportChild"><option value="">All children</option></select></div><div class="field"><label>From date</label><input type="date" id="reportFrom"></div><div class="field"><label>Through date</label><input type="date" id="reportTo"></div><div class="field"><label>Entry type</label><select id="reportType"><option value="">All entries</option><option>Charge</option><option>Payment</option></select></div></div><button class="primary" id="runReport">Run report</button><button onclick="window.print()">Print / Save PDF</button><button onclick="printChildLedger()">Print Child Ledger</button><div id="reportSummary" class="status"></div><div class="tablewrap"><table><thead><tr><th>Date</th><th>Week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method</th><th>Notes</th></tr></thead><tbody id="reportRows"></tbody></table></div></section>
+<section class="panel tabpage hidden" id="page-reports"><h2>Reports</h2><div class="grid"><div class="field"><label>Child</label><select id="reportChild"><option value="">All children</option></select></div><div class="field"><label>From date</label><input type="date" id="reportFrom"></div><div class="field"><label>Through date</label><input type="date" id="reportTo"></div><div class="field"><label>Entry type</label><select id="reportType"><option value="">All entries</option><option>Charge</option><option>Payment</option></select></div></div><button class="primary" id="runReport">Run report</button><button onclick="printReport()">Print / Save PDF</button><button onclick="printChildLedger()">Print Child Ledger</button><div id="reportSummary" class="status"></div><div class="tablewrap"><table><thead><tr><th>Date</th><th>Week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method</th><th>Notes</th></tr></thead><tbody id="reportRows"></tbody></table></div></section>
 </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -590,7 +593,15 @@ monthCredits += credits;
 
 
 function renderRates(){ $('ratesRows').innerHTML=rates.map(r=>`<tr><td>${r.effective_date}</td><td>${esc(r.category)}</td><td>${money(r.school_day)}</td><td>${money(r.non_school_day)}</td><td>${money(r.summer)}</td><td>${money(r.ccap)}</td><td>${Number(r.employee_discount_percent||0)}%</td></tr>`).join('')||'<tr><td colspan="7">No rate schedules saved yet.</td></tr>'}
-function printChildLedger(){
+function printReport(){
+  document.body.dataset.printMode = 'report';
+  window.print();
+  window.onafterprint = () => {
+    delete document.body.dataset.printMode;
+  };
+}
+
+ function printChildLedger(){
   const childId = $('reportChild').value;
   if(!childId) return alert('Please select a child in Reports first.');
   window.openChildLedger(childId);
