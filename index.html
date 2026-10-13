@@ -418,7 +418,7 @@ monthCredits += credits;
             <td>${from} – ${to}</td>
             <td>${money(charges)}</td>
             <td>${money(payments)}</td>
-      <td>${money(charges - payments - credits)}</td>     
+      <td>${money(payments + credits - charges)}</td>     
                      </tr>`;
         }
       }
