@@ -131,7 +131,7 @@ body[data-print-mode="ledger"] #page-reports { display:none!important; }
 </section>
 
 <div id="app" class="hidden">
-<div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected</div></div><button onclick="printReport()">Print / Save PDF</button></div></div>
+<div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected</div></div><button onclick="printTransactions()">Print Transactions</button></div></div>
 <nav class="noprint">
 <button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="reports">Reports</button>
  
@@ -201,7 +201,7 @@ body[data-print-mode="ledger"] #page-reports { display:none!important; }
   </div>
 </section>
 
-<section class="panel tabpage hidden" id="page-reports"><h2>Reports</h2><div class="grid"><div class="field"><label>Child</label><select id="reportChild"><option value="">All children</option></select></div><div class="field"><label>From date</label><input type="date" id="reportFrom"></div><div class="field"><label>Through date</label><input type="date" id="reportTo"></div><div class="field"><label>Entry type</label><select id="reportType"><option value="">All entries</option><option>Charge</option><option>Payment</option></select></div></div><button class="primary" id="runReport">Run report</button><button onclick="printReport()">Print / Save PDF</button><button onclick="printChildLedger()">Print Child Ledger</button><div id="reportSummary" class="status"></div><div class="tablewrap"><table><thead><tr><th>Date</th><th>Week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method</th><th>Notes</th></tr></thead><tbody id="reportRows"></tbody></table></div></section>
+<section class="panel tabpage hidden" id="page-reports"><h2>Reports</h2><div class="grid"><div class="field"><label>Child</label><select id="reportChild"><option value="">All children</option></select></div><div class="field"><label>From date</label><input type="date" id="reportFrom"></div><div class="field"><label>Through date</label><input type="date" id="reportTo"></div><div class="field"><label>Entry type</label><select id="reportType"><option value="">All entries</option><option>Charge</option><option>Payment</option></select></div></div><button class="primary" id="runReport">Run report</button><button onclick="printTransactions()">Print Transactions</button><button onclick="printChildLedger()">Print Child Ledger</button><div id="reportSummary" class="status"></div><div class="tablewrap"><table><thead><tr><th>Date</th><th>Week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method</th><th>Notes</th></tr></thead><tbody id="reportRows"></tbody></table></div></section>
 </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
