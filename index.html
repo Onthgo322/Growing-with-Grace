@@ -137,7 +137,9 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
 
 <div class="field"><label>Rate type</label><select id="childRateType"><option value="percentage">Percentage discount</option><option value="fixed">Fixed weekly rate</option></select></div>
 <div class="field"><label>Employee discount (%)</label><input type="number" id="childDiscount" min="0" max="100" step="0.01" value="0" placeholder="0"></div>
-<div class="field"><label>Fixed weekly rate ($)</label><input type="number" id="childFixedRate" min="0" step="0.01" placeholder="Example: 200.00"></div>
+ &lt;div class="field"&gt;&lt;label&gt;Beginning balance ($; positive = owed, negative = credit)&lt;/label&gt;&lt;input type="number" id="childBeginningBalance" step="0.01" value="0"&gt;&lt;/div&gt;
+
+ <div class="field"><label>Fixed weekly rate ($)</label><input type="number" id="childFixedRate" min="0" step="0.01" placeholder="Example: 200.00"></div>
  <button class="primary" id="addChild">Add child</button>
  </div>
 <h3>Current children</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Category</th><th>Rate type</th><th>Employee discount</th><th>Weekly rate</th><th>Daily rate (÷ 5)</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
@@ -340,9 +342,11 @@ window.openChildLedger = function(childId){
 
   function drawLedger(){
     const year = Number($('ledgerYear').value);
-    let balance = 0;
+    let balance = Number(child.beginning_balance || 0);
     let yearCharges = 0;
     let yearPayments = 0;
+let yearCredits = 0;
+   let monthCredits = 0;
     let html = '';
 
     const iso = d =>
@@ -354,6 +358,7 @@ window.openChildLedger = function(childId){
       const beginningBalance = balance;
       let monthCharges = 0;
       let monthPayments = 0;
+     let monthCredits = 0;
       let rows = '';
 
       // Each row represents Monday through Friday.
@@ -397,21 +402,22 @@ window.openChildLedger = function(childId){
 
         monthCharges += charges;
         monthPayments += payments;
-
+monthCredits += credits;
         // Show only weeks that overlap this month.
         if (friday >= monthStart && monday <= monthEnd){
           rows += `<tr>
             <td>${from} – ${to}</td>
             <td>${money(charges)}</td>
             <td>${money(payments)}</td>
-            <td>${money(charges - payments)}</td>
-          </tr>`;
+      <td>${money(charges - payments - credits)}</td>     
+                     </tr>`;
         }
       }
 
-      balance += monthCharges - monthPayments;
-      yearCharges += monthCharges;
+  balance += monthCharges - monthPayments - monthCredits;   
+     yearCharges += monthCharges;
       yearPayments += monthPayments;
+     yearCredits += monthCredits;
 
       html += `
         <h3>${monthStart.toLocaleString('en-US', {month:'long'})} ${year}</h3>
@@ -419,18 +425,20 @@ window.openChildLedger = function(childId){
         <div class="tablewrap">
           <table>
             <thead><tr>
-              <th>Monday–Friday</th>
-              <th>Charges</th>
-              <th>Payments</th>
-              <th>Difference</th>
-            </tr></thead>
+            <th>Monday–Friday</th>
+<th>Charges</th>
+<th>Payments</th>
+<th>Credits</th>
+<th>Difference</th> 
+                         </tr></thead>
             <tbody>${rows || '<tr><td colspan="4">No transactions</td></tr>'}</tbody>
             <tfoot><tr>
               <th>Month totals</th>
               <th>${money(monthCharges)}</th>
               <th>${money(monthPayments)}</th>
-              <th>${money(monthCharges - monthPayments)}</th>
-            </tr></tfoot>
+              <th>${money(monthCredits)}</th>
+              <th>${money(monthCharges - monthPayments - monthCredits)}</th>
+                          </tr></tfoot>
           </table>
         </div>
         <p>Ending balance: <strong>${money(balance)}</strong></p>
@@ -466,7 +474,7 @@ function renderTx(){ $('txRows').innerHTML=txs.slice(0,30).map(t=>`<tr><td>${t.e
  function renderDashboard(){const charges=txs.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),payments=txs.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('countChildren').textContent=children.filter(c=>c.active!==false).length;$('sumCharges').textContent=money(charges);$('sumPayments').textContent=money(payments);$('balance').textContent=money(charges-payments)}
 function renderSelects(){let opts=children.filter(c=>c.active!==false).map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.rate_category)}</option>`).join('');$('txChild').innerHTML=opts;$('reportChild').innerHTML='<option value="">All children</option>'+opts}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-$('addChild').onclick=async()=>{const name=$('childName').value.trim();if(!name)return alert('Enter the child’s name.');const rateType=$('childRateType').value;const discount=Number($('childDiscount').value||0);const fixedRate=$('childFixedRate').value.trim()===''?null:Number($('childFixedRate').value);if(rateType==='percentage'&&(!Number.isFinite(discount)||discount<0||discount>100))return alert('Discount must be between 0 and 100.');if(rateType==='fixed'&&(fixedRate===null||!Number.isFinite(fixedRate)||fixedRate<0))return alert('Enter a valid fixed weekly rate.');const {error}=await sb.from('daycare_children').insert({user_id:user.id,name,rate_category:$('childCategory').value,employee_discount:rateType==='percentage'&&discount>0,employee_discount_percent:rateType==='percentage'?discount:0,rate_type:rateType,fixed_weekly_rate:rateType==='fixed'?fixedRate:null,date_of_birth:$('childBirthdate').value||null,active:true});if(error)return alert(error.message);$('childName').value='';$('childBirthdate').value='';$('childDiscount').value='0';$('childFixedRate').value='';$('childRateType').value='percentage';await loadAll()};
+$('addChild').onclick=async()=>{const name=$('childName').value.trim();if(!name)return alert('Enter the child’s name.');const rateType=$('childRateType').value;const discount=Number($('childDiscount').value||0);const fixedRate=$('childFixedRate').value.trim()===''?null:Number($('childFixedRate').value);if(rateType==='percentage'&&(!Number.isFinite(discount)||discount<0||discount>100))return alert('Discount must be between 0 and 100.');if(rateType==='fixed'&&(fixedRate===null||!Number.isFinite(fixedRate)||fixedRate<0))return alert('Enter a valid fixed weekly rate.');const {error}=await sb.from('daycare_children').insert({user_id:user.id,name,rate_category:$('childCategory').value,employee_discount:rateType==='percentage'&&discount>0,employee_discount_percent:rateType==='percentage'?discount:0,rate_type:rateType,fixed_weekly_rate:rateType==='fixed'?fixedRate:null,date_of_birth:$('childBirthdate').value||null,beginning_balance:Number($('childBeginningBalance').value||0),active:true});if(error)return alert(error.message);$('childName').value='';$('childBirthdate').value='';$('childDiscount').value='0';$('childFixedRate').value='';$('childBeginningBalance').value='0';$('childRateType').value='percentage';await loadAll()};
  
 window.editChild=async id=>{const c=children.find(x=>x.id===id);if(!c)return;const name=prompt('Child name:',c.name);if(name===null)return;if(!name.trim())return alert('Name cannot be blank.');const category=prompt('Rate category (Infant, 2-Year, 3-Year, 4-Year, 5–12 Years, Before/After School Care):',c.rate_category);if(category===null)return;const birthdate=prompt('Birthdate (YYYY-MM-DD, or leave blank):',c.date_of_birth||'');if(birthdate===null)return;if(birthdate.trim()&&!/^\d{4}-\d{2}-\d{2}$/.test(birthdate.trim()))return alert('Enter birthdate as YYYY-MM-DD, for example 2022-04-15.');const rateType=prompt('Rate type: enter percentage or fixed',c.rate_type||'percentage');if(rateType===null)return;const rt=rateType.trim().toLowerCase();if(!['percentage','fixed'].includes(rt))return alert('Enter percentage or fixed.');let pct=0,fixedRate=null;if(rt==='percentage'){const discount=prompt('Employee discount percentage (0–100):',Number(c.employee_discount_percent||0));if(discount===null)return;pct=Number(discount);if(!Number.isFinite(pct)||pct<0||pct>100)return alert('Discount must be between 0 and 100.');}else{const fixed=prompt('Fixed weekly rate ($):',c.fixed_weekly_rate==null?'':Number(c.fixed_weekly_rate).toFixed(2));if(fixed===null)return;fixedRate=Number(fixed);if(fixed.trim()===''||!Number.isFinite(fixedRate)||fixedRate<0)return alert('Enter a valid fixed weekly rate.');}const {error}=await sb.from('daycare_children').update({name:name.trim(),rate_category:category,date_of_birth:birthdate.trim()||null,rate_type:rt,fixed_weekly_rate:fixedRate,employee_discount:rt==='percentage'&&pct>0,employee_discount_percent:pct}).eq('id',id).eq('user_id',user.id);if(error)return alert(error.message);await loadAll();alert('Child updated. Existing charges were not changed.')};
  window.archiveChild=async id=>{if(!confirm('Archive this child? Existing transactions will be kept.'))return;const {error}=await sb.from('daycare_children').update({active:false}).eq('id',id).eq('user_id',user.id);if(error)return alert(error.message);await loadAll()};
