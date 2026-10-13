@@ -331,6 +331,12 @@ window.openChildLedger = function(childId){
 
   $('ledgerTitle').textContent = child.name + ' — Monthly Ledger';
   $('ledgerContent').innerHTML = `
+    <div style="margin:0 0 16px;padding:12px 14px;border:1px solid #b8c6d9;border-radius:8px;background:#f4f7fb;color:#263548;">
+      <strong>How to Read Your Balance</strong>
+      <div style="margin-top:6px;"><strong>Negative balance (−)</strong> = The parent owes the center money.</div>
+      <div style="margin-top:4px;"><strong>Positive balance (+)</strong> = The parent has a credit on their account.</div>
+      <div style="margin-top:4px;"><strong>$0.00</strong> = The account is paid in full with no remaining credit.</div>
+    </div>  
     <div class="field">
       <label for="ledgerYear">Choose year</label>
       <select id="ledgerYear">
