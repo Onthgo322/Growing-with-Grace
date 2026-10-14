@@ -806,15 +806,14 @@ $('generateInvoice').onclick=()=>{
       <p style="text-align:center;margin:4px 0">Contact: Angela Mattson</p><p style="text-align:center;margin:4px 0">Email: onthgomom3@gmail.com</p><p style="text-align:center;margin:4px 0">Phone: 701-799-3775</p>
       <h3 style="text-align:center;margin-top:18px">Childcare Invoice</h3>
 <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px">
-  <span><strong>Previous balance:</strong> ${money(balanceBefore)}</span>
-  <span style="color:#a33;font-size:11px">Payment arrangements within 10 days of invoice date.</span>
-</div>
+<span style="font-size:16px"><strong>Previous balance:</strong> ${money(balanceBefore)}</span>
+<span style="color:#a33;font-size:14px">Payment arrangements within 10 days of invoice date.</span>
+  </div>
             <table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;border-bottom:1px solid #999;padding:6px">Date</th><th style="text-align:left;border-bottom:1px solid #999;padding:6px">Description</th><th style="text-align:left;border-bottom:1px solid #999;padding:6px">Type / Method</th><th style="text-align:right;border-bottom:1px solid #999;padding:6px">Amount</th></tr></thead><tbody>${list.map(t=>`<tr><td style="border-bottom:1px solid #ddd;padding:6px">${esc(t.entry_date||'')}</td><td style="border-bottom:1px solid #ddd;padding:6px">${esc(t.category||'')}</td><td style="border-bottom:1px solid #ddd;padding:6px">${esc(t.entry_type||'')}${t.payment_method?' — '+esc(t.payment_method):''}</td><td style="text-align:right;border-bottom:1px solid #ddd;padding:6px">${money(t.amount)}</td></tr>`).join('')||'<tr><td colspan="4" style="padding:8px">No transactions in this billing period.</td></tr>'}</tbody></table>
       <p><strong>New charges:</strong> ${money(charges)}</p><p><strong>Payments received:</strong> ${money(payments)}</p><p><strong>Credits / adjustments:</strong> ${money(credits)}</p><hr>
       <h3 style="margin-bottom:8px">Balance after this period: ${money(ending)}</h3>
       <div style="color:#c00000;font-weight:bold;border:1px solid #c00000;padding:10px;margin-top:12px">Positive balance = amount owed. Negative balance = credit.</div>
-      <p style="color:#c00000;font-weight:bold;border:1px solid #c00000;padding:10px;margin-top:12px">Payment arrangements must be made within 10 days of the invoice date.</p>
-    </div>`;
+          </div>`;
 };
  
 </script>
