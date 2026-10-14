@@ -612,7 +612,6 @@ function printTransactions(){
     const container = $('ledgerTables');
     const originalHTML = container.innerHTML;
     const nodes = Array.from(container.children);
-
     const start = nodes.findIndex(el =>
       el.tagName === 'H3' &&
       el.textContent.includes('All Transaction Details')
@@ -623,6 +622,31 @@ function printTransactions(){
       return;
     }
 
+    const totals = nodes.findIndex((el, i) =>
+      i > start && el.tagName === 'H3' &&
+      el.textContent.includes('Year Totals')
+    );
+
+    container.innerHTML = nodes
+      .slice(start, totals >= 0 ? totals : undefined)
+      .map(el => el.outerHTML)
+      .join('')
+      .replace('print-page-break', '');
+
+    document.body.dataset.printMode = 'transactions';
+    $('page-reports').style.setProperty('display', 'none', 'important');
+
+    window.onafterprint = () => {
+      container.innerHTML = originalHTML;
+      $('page-reports').style.removeProperty('display');
+      delete document.body.dataset.printMode;
+      window.openChildLedger(childId);
+    };
+
+    window.print();
+  }, 500);
+}
+ 
     const totals = nodes.findIndex((el, i) =>
       i > start &&
       el.tagName === 'H3' &&
