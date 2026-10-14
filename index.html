@@ -6,7 +6,8 @@
 <title>Growing With Grace Childcare Ledger</title>
 <style>
  
-:root{--purple:#6f4a8e;--light:#f7f3fb;--ink:#25212a;--line:#ddd5e6}
+:root{--p
+ urple:#6f4a8e;--light:#f7f3fb;--ink:#25212a;--line:#ddd5e6}
 *{box-sizing:border-box}body{margin:0;font:16px system-ui,-apple-system,Segoe UI,sans-serif;background:#faf9fc;color:var(--ink)}
 header{background:var(--purple);color:white;padding:18px 16px}header h1{margin:0;font-size:1.35rem}header p{margin:5px 0 0;font-size:.92rem}
 main{max-width:1050px;margin:auto;padding:14px}.notice{background:#fff4d7;padding:12px;border-radius:10px;margin-bottom:12px;font-size:.93rem}
@@ -602,7 +603,6 @@ function printReport(){
     delete document.body.dataset.printMode;
   };
 }
-
 function printTransactions(){
   const childId = $('reportChild').value;
   if(!childId) return alert('Please select a child in Reports first.');
@@ -613,12 +613,13 @@ function printTransactions(){
     const container = $('ledgerTables');
     const originalHTML = container.innerHTML;
     const nodes = Array.from(container.children);
+
     const start = nodes.findIndex(el =>
       el.tagName === 'H3' &&
       el.textContent.includes('All Transaction Details')
     );
 
-    if(start < 0) {
+    if(start < 0){
       alert('Transaction details could not be found.');
       return;
     }
@@ -629,15 +630,14 @@ function printTransactions(){
       el.textContent.includes('Year Totals')
     );
 
-    nodes.slice(0, start).forEach(el => el.remove());
-    if(totals >= 0) {
-      nodes.slice(totals).forEach(el => el.remove());
-    }
+    const transactionHTML = nodes
+      .slice(start + 1, totals >= 0 ? totals : undefined)
+      .map(el => el.outerHTML)
+      .join('');
 
-    container.querySelectorAll('table').forEach(table =>
-      table.style.setProperty('display', 'table', 'important')
-    );
+    const heading = nodes[start].outerHTML;
 
+    container.innerHTML = heading + transactionHTML;
     document.body.dataset.printMode = 'transactions';
     $('page-reports').style.setProperty('display', 'none', 'important');
 
@@ -650,6 +650,7 @@ function printTransactions(){
     window.print();
   }, 500);
 }
+
  
  function printChildLedger(){
   const childId = $('reportChild').value;
