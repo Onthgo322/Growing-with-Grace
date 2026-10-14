@@ -104,7 +104,9 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
   }
  body[data-print-mode="report"] #page-ledger { display:none!important; }
 body[data-print-mode="ledger"] #page-reports { display:none!important; }
-
+ 
+body[data-print-mode="transactions"] #page-ledger h3:not(.print-page-break),
+body[data-print-mode="transactions"] #page-ledger table { display:none!important; }
  
 }
 
@@ -596,6 +598,11 @@ function renderRates(){ $('ratesRows').innerHTML=rates.map(r=>`<tr><td>${r.effec
 function printReport(){
   document.body.dataset.printMode = 'report';
   window.print();
+  window.onafterprint = () => {
+    delete document.body.dataset.printMode;
+  };
+}
+
 function printTransactions(){
   const childId = $('reportChild').value;
   if(!childId) return alert('Please select a child in Reports first.');
@@ -607,11 +614,6 @@ function printTransactions(){
   };
 }
  
-  window.onafterprint = () => {
-    delete document.body.dataset.printMode;
-  };
-}
-
  function printChildLedger(){
   const childId = $('reportChild').value;
   if(!childId) return alert('Please select a child in Reports first.');
