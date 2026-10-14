@@ -647,33 +647,8 @@ function printTransactions(){
   }, 500);
 }
  
-    const totals = nodes.findIndex((el, i) =>
-      i > start &&
-      el.tagName === 'H3' &&
-      el.textContent.includes('Year Totals')
-    );
 
-    const transactionHTML = nodes
-      .slice(start + 1, totals >= 0 ? totals : undefined)
-      .map(el => el.outerHTML)
-      .join('');
-
-    const heading = nodes[start].outerHTML;
-
-    container.innerHTML = heading + transactionHTML;
-    document.body.dataset.printMode = 'transactions';
-    $('page-reports').style.setProperty('display', 'none', 'important');
-
-    window.onafterprint = () => {
-      container.innerHTML = originalHTML;
-      $('page-reports').style.removeProperty('display');
-      delete document.body.dataset.printMode;
-    };
-
-    window.print();
-  }, 500);
-}
-
+ 
  
 function printChildLedger(){
   const childId = $('reportChild').value;
