@@ -107,6 +107,28 @@ body[data-print-mode="ledger"] #page-reports { display:none!important; }
  
 body[data-print-mode="transactions"] #page-ledger h3:not(.print-page-break),
 body[data-print-mode="transactions"] #page-ledger table { display:revert!important; }
+body[data-print-mode="invoice"] #app > section:not(#page-invoices) {
+  display: none !important;
+}
+body[data-print-mode="invoice"] #app > nav {
+  display: none !important;
+}
+body[data-print-mode="invoice"] #page-invoices > button,
+body[data-print-mode="invoice"] #page-invoices > .grid {
+  display: none !important;
+}
+
+  body[data-print-mode="invoice"] #page-invoices,
+  body[data-print-mode="invoice"] #invoiceOutput {
+    display: block !important;
+    visibility: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    color: black !important;
+  }
  
 }
 
@@ -203,8 +225,8 @@ body[data-print-mode="transactions"] #page-ledger table { display:revert!importa
   </div>
 
   <button class="primary" id="generateInvoice">Generate Invoice</button>
-  <button id="printInvoice" onclick="window.print()">Print / Save as PDF</button>
-
+<button id="printInvoice" onclick="printInvoice()">Print / Save as PDF</button>
+  
   <div id="invoiceOutput" style="margin-top:20px">
     <p class="muted">Choose a child and billing period, then select Generate Invoice.</p>
   </div>
@@ -819,6 +841,14 @@ $('invoiceOutput').innerHTML=`
   </div>`;
  
  };
+
+function printInvoice(){
+  document.body.dataset.printMode = 'invoice';
+  window.print();
+  window.onafterprint = () => {
+    delete document.body.dataset.printMode;
+  };
+}
  
 </script>
 </body></html>
