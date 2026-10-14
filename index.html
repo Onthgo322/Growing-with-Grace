@@ -606,12 +606,49 @@ function printReport(){
 function printTransactions(){
   const childId = $('reportChild').value;
   if(!childId) return alert('Please select a child in Reports first.');
+
   window.openChildLedger(childId);
-  document.body.dataset.printMode = 'transactions';
-  setTimeout(() => window.print(), 500);
-  window.onafterprint = () => {
-    delete document.body.dataset.printMode;
-  };
+
+  setTimeout(() => {
+    const container = $('ledgerTables');
+    const originalHTML = container.innerHTML;
+    const nodes = Array.from(container.children);
+    const start = nodes.findIndex(el =>
+      el.tagName === 'H3' &&
+      el.textContent.includes('All Transaction Details')
+    );
+
+    if(start < 0) {
+      alert('Transaction details could not be found.');
+      return;
+    }
+
+    const totals = nodes.findIndex((el, i) =>
+      i > start &&
+      el.tagName === 'H3' &&
+      el.textContent.includes('Year Totals')
+    );
+
+    nodes.slice(0, start).forEach(el => el.remove());
+    if(totals >= 0) {
+      nodes.slice(totals).forEach(el => el.remove());
+    }
+
+    container.querySelectorAll('table').forEach(table =>
+      table.style.setProperty('display', 'table', 'important')
+    );
+
+    document.body.dataset.printMode = 'transactions';
+    $('page-reports').style.setProperty('display', 'none', 'important');
+
+    window.onafterprint = () => {
+      container.innerHTML = originalHTML;
+      $('page-reports').style.removeProperty('display');
+      delete document.body.dataset.printMode;
+    };
+
+    window.print();
+  }, 500);
 }
  
  function printChildLedger(){
