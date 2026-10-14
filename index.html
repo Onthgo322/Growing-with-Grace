@@ -783,8 +783,8 @@ document.querySelector('[data-tab="deleted"]').onclick=()=>{
   loadDeletedTransactions();
 };
 
- document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x===b));document.querySelectorAll('.tabpage').forEach(x=>x.classList.add('hidden'));$('page-'+b.dataset.tab).classList.remove('hidden')});
-
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const target=$('page-'+b.dataset.tab);if(!target)return;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x===b));document.querySelectorAll('.tabpage').forEach(x=>x.classList.add('hidden'));target.classList.remove('hidden');});
+ 
 $('generateInvoice').onclick=()=>{
   const child=children.find(c=>String(c.id)===$('invoiceChild').value);
   const from=$('invoiceFrom').value;
