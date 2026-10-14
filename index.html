@@ -735,11 +735,13 @@ function renderSelects(){let childOpts=children.filter(c=>c.active!==false).map(
  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 $('addChild').onclick=async()=>{
-  const btn=$('addChild');
-  if(btn.disabled)return;
   const name=$('childName').value.trim();
+ 
+ const btn=$('addChild');
+  if(btn.disabled)return;
   if(!name)return alert('Enter the child’s name.');
-
+const duplicate=children.find(c=>c.active!==false&&c.name.trim().toLowerCase()===name.toLowerCase()&&(c.rate_category||'')===$('childCategory').value&&(c.date_of_birth||'')===($('childBirthdate').value||''));
+if(duplicate&&!confirm('A child with this name, category, and birthdate already exists. Add another anyway?'))return;
   const rateType=$('childRateType').value;
   const discount=Number($('childDiscount').value||0);
   const fixedInput=$('childFixedRate').value.trim();
