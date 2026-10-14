@@ -789,57 +789,30 @@ $('generateInvoice').onclick=()=>{
   const child=children.find(c=>String(c.id)===$('invoiceChild').value);
   const from=$('invoiceFrom').value;
   const to=$('invoiceTo').value;
-
   if(!child)return alert('Please select a child.');
   if(!from||!to)return alert('Please select the start and end dates.');
   if(from>to)return alert('The start date must be before the end date.');
-
-  const list=txs
-    .filter(t=>String(t.child_id)===String(child.id))
-    .filter(t=>t.entry_date>=from&&t.entry_date<=to)
-    .sort((a,b)=>a.entry_date.localeCompare(b.entry_date));
-
+  const list=txs.filter(t=>String(t.child_id)===String(child.id)).filter(t=>t.entry_date>=from&&t.entry_date<=to).sort((a,b)=>a.entry_date.localeCompare(b.entry_date));
   const prior=txs.filter(t=>String(t.child_id)===String(child.id)&&t.entry_date<from);
-  const balanceBefore=Number(child.beginning_balance||0)+prior.reduce((sum,t)=>{
-    if(t.entry_type==='Charge')return sum+Number(t.amount||0);
-    if(t.entry_type==='Payment'||t.entry_type==='Credit / Adjustment')return sum-Number(t.amount||0);
-    return sum;
-  },0);
-
+  const balanceBefore=Number(child.beginning_balance||0)+prior.reduce((sum,t)=>{if(t.entry_type==='Charge')return sum+Number(t.amount||0);if(t.entry_type==='Payment'||t.entry_type==='Credit / Adjustment')return sum-Number(t.amount||0);return sum;},0);
   const charges=list.filter(t=>t.entry_type==='Charge').reduce((s,t)=>s+Number(t.amount||0),0);
   const payments=list.filter(t=>t.entry_type==='Payment').reduce((s,t)=>s+Number(t.amount||0),0);
   const credits=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((s,t)=>s+Number(t.amount||0),0);
   const ending=balanceBefore+charges-payments-credits;
-
+  const invoiceDate=new Date().toLocaleDateString('en-US');
   $('invoiceOutput').innerHTML=`
-    <div style="border:1px solid #999;padding:20px;background:white;color:#222">
-      <h2 style="text-align:center">Growing With Grace Christian Learning Center, LLC</h2>
-      <h3 style="text-align:center">Childcare Invoice</h3>
-      <p><strong>Child:</strong> ${esc(child.name)}</p>
-      <p><strong>Billing period:</strong> ${esc(from)} through ${esc(to)}</p>
-      <p><strong>Previous balance:</strong> ${money(balanceBefore)}</p>
-      <table style="width:100%;border-collapse:collapse">
-        <thead><tr>
-          <th style="text-align:left;border-bottom:1px solid #999;padding:6px">Date</th>
-          <th style="text-align:left;border-bottom:1px solid #999;padding:6px">Description</th>
-          <th style="text-align:left;border-bottom:1px solid #999;padding:6px">Type / Method</th>
-          <th style="text-align:right;border-bottom:1px solid #999;padding:6px">Amount</th>
-        </tr></thead>
-        <tbody>${list.map(t=>`<tr>
-          <td style="border-bottom:1px solid #ddd;padding:6px">${esc(t.entry_date||'')}</td>
-          <td style="border-bottom:1px solid #ddd;padding:6px">${esc(t.category||'')}</td>
-          <td style="border-bottom:1px solid #ddd;padding:6px">${esc(t.entry_type||'')}${t.payment_method?' — '+esc(t.payment_method):''}</td>
-          <td style="text-align:right;border-bottom:1px solid #ddd;padding:6px">${money(t.amount)}</td>
-        </tr>`).join('')||'<tr><td colspan="4" style="padding:8px">No transactions in this billing period.</td></tr>'}</tbody>
-      </table>
-      <p><strong>New charges:</strong> ${money(charges)}</p>
-      <p><strong>Payments received:</strong> ${money(payments)}</p>
-      <p><strong>Credits / adjustments:</strong> ${money(credits)}</p>
-      <hr>
-      <h3>Balance after this period: ${money(ending)}</h3>
-      <p style="font-size:12px">Positive balance = amount owed. Negative balance = credit.</p>
+    <div style="border:1px solid #999;padding:20px;background:white;color:#222;max-width:850px;margin:auto">
+      <h2 style="text-align:center;margin-bottom:4px">Growing With Grace Christian Learning Center, LLC</h2>
+      <p style="text-align:center;margin:4px 0">Contact: Angela Mattson</p><p style="text-align:center;margin:4px 0">Email: onthgomom3@gmail.com</p><p style="text-align:center;margin:4px 0">Phone: 701-799-3775</p>
+      <h3 style="text-align:center;margin-top:18px">Childcare Invoice</h3>
+      <p><strong>Invoice date:</strong> ${esc(invoiceDate)}</p><p><strong>Child:</strong> ${esc(child.name)}</p><p><strong>Billing period:</strong> ${esc(from)} through ${esc(to)}</p><p><strong>Previous balance:</strong> ${money(balanceBefore)}</p>
+      <table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;border-bottom:1px solid #999;padding:6px">Date</th><th style="text-align:left;border-bottom:1px solid #999;padding:6px">Description</th><th style="text-align:left;border-bottom:1px solid #999;padding:6px">Type / Method</th><th style="text-align:right;border-bottom:1px solid #999;padding:6px">Amount</th></tr></thead><tbody>${list.map(t=>`<tr><td style="border-bottom:1px solid #ddd;padding:6px">${esc(t.entry_date||'')}</td><td style="border-bottom:1px solid #ddd;padding:6px">${esc(t.category||'')}</td><td style="border-bottom:1px solid #ddd;padding:6px">${esc(t.entry_type||'')}${t.payment_method?' — '+esc(t.payment_method):''}</td><td style="text-align:right;border-bottom:1px solid #ddd;padding:6px">${money(t.amount)}</td></tr>`).join('')||'<tr><td colspan="4" style="padding:8px">No transactions in this billing period.</td></tr>'}</tbody></table>
+      <p><strong>New charges:</strong> ${money(charges)}</p><p><strong>Payments received:</strong> ${money(payments)}</p><p><strong>Credits / adjustments:</strong> ${money(credits)}</p><hr>
+      <h3 style="margin-bottom:8px">Balance after this period: ${money(ending)}</h3>
+      <div style="color:#c00000;font-weight:bold;border:1px solid #c00000;padding:10px;margin-top:12px">Positive balance = amount owed. Negative balance = credit.</div>
+      <p style="color:#c00000;font-weight:bold;border:1px solid #c00000;padding:10px;margin-top:12px">Payment arrangements must be made within 10 days of the invoice date.</p>
     </div>`;
 };
-
+ 
 </script>
 </body></html>
