@@ -323,29 +323,130 @@ async function loadDeletedTransactions(){
 }
  
 async function loadAll(){let results=await Promise.all([sb.from('daycare_children').select('*').order('name'),sb.from('daycare_rates').select('*').order('effective_date',{ascending:false}),sb.from('daycare_transactions').select('*').order('entry_date',{ascending:false})]);for(let i=0;i<results.length;i++){if(results[i].error){alert('Database error: '+results[i].error.message);return}}children=results[0].data||[];rates=results[1].data||[];txs=results[2].data||[];renderAll()}
-function renderAll(){renderChildren();renderRates();renderTx();renderDashboard();renderSelects()}
+function renderAll(){renderChildren();renderRates();renderTx();renderDashboard();renderSelects();updateChildRatePreview()}
 
 
 
-function renderChildren(){
+
+function categoryForBirthdate(birthdate, asOf = today()) {
+  if (!birthdate) return '';
+  const birth = new Date(birthdate + 'T12:00:00');
+  const current = new Date(asOf + 'T12:00:00');
+  if (Number.isNaN(birth.getTime()) || birth > current) return '';
+
+  let years = current.getFullYear() - birth.getFullYear();
+  let months = current.getMonth() - birth.getMonth();
+  if (current.getDate() < birth.getDate()) months--;
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+
+  if (years < 2) return 'Infant';
+  if (years < 3) return '2-Year';
+  if (years < 4) return '3-Year';
+  if (years < 5) return '4-Year';
+  return '5–12 Years';
+}
+
+
+
+$('childBirthdate').addEventListener('change', () => {
+  const birthdate = $('childBirthdate').value;
+  if (!birthdate) return;
+
+  const category = categoryForBirthdate(birthdate);
+  if (category && $('childCategory').value !== 'Before/After School Care') {
+    $('childCategory').value = category;
+  }
+});
+
+
+
+function updateChildRatePreview() {
+  const category = $('childCategory').value;
+  const previewId = 'childRatePreview';
+  let preview = $(previewId);
+
+  if (!preview) {
+    preview = document.createElement('div');
+    preview.id = previewId;
+    preview.style.gridColumn = '1 / -1';
+    preview.style.padding = '8px 0';
+    $('addChild').insertAdjacentElement('beforebegin', preview);
+  }
+
+  const rate = rates
+    .filter(r =>
+      r.category === category &&
+      r.effective_date <= today()
+    )
+    .sort((a, b) =>
+      b.effective_date.localeCompare(a.effective_date)
+    )[0];
+
+  if (!category || !rate) {
+    preview.textContent =
+      'Weekly rate: No matching saved rate found for this category.';
+    return;
+  }
+
+  const scheduledWeekly = Number(rate.school_day || 0);
+  const rateType = $('childRateType').value;
+  const discount = Number($('childDiscount').value || 0);
+  const fixed = $('childFixedRate').value.trim();
+
+  if (rateType === 'fixed') {
+    preview.textContent = fixed === ''
+      ? `Saved scheduled weekly rate: $${scheduledWeekly.toFixed(2)}. Enter your fixed weekly rate above.`
+      : `Fixed weekly rate entered: $${Number(fixed).toFixed(2)}. Saved scheduled rate: $${scheduledWeekly.toFixed(2)}.`;
+  } else {
+    const discounted = scheduledWeekly * (1 - discount / 100);
+    preview.textContent =
+      `Scheduled weekly rate for ${category}: $${scheduledWeekly.toFixed(2)}. After ${discount}% discount: $${discounted.toFixed(2)}.`;
+  }
+}
+
+$('childCategory').addEventListener('change', updateChildRatePreview);
+$('childRateType').addEventListener('change', updateChildRatePreview);
+$('childDiscount').addEventListener('input', updateChildRatePreview);
+$('childFixedRate').addEventListener('input', updateChildRatePreview);
+$('childBirthdate').addEventListener('change', updateChildRatePreview);
+ 
+
+ 
+function renderChildren() {
   $('childrenRows').innerHTML = children
     .filter(c => c.active !== false)
     .map(c => {
+      const category =
+        c.rate_category === 'Before/After School Care'
+          ? c.rate_category
+          : (categoryForBirthdate(c.date_of_birth) || c.rate_category || '');
+
       let weekly = 0;
+
       if (c.rate_type === 'fixed') {
         weekly = Number(c.fixed_weekly_rate || 0);
       } else {
         const rate = rates
-          .filter(r => r.category === (c.rate_category || '') && r.effective_date <= today())
-          .sort((a,b) => b.effective_date.localeCompare(a.effective_date))[0];
+          .filter(r =>
+            r.category === category &&
+            r.effective_date <= today()
+          )
+          .sort((a, b) =>
+            b.effective_date.localeCompare(a.effective_date)
+          )[0];
+
         if (rate) {
           weekly = Number(rate.school_day || 0) *
             (1 - Number(c.employee_discount_percent || 0) / 100);
         }
       }
+
       return `<tr>
         <td><button onclick="openChildLedger('${c.id}')">${esc(c.name)}</button>${c.date_of_birth ? `<br><small>${childAge(c.date_of_birth)}</small>` : ''}</td>
-        <td>${esc(c.rate_category || '')}</td>
+        <td>${esc(category)}</td>
         <td>${c.rate_type === 'fixed' ? 'Fixed weekly' : 'Percentage'}</td>
         <td>${c.rate_type === 'fixed' ? '—' : Number(c.employee_discount_percent || 0) + '%'}</td>
         <td>$${weekly.toFixed(2)}</td>
@@ -359,6 +460,7 @@ function renderChildren(){
     .join('') || '<tr><td colspan="7">No children yet.</td></tr>';
 }
 
+ 
  function childAge(birthdate) {
   if (!birthdate) return '';
   const birth = new Date(birthdate + 'T12:00:00');
