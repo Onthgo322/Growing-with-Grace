@@ -597,24 +597,31 @@ let detailHtml = '';
         const weekEnd = iso(sunday);
 
         // Charges count only when dated Monday through Friday.
-        const charges = transactions
-         
-          .filter(t =>
-            t.entry_type === 'Charge' &&
-            t.week_start === from
-          )
-          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-        // Payments count even when received on a weekend.
-        const payments = transactions
-          .filter(t =>
-            t.entry_type === 'Payment' &&
-            t.entry_date >= from &&
-            t.entry_date <= weekEnd &&
-            Number((t.entry_date || '').slice(0,4)) === year &&
-            Number((t.entry_date || '').slice(5,7)) === month + 1
-          )
-          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-               const paymentMethods = ['Cash', 'Check', 'Cash App', 'Direct deposit', 'CCAP', 'Other'];
+        
+const charges = transactions
+  .filter(t =>
+    t.entry_type === 'Charge' &&
+    (
+      t.category === 'CCAP'
+        ? t.entry_date >= from && t.entry_date <= to
+        : t.week_start === from
+    )
+  )
+  .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+       // Payments count even when received on a weekend.
+
+const payments = transactions
+  .filter(t =>
+    t.entry_type === 'Payment' &&
+    t.entry_date >= from &&
+    t.entry_date <= weekEnd &&
+    Number((t.entry_date || '').slice(0, 4)) === year &&
+    Number((t.entry_date || '').slice(5, 7)) === month + 1
+  )
+  .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+       const paymentMethods = ['Cash', 'Check', 'Cash App', 'Direct deposit', 'CCAP', 'Other'];
         const methodTotals = {};
         paymentMethods.forEach(method => {
           methodTotals[method] = transactions
