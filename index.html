@@ -552,13 +552,22 @@ let detailHtml = '';
       let rows = '';
            let detailRows = '';
 
-      const monthTransactions = transactions
-        .filter(t =>
-          Number((t.entry_date || '').slice(0,4)) === year &&
-          Number((t.entry_date || '').slice(5,7)) === month + 1
-        )
-        .sort((a,b) => (a.entry_date || '').localeCompare(b.entry_date || ''));
 
+const monthTransactions = transactions
+  .filter(t => {
+    const date = t.week_start || t.entry_date || '';
+    return (
+      Number(date.slice(0, 4)) === year &&
+      Number(date.slice(5, 7)) === month + 1
+    );
+  })
+  .sort((a, b) =>
+    (a.week_start || a.entry_date || '').localeCompare(
+      b.week_start || b.entry_date || ''
+    )
+  );
+
+     
       detailRows = monthTransactions.map(t => {
         const isCharge = t.entry_type === 'Charge';
         const isPayment = t.entry_type === 'Payment';
