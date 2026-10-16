@@ -422,6 +422,19 @@ $('childBirthdate').addEventListener('input', () => {
   }
 
   updateChildRatePreview();
+ 
+$('childBirthdate').addEventListener('change', () => {
+  const birthdate = $('childBirthdate').value;
+  if (!birthdate) return;
+
+  const category = categoryForBirthdate(birthdate);
+  if (category && $('childCategory').value !== 'Before/After School Care') {
+    $('childCategory').value = category;
+  }
+
+  updateChildRatePreview();
+});
+
 });
  
 
