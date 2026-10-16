@@ -454,10 +454,13 @@ function renderChildren() {
         }
       }
 
-      return `<tr>
-onclick="openChildLedger('${c.id}')"
-        <td>${esc(category)}</td>
-        <td>${c.rate_type === 'fixed' ? 'Fixed weekly' : 'Percentage'}</td>
+
+return `<tr>
+<td><button type="button" onclick="window.openChildLedger('${c.id}')">${esc(c.name)}</button></td>
+<td>${esc(category)}</td>
+</tr>`;
+
+     <td>${c.rate_type === 'fixed' ? 'Fixed weekly' : 'Percentage'}</td>
         <td>${c.rate_type === 'fixed' ? '—' : Number(c.employee_discount_percent || 0) + '%'}</td>
         <td>$${weekly.toFixed(2)}</td>
         <td>$${(weekly / 5).toFixed(2)}</td>
