@@ -883,8 +883,11 @@ if(duplicate&&!confirm('A child with this name, category, and birthdate already 
     const {error}=await sb.from('daycare_children').insert({
       user_id:user.id,
       name,
-      rate_category:$('childCategory').value,
-      employee_discount:rateType==='percentage'&&discount>0,
+rate_category:$('childCategory').value === 'Before/After School Care'
+  ? 'Before/After School Care'
+  : (categoryForBirthdate($('childBirthdate').value) || $('childCategory').value),
+      
+     employee_discount:rateType==='percentage'&&discount>0,
       employee_discount_percent:rateType==='percentage'?discount:0,
       rate_type:rateType,
       fixed_weekly_rate:rateType==='fixed'?fixedRate:null,
