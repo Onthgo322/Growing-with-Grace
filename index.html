@@ -351,15 +351,25 @@ function categoryForBirthdate(birthdate, asOf = today()) {
 
 
 
-$('childBirthdate').addEventListener('change', () => {
+
+function updateChildCategoryFromBirthdate() {
   const birthdate = $('childBirthdate').value;
   if (!birthdate) return;
 
   const category = categoryForBirthdate(birthdate);
-  if (category && $('childCategory').value !== 'Before/After School Care') {
+
+  if (
+    category &&
+    $('childCategory').value !== 'Before/After School Care'
+  ) {
     $('childCategory').value = category;
   }
-});
+
+  updateChildRatePreview();
+}
+
+$('childBirthdate').addEventListener('input', updateChildCategoryFromBirthdate);
+$('childBirthdate').addEventListener('change', updateChildCategoryFromBirthdate);
 
 
 
@@ -411,20 +421,8 @@ $('childCategory').addEventListener('change', updateChildRatePreview);
 $('childRateType').addEventListener('change', updateChildRatePreview);
 $('childDiscount').addEventListener('input', updateChildRatePreview);
 $('childFixedRate').addEventListener('input', updateChildRatePreview);
-$('childBirthdate').addEventListener('input', () => {
-  const birthdate = $('childBirthdate').value;
-  if (!birthdate) return;
+$('childBirthdate').addEventListener('input', updateChildRatePreview);
 
-  const category = categoryForBirthdate(birthdate);
-
-  if (category && $('childCategory').value !== 'Before/After School Care') {
-    $('childCategory').value = category;
-  }
-
-  updateChildRatePreview();
- 
-});
- 
 
  
 function renderChildren() {
