@@ -411,7 +411,18 @@ $('childCategory').addEventListener('change', updateChildRatePreview);
 $('childRateType').addEventListener('change', updateChildRatePreview);
 $('childDiscount').addEventListener('input', updateChildRatePreview);
 $('childFixedRate').addEventListener('input', updateChildRatePreview);
-$('childBirthdate').addEventListener('change', updateChildRatePreview);
+$('childBirthdate').addEventListener('input', () => {
+  const birthdate = $('childBirthdate').value;
+  if (!birthdate) return;
+
+  const category = categoryForBirthdate(birthdate);
+
+  if (category && $('childCategory').value !== 'Before/After School Care') {
+    $('childCategory').value = category;
+  }
+
+  updateChildRatePreview();
+});
  
 
  
