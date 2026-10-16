@@ -455,8 +455,8 @@ function renderChildren() {
       }
 
       return `<tr>
-        <td><button onclick="openChildLedger('${c.id}')">${esc(c.name)}</button>${c.date_of_birth ? `<br><small>${childAge(c.date_of_birth)}</small>` : ''}</td>
-        <td>${esc(category)}</td>
+     type="button" onclick="window.openChildLedger('${c.id}')" 
+              <td>${esc(category)}</td>
         <td>${c.rate_type === 'fixed' ? 'Fixed weekly' : 'Percentage'}</td>
         <td>${c.rate_type === 'fixed' ? '—' : Number(c.employee_discount_percent || 0) + '%'}</td>
         <td>$${weekly.toFixed(2)}</td>
