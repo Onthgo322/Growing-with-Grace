@@ -620,15 +620,20 @@ const charges = transactions
 
        // Payments count even when received on a weekend.
 
+
 const payments = transactions
-  .filter(t =>
-    t.entry_type === 'Payment' &&
-    t.entry_date >= from &&
-    t.entry_date <= weekEnd &&
-    Number((t.entry_date || '').slice(0, 4)) === year &&
-    Number((t.entry_date || '').slice(5, 7)) === month + 1
-  )
-  .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  .filter(t => {
+    const date = t.week_start || t.entry_date || '';
+    return (
+      t.entry_type === 'Payment' &&
+      date >= from &&
+      date <= weekEnd &&
+      Number(date.slice(0, 4)) === year &&
+      Number(date.slice(5, 7)) === month + 1
+    );
+  })
+
+       .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
        const paymentMethods = ['Cash', 'Check', 'Cash App', 'Direct deposit', 'CCAP', 'Other'];
         const methodTotals = {};
