@@ -775,7 +775,7 @@ Object.keys(monthPaymentMethods).forEach(method => {
         // Show only weeks that overlap this month.
         if (friday >= monthStart && monday <= monthEnd){
           rows += `<tr>
-            <td style="white-space:nowrap;line-height:1.45">${displayDate(from)}<br>–<br>${displayDate(to)}</td>
+            <td style="white-space:nowrap;line-height:1.45">${displayDate(from)} -<br>${displayDate(to)}</td>
             <td>${money(charges)}</td>
 <td>${money(methodTotals['Cash'])}</td>
 <td>${money(methodTotals['Check'])}</td>
