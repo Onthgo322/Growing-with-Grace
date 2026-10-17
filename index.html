@@ -198,7 +198,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="field" id="ccapFlatField" style="grid-column:1/-1;display:none"><label><input type="checkbox" id="ccapFlatCharge" style="width:auto;margin-right:8px">One-time flat CCAP charge (enter amount manually, such as $150)</label></div><div class="field" id="ccapDayFields" style="display:grid"><label>School attendance days this month</label><input type="number" id="ccapSchoolDays" min="0" max="31" step="1" value="0"></div><div class="field" id="ccapNonSchoolField" style="display:none"><label>Non-school attandance days this month </label><input type="number" id="ccapNonSchoolDays" min="0" max="31" step="1" value="0"></div>
  <div class="field" id="ccapDaycareField" style="display:none"><label>Not school-aged attendance days this month (not in school)</label><input type="number" id="ccapDaycareDays" min="0" max="31" step="1" value="5"></div>
  <div class="field" style="grid-column:1/-1"><label>Notes / check number / details</label><textarea id="txNotes"></textarea></div></div>
-<div class="row"><button class="primary" id="saveTx">Save entry</button><button id="fillRate">Fill weekly rate</button></div><p class="muted small">Suggested weekly rates from your fee schedule: Infant $245, 2-Year $240, 3-Year $235, 4-Year $230, 5–12 Years $225, Before/After School Care $150. Enrollment $100; registration/insurance $40; activity fee $35 where applicable. Confirm the applicable schedule before saving. Late pickup: $5/minute; late payment: $15/day.</p>
+<div class="row"><button class="primary" id="saveTx">Save entry</button><button id="fillRate">Fill weekly rate</button><button type="button" id="nextWeek">Next Week (Monday–Friday)</button><button type="button" id="repeatLastEntry">Repeat Last Entry Next Week</button></div><p class="muted small">Suggested weekly rates from your fee schedule: Infant $245, 2-Year $240, 3-Year $235, 4-Year $230, 5–12 Years $225, Before/After School Care $150. Enrollment $100; registration/insurance $40; activity fee $35 where applicable. Confirm the applicable schedule before saving. Late pickup: $5/minute; late payment: $15/day.</p>
 <h3>Recent entries</h3><div class="field" style="max-width:420px"><label for="txRecentChild">Choose a child to view recent entries</label><select id="txRecentChild"><option value="">— Select a child —</option></select></div><div class="tablewrap"><table><thead><tr><th>Date / week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method / notes</th></tr></thead><tbody id="txRows"></tbody></table></div></section>
 
 
@@ -296,22 +296,44 @@ function setEntryWeek(dateValue) {
   const iso = x => `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
   $('weekStart').value = iso(monday);
   $('weekEnd').value = iso(friday);
+  $('entryDate').value = iso(friday);
 }
 
 $('entryDate').value = today();
 ['weekStart','weekEnd','entryDate'].forEach(id=>$(id).addEventListener('blur',()=>normalizeFlexibleDateField(id)));
 setEntryWeek(today());
 $('entryDate').addEventListener('change', () => {
-  // Keep the care-week dates independent from the transaction/month date.
-  // Restore them after other change handlers have run, so Entry date can never reset them.
-  const savedWeekStart = $('weekStart').value;
-  const savedWeekEnd = $('weekEnd').value;
   if ($('txType').value === 'Charge' && $('txCategory').value === 'CCAP') updateCcapMonthlyCalculation();
-  queueMicrotask(() => {
-    $('weekStart').value = savedWeekStart;
-    $('weekEnd').value = savedWeekEnd;
-  });
 });
+$('weekEnd').addEventListener('change',()=>{if($('weekEnd').value)$('entryDate').value=$('weekEnd').value;});
+function advanceEntryWeek(){
+  const start=$('weekStart').value;
+  const end=$('weekEnd').value;
+  if(!start||!end){setEntryWeek(today());return;}
+  const addDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+  $('weekStart').value=addDays(start,7);
+  $('weekEnd').value=addDays(end,7);
+  $('entryDate').value=$('weekEnd').value;
+}
+$('nextWeek').onclick=()=>{advanceEntryWeek();};
+$('repeatLastEntry').onclick=()=>{
+  const childId=$('txChild').value;
+  if(!childId)return alert('Select the child first.');
+  const previous=txs.filter(t=>String(t.child_id)===String(childId)).sort((a,b)=>(b.entry_date||'').localeCompare(a.entry_date||''))[0];
+  if(!previous)return alert('There is no saved entry for this child to repeat yet.');
+  $('txType').value=previous.entry_type||'Charge';
+  $('txCategory').value=previous.category||'Regular daycare';
+  $('txAmount').value=Number(previous.amount||0).toFixed(2);
+  $('payMethod').value=previous.payment_method||'Cash';
+  $('txNotes').value=previous.notes||'';
+  if($('weekStart').value&&$('weekEnd').value)advanceEntryWeek();
+  else{
+    $('weekStart').value=previous.week_start||today();
+    $('weekEnd').value=previous.week_end||today();
+    advanceEntryWeek();
+  }
+  if($('txType').value==='Charge'&&$('txCategory').value==='CCAP')toggleCcapDayFields();
+};
  function status(id,msg){$(id).textContent=msg}
 const savedKey=localStorage.getItem('growingGraceSupabaseKey');
 if(savedKey)$('anonKey').value=savedKey;
