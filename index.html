@@ -278,12 +278,8 @@ function setEntryWeek(dateValue) {
 $('entryDate').value = today();
 setEntryWeek(today());
 $('entryDate').addEventListener('change', () => {
-  // CCAP is billed by month: changing its entry date must not overwrite the user's week dates.
-  if ($('txType').value === 'Charge' && $('txCategory').value === 'CCAP') {
-    updateCcapMonthlyCalculation();
-    return;
-  }
-  setEntryWeek($('entryDate').value);
+  // Entry date identifies the transaction/month; it must never overwrite the week dates the user entered.
+  if ($('txType').value === 'Charge' && $('txCategory').value === 'CCAP') updateCcapMonthlyCalculation();
 });
  function status(id,msg){$(id).textContent=msg}
 const savedKey=localStorage.getItem('growingGraceSupabaseKey');
