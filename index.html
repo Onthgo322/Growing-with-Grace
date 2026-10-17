@@ -155,7 +155,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div id="app" class="hidden">
 <div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected</div></div><button onclick="printTransactions()">Print Transactions</button></div></div>
 <nav class="noprint">
-<button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
+<button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
  
 <button class="tab" data-tab="deleted">Deleted Transactions</button>
 
@@ -201,6 +201,19 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="row"><button class="primary" id="saveTx">Save entry</button><button id="fillRate">Fill weekly rate</button></div><p class="muted small">Suggested weekly rates from your fee schedule: Infant $245, 2-Year $240, 3-Year $235, 4-Year $230, 5–12 Years $225, Before/After School Care $150. Enrollment $100; registration/insurance $40; activity fee $35 where applicable. Confirm the applicable schedule before saving. Late pickup: $5/minute; late payment: $15/day.</p>
 <h3>Recent entries</h3><div class="field" style="max-width:420px"><label for="txRecentChild">Choose a child to view recent entries</label><select id="txRecentChild"><option value="">— Select a child —</option></select></div><div class="tablewrap"><table><thead><tr><th>Date / week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method / notes</th></tr></thead><tbody id="txRows"></tbody></table></div></section>
 
+
+<section class="panel tabpage hidden" id="page-bulkimport">
+<h2>Bulk Ledger Entry</h2>
+<p class="muted">Review and save multiple paper-ledger entries to your connected Supabase database. Nothing is saved until you select Save reviewed entries. The beginning balance is not changed by this tool.</p>
+<div class="field"><label>Child</label><select id="bulkChild"><option value="">Select a child</option></select></div>
+<div class="field"><label>Ledger entries — one per line</label>
+<textarea id="bulkRows" rows="8" placeholder="TYPE | CATEGORY | ENTRY DATE | WEEK START | WEEK END | AMOUNT | PAYMENT METHOD | NOTES&#10;Charge | Regular daycare | 01-05-2026 | 01-05-2026 | 01-09-2026 | 230 | | Paper ledger"></textarea>
+<p class="muted small">Use dates as MM-DD-YYYY. Example: Charge | Regular daycare | 01-05-2026 | 01-05-2026 | 01-09-2026 | 230 | | Paper ledger. For a payment, use Payment and enter its method, such as Cash, Check, Cash App, Direct deposit, or CCAP. Amounts should be positive numbers.</p>
+</div>
+<div class="row"><button id="previewBulk">Preview entries</button><button class="primary" id="saveBulk" disabled>Save reviewed entries</button></div>
+<div id="bulkStatus" class="status" aria-live="polite"></div>
+<div class="tablewrap"><table><thead><tr><th>Line</th><th>Date</th><th>Week</th><th>Type</th><th>Category</th><th>Amount</th><th>Method</th><th>Notes</th></tr></thead><tbody id="bulkPreviewRows"><tr><td colspan="8">Paste entries above, then select Preview entries.</td></tr></tbody></table></div>
+</section>
 
 <section class="panel tabpage hidden" id="page-invoices">
   <h2>Invoices</h2>
@@ -1009,7 +1022,7 @@ function printChildLedger(){
  
  function renderTx(){const chosen=$('txRecentChild')?.value||'';if(!chosen){$('txRows').innerHTML='<tr><td colspan="6">Select a child above to view their recent entries.</td></tr>';return}const list=txs.filter(t=>String(t.child_id)===String(chosen)).sort((a,b)=>(b.entry_date||'').localeCompare(a.entry_date||'')||String(b.id||'').localeCompare(String(a.id||'')));$('txRows').innerHTML=list.map(t=>`<tr><td>${displayDate(t.entry_date)}<br><span class="muted">${displayDate(t.week_start)}–${displayDate(t.week_end)}</span></td><td>${esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Archived child')}</td><td>${esc(t.entry_type||'')}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')} ${esc(t.notes||'')}<br><button onclick="editTransaction('${t.id}')">Edit</button> <button class="danger" onclick="deleteTransaction('${t.id}')">Delete</button></td></tr>`).join('')||'<tr><td colspan="6">No entries recorded for this child.</td></tr>'}
  function renderDashboard(){const charges=txs.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),payments=txs.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('countChildren').textContent=children.filter(c=>c.active!==false).length;$('sumCharges').textContent=money(charges);$('sumPayments').textContent=money(payments);$('balance').textContent=money(charges-payments)}
-function renderSelects(){let childOpts=children.filter(c=>c.active!==false).map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.rate_category)}</option>`).join('');$('txChild').innerHTML='<option value="">— Select a child —</option>'+childOpts;$('txChild').value='';$('reportChild').innerHTML='<option value="">All children</option>'+childOpts;$('txRecentChild').innerHTML='<option value="">— Select a child —</option>'+childOpts;$('txRecentChild').onchange=renderTx;$('invoiceChild').innerHTML='<option value="">Select a child</option>'+childOpts}
+function renderSelects(){let childOpts=children.filter(c=>c.active!==false).map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.rate_category)}</option>`).join('');$('txChild').innerHTML='<option value="">— Select a child —</option>'+childOpts;$('txChild').value='';$('reportChild').innerHTML='<option value="">All children</option>'+childOpts;$('txRecentChild').innerHTML='<option value="">— Select a child —</option>'+childOpts;$('txRecentChild').onchange=renderTx;$('invoiceChild').innerHTML='<option value="">Select a child</option>'+childOpts;$('bulkChild').innerHTML='<option value="">Select a child</option>'+childOpts}
 
  
  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -1256,6 +1269,60 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
   };
 
  
+
+// Bulk paper-ledger import. Entries are previewed and validated before being written to Supabase.
+let reviewedBulkEntries=[];
+function parseLedgerDate(value){
+  const v=String(value||'').trim();
+  let m=v.match(/^(\\d{1,2})[-/](\\d{1,2})[-/](\\d{4})$/);
+  if(m){const mm=Number(m[1]),dd=Number(m[2]),yy=Number(m[3]);const d=new Date(Date.UTC(yy,mm-1,dd));if(d.getUTCFullYear()!==yy||d.getUTCMonth()!==mm-1||d.getUTCDate()!==dd)return null;return yy+'-'+String(mm).padStart(2,'0')+'-'+String(dd).padStart(2,'0')}
+  m=v.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+  if(m){const yy=Number(m[1]),mm=Number(m[2]),dd=Number(m[3]);const d=new Date(Date.UTC(yy,mm-1,dd));if(d.getUTCFullYear()===yy&&d.getUTCMonth()===mm-1&&d.getUTCDate()===dd)return v}
+  return null;
+}
+function previewBulkLedger(){
+  reviewedBulkEntries=[];
+  const child=children.find(c=>String(c.id)===String($('bulkChild').value));
+  if(!child){$('bulkStatus').textContent='Select a child first.';$('saveBulk').disabled=true;return}
+  const lines=$('bulkRows').value.split(/\\r?\\n/).map((line,i)=>({line:line.trim(),number:i+1})).filter(x=>x.line);
+  const errors=[];
+  for(const item of lines){
+    const parts=item.line.split('|').map(x=>x.trim());
+    if(parts.length<6){errors.push('Line '+item.number+': expected at least 6 fields separated by |.');continue}
+    const [rawType,category,rawDate,rawStart,rawEnd,rawAmount,rawMethod='',notes='']=parts;
+    const type=rawType.toLowerCase()==='charge'?'Charge':rawType.toLowerCase()==='payment'?'Payment':rawType.toLowerCase()==='credit / adjustment'?'Credit / Adjustment':null;
+    const entryDate=parseLedgerDate(rawDate),weekStart=parseLedgerDate(rawStart),weekEnd=parseLedgerDate(rawEnd),amount=Number(rawAmount);
+    if(!type){errors.push('Line '+item.number+': type must be Charge, Payment, or Credit / Adjustment.');continue}
+    if(!category){errors.push('Line '+item.number+': category is required.');continue}
+    if(!entryDate||!weekStart||!weekEnd){errors.push('Line '+item.number+': check entry date, week start, and week end.');continue}
+    if(weekStart>weekEnd){errors.push('Line '+item.number+': week start is after week end.');continue}
+    if(rawAmount===''||!Number.isFinite(amount)||amount<=0){errors.push('Line '+item.number+': amount must be greater than zero.');continue}
+    if(type==='Payment'&&!rawMethod){errors.push('Line '+item.number+': payment method is required for payments.');continue}
+    reviewedBulkEntries.push({user_id:user.id,child_id:child.id,entry_type:type,category,entry_date:entryDate,week_start:weekStart,week_end:weekEnd,amount,payment_method:type==='Payment'?(category.trim().toUpperCase()==='CCAP'?'CCAP':rawMethod):null,notes:notes||'Entered from paper ledger'});
+  }
+  if(errors.length){reviewedBulkEntries=[];$('bulkPreviewRows').innerHTML='<tr><td colspan="8">'+errors.map(esc).join('<br>')+'</td></tr>';$('bulkStatus').textContent='Fix the listed issues, then preview again. Nothing has been saved.';$('saveBulk').disabled=true;return}
+  $('bulkPreviewRows').innerHTML=reviewedBulkEntries.map((t,i)=>'<tr><td>'+(i+1)+'</td><td>'+displayDate(t.entry_date)+'</td><td>'+displayDate(t.week_start)+'–'+displayDate(t.week_end)+'</td><td>'+esc(t.entry_type)+'</td><td>'+esc(t.category)+'</td><td>'+money(t.amount)+'</td><td>'+esc(t.payment_method||'')+'</td><td>'+esc(t.notes||'')+'</td></tr>').join('');
+  $('bulkStatus').textContent=reviewedBulkEntries.length+' entries reviewed for '+esc(child.name)+'. Check every row before saving.';
+  $('saveBulk').disabled=reviewedBulkEntries.length===0;
+}
+$('previewBulk').onclick=previewBulkLedger;
+$('saveBulk').onclick=async()=>{
+  if(!reviewedBulkEntries.length)return alert('Preview and review the entries first.');
+  if(!confirm('Save '+reviewedBulkEntries.length+' reviewed entries for '+(children.find(c=>String(c.id)===String($('bulkChild').value))?.name||'this child')+' to Supabase? This will add new transactions and will not change the beginning balance.'))return;
+  const button=$('saveBulk');button.disabled=true;button.textContent='Saving…';
+  try{
+    const {error}=await sb.from('daycare_transactions').insert(reviewedBulkEntries);
+    if(error){$('bulkStatus').textContent='Supabase did not save the entries: '+error.message+'. Nothing was reported as saved.';return}
+    const count=reviewedBulkEntries.length;
+    $('bulkStatus').textContent='Saved '+count+' entries to Supabase. Reloading the ledger…';
+    $('bulkRows').value='';reviewedBulkEntries=[];
+    await loadAll();
+    $('bulkPreviewRows').innerHTML='<tr><td colspan="8">Entries saved. Paste the next set when ready.</td></tr>';
+    $('bulkStatus').textContent='Saved '+count+' entries to Supabase and refreshed the app.';
+  }catch(error){$('bulkStatus').textContent='Could not save entries: '+(error?.message||String(error));}
+  finally{button.textContent='Save reviewed entries';button.disabled=reviewedBulkEntries.length===0;}
+};
+
 $('loadDeleted').onclick=loadDeletedTransactions;
 
  $('runReport').onclick=()=>{let list=txs.filter(t=>(!$('reportChild').value||t.child_id===$('reportChild').value)&&(!$('reportFrom').value||t.entry_date>=$('reportFrom').value)&&(!$('reportTo').value||t.entry_date<=$('reportTo').value)&&(!$('reportType').value||t.entry_type===$('reportType').value));$('reportRows').innerHTML=list.map(t=>`<tr><td>${displayDate(t.entry_date)}</td><td>${displayDate(t.week_start)}–${displayDate(t.week_end)}</td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')}</td><td>${esc(t.notes||'')}</td></tr>`).join('')||'<tr><td colspan="8">No matching entries.</td></tr>';const ch=list.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),pa=list.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('reportSummary').textContent=`${list.length} entries · Charges ${money(ch)} · Payments ${money(pa)} · Balance ${money(ch-pa)}`};
