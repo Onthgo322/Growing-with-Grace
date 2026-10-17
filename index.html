@@ -601,16 +601,16 @@ let detailHtml = '';
 
 const monthTransactions = transactions
   .filter(t => {
-    const date = t.week_start || t.entry_date || '';
+    // Transaction details must be grouped by the actual transaction date.
+    // week_start is for weekly billing allocation, not the date the entry occurred.
+    const date = t.entry_date || '';
     return (
       Number(date.slice(0, 4)) === year &&
       Number(date.slice(5, 7)) === month + 1
     );
   })
   .sort((a, b) =>
-    (a.week_start || a.entry_date || '').localeCompare(
-      b.week_start || b.entry_date || ''
-    )
+    (a.entry_date || '').localeCompare(b.entry_date || '')
   );
 
      
