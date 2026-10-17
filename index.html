@@ -662,20 +662,33 @@ const charges = transactions
          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
        
-       const paymentMethods = ['Cash', 'Check', 'Cash App', 'Direct deposit', 'CCAP', 'Other'];
-        const methodTotals = {};
-        paymentMethods.forEach(method => {
-          methodTotals[method] = transactions
-            .filter(t =>
-              t.entry_type === 'Payment' &&
-              t.payment_method === method &&
-              t.entry_date >= from &&
-              t.entry_date <= weekEnd &&
-              Number((t.entry_date || '').slice(0,4)) === year &&
-              Number((t.entry_date || '').slice(5,7)) === month + 1
-            )
-            .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-        });
+
+const methodTotals = {};
+paymentMethods.forEach(method => {
+  methodTotals[method] = transactions
+    .filter(t => {
+      const date = t.entry_date || '';
+      const inWeek =
+        date >= from &&
+        date <= weekEnd &&
+        Number(date.slice(0, 4)) === year &&
+        Number(date.slice(5, 7)) === month + 1;
+
+      if (!inWeek) return false;
+
+      if (method === 'CCAP') {
+        return (
+          (t.entry_type === 'Payment' && t.payment_method === 'CCAP') ||
+          (t.entry_type === 'Charge' && t.category === 'CCAP')
+        );
+      }
+
+      return t.entry_type === 'Payment' &&
+        t.payment_method === method;
+    })
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+});
+
        
         const credits = transactions
           .filter(t =>
