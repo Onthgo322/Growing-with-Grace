@@ -580,7 +580,7 @@ let detailHtml = '';
 
 const monthTransactions = transactions
   .filter(t => {
-    const date = t.week_start || t.entry_date || '';
+    const date = t.entry_date || '';
     return (
       Number(date.slice(0, 4)) === year &&
       Number(date.slice(5, 7)) === month + 1
@@ -1035,7 +1035,41 @@ toggleCcapDayFields();
  window.editTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id));if(!t)return alert('Transaction not found.');const entryDate=prompt('Entry date (YYYY-MM-DD):',t.entry_date||'');if(entryDate===null)return;const weekStart=prompt('Week starts (YYYY-MM-DD):',t.week_start||'');if(weekStart===null)return;const weekEnd=prompt('Week ends (YYYY-MM-DD):',t.week_end||'');if(weekEnd===null)return;const type=prompt('Entry type (Charge or Payment):',t.entry_type||'Charge');if(type===null)return;if(!['Charge','Payment'].includes(type))return alert('Entry type must be Charge or Payment.');const category=prompt('Category:',t.category||'Other');if(category===null)return;const amountText=prompt('Amount:',Number(t.amount||0).toFixed(2));if(amountText===null)return;const amount=Number(amountText);if(!Number.isFinite(amount)||amount<0)return alert('Enter a valid amount.');const notes=prompt('Notes / details:',t.notes||'');if(notes===null)return;let paymentMethod=t.payment_method||''
  ;if(type==='Payment'){paymentMethod=prompt('Payment method:',paymentMethod||'Cash');if(paymentMethod===null)return;}else paymentMethod=null;const {error}=await sb.from('daycare_transactions').update({entry_date:entryDate,week_start:weekStart,week_end:weekEnd,entry_type:type,category,amount,notes,payment_method:paymentMethod}).eq('id',id).eq('user_id',user.id);if(error)return alert('Could not update transaction: '+error.message);await loadAll();alert('Transaction updated.')};
 window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id));if(!t)return alert('Transaction not found.');const reason=prompt('Why are you deleting this transaction? (Required)');if(reason===null)return;if(!reason.trim())return alert('Please enter a deletion reason.');if(!confirm('Move this transaction to history and remove it from current totals?'))return;const history={transaction_id:String(t.id),user_id:user.id,transaction_data:t,deletion_reason:reason.trim(),deleted_by:user.id};const {error:historyError}=await sb.from('daycare_transaction_history').insert(history);if(historyError)return alert('Could not save transaction history. Nothing was deleted. '+historyError.message);const {error}=await sb.from('daycare_transactions').delete().eq('id',id).eq('user_id',user.id);if(error)return alert('History was saved, but the transaction could not be removed from current records. '+error.message);await loadAll();alert('Transaction moved to history.')};
- $('saveTx').onclick=async()=>{const child=children.find(c=>c.id===$('txChild').value);if(!child)return alert('Please select a child first.');const amount=Number($('txAmount').value);if(!Number.isFinite(amount)||amount<0)return alert('Enter a valid amount.');const obj={user_id:user.id,child_id:child.id,week_start:$('weekStart').value,week_end:$('weekEnd').value,entry_date:$('entryDate').value,entry_type:$('txType').value,category:$('txCategory').value,payment_method:$('txType').value==='Payment' ? $('payMethod').value:null,amount,notes:$('txNotes').value.trim()};const {error}=await sb.from('daycare_transactions').insert(obj);if(error)return alert(error.message);$('txAmount').value='';$('txNotes').value='';await loadAll();$('txChild').value='';alert('Entry saved.')};
+ function syncPaymentMethodToCategory(){
+    if($('txType').value==='Payment' && $('txCategory').value==='CCAP'){
+      $('payMethod').value='CCAP';
+    }
+  }
+  $('txType').addEventListener('change',syncPaymentMethodToCategory);
+  $('txCategory').addEventListener('change',syncPaymentMethodToCategory);
+  $('saveTx').onclick=async()=>{
+    const button=$('saveTx');
+    if(button.disabled)return;
+    const child=children.find(c=>c.id===$('txChild').value);
+    if(!child)return alert('Please select a child first.');
+    const amount=Number($('txAmount').value);
+    if(!Number.isFinite(amount)||amount<0)return alert('Enter a valid amount.');
+    if(!$('entryDate').value)return alert('Please enter the transaction date.');
+    if(!$('weekStart').value||!$('weekEnd').value)return alert('Please enter the week start and end dates.');
+    const obj={user_id:user.id,child_id:child.id,week_start:$('weekStart').value,week_end:$('weekEnd').value,entry_date:$('entryDate').value,entry_type:$('txType').value,category:$('txCategory').value,payment_method:$('txType').value==='Payment' ? $('payMethod').value:null,amount,notes:$('txNotes').value.trim()};
+    button.disabled=true;
+    const originalLabel=button.textContent;
+    button.textContent='Saving…';
+    try{
+      const {error}=await sb.from('daycare_transactions').insert(obj);
+      if(error){alert('Could not save entry: '+error.message);return;}
+      $('txAmount').value='';
+      $('txNotes').value='';
+      await loadAll();
+      $('txChild').value='';
+      alert('Entry saved.');
+    }catch(error){
+      alert('Could not save entry: '+(error?.message||String(error)));
+    }finally{
+      button.disabled=false;
+      button.textContent=originalLabel;
+    }
+  };
 
  
 $('loadDeleted').onclick=loadDeletedTransactions;
