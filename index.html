@@ -1224,7 +1224,7 @@ const autoFillSavedRate=()=>{
   }
   $('txAmount').value=Number(amount||0).toFixed(2);
 };
-['txChild','txType','weekEnd,'weekStart','txCategory'].forEach(id=>$(id).addEventListener('change',autoFillSavedRate));
+['txChild','txType','weekEnd','weekStart','txCategory'].forEach(id=>$(id).addEventListener('change',autoFillSavedRate));
 function toggleCcapDayFields(){
  const child=children.find(c=>c.id===$('txChild').value);
  const isCcapCharge=$('txType').value==='Charge'&&$('txCategory').value==='CCAP';
@@ -1242,7 +1242,7 @@ $('txType').addEventListener('change',toggleCcapDayFields);
 $('txChild').addEventListener('change',toggleCcapDayFields);
 $('ccapFlatCharge').addEventListener('change',()=>{if($('ccapFlatCharge').checked){$('txAmount').value='';}else if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'){updateCcapMonthlyCalculation();}toggleCcapDayFields();});
 toggleCcapDayFields();
-['txChild','txType','txCategory','weekEnd].forEach(id=>$(id).addEventListener('change',()=>{
+['txChild','txType','txCategory','weekEnd'].forEach(id=>$(id).addEventListener('change',()=>{
   if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'&&!$('ccapFlatCharge').checked){
     if($('ccapDaycareDays').dataset.userEdited!=='1')$('ccapDaycareDays').value=countWeekdaysInMonth($('weekEnd').value);
     updateCcapMonthlyCalculation();
