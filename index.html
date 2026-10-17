@@ -281,16 +281,38 @@ $('entryDate').addEventListener('change', () => setEntryWeek($('entryDate').valu
  function status(id,msg){$(id).textContent=msg}
 const savedKey=localStorage.getItem('growingGraceSupabaseKey');
 if(savedKey)$('anonKey').value=savedKey; 
-$('connectBtn').onclick=async()=>{
- const url=$('projectUrl').value.trim(),key=$('anonKey').value.trim();
- if(!url||!key){status('connectionStatus','Enter the publishable key first.');return}
- try{
- localStorage.setItem('growingGraceSupabaseKey',key);
- sb=window.supabase.createClient(url,key);
- const {data,error}=await sb.auth.getSession();if(error)throw error;
- $('authPanel').classList.remove('hidden');status('connectionStatus','Connected to Supabase. Sign in or create your account.');
- }catch(e){status('connectionStatus','Could not connect: '+(e.message)||String(e))}
+
+$('connectBtn').onclick = async () => {
+  const url = $('projectUrl').value.trim();
+  const key = $('anonKey').value.trim();
+
+  if (!url || !key) {
+    status('connectionStatus', 'Enter the project URL and publishable key.');
+    return;
+  }
+
+  status('connectionStatus', 'Connecting to Supabase...');
+
+  try {
+    localStorage.setItem('growingGraceSupabaseKey', key);
+
+    if (!window.supabase?.createClient) {
+      throw new Error('Supabase library did not load. Refresh the page and try again.');
+    }
+
+    sb = window.supabase.createClient(url, key);
+    const { error } = await sb.auth.getSession();
+
+    if (error) throw error;
+
+    $('authPanel').classList.remove('hidden');
+    status('connectionStatus', 'Connected to Supabase. Sign in or create your account.');
+  } catch (e) {
+    console.error('Supabase connection failed:', e);
+    status('connectionStatus', 'Could not connect: ' + (e?.message || String(e)));
+  }
 };
+
  
 $('forgetBtn').onclick=()=>{$('anonKey').value='';sb=null;user=null;$('authPanel').classList.add('hidden');$('app').classList.add('hidden');status('connectionStatus','Key cleared from this page.');};
 $('signUpBtn').onclick=async()=>{if(!sb)return;const {data,error}=await sb.auth.signUp({email:$('email').value.trim(),password:$('password').value});status('authStatus',error?error.message:'Account request submitted. If email confirmation is enabled, check your email before signing in.')};
