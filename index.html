@@ -269,7 +269,7 @@ function keepChildSelectedAfterTransaction(childId){
     childSelectionResetTimer=null;
   },30*60*1000);
 }
-const $=id=>document.getElementById(id), money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD'}); function displayDate(value){const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[2]}-${m[3]}-${m[1]}`:String(value||'')}
+const $=id=>document.getElementById(id), money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD'}); function displayDate(value){const v=String(value||'').trim();let m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return `${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}-${m[1]}`;m=v.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);if(m)return `${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}-${m[3]}`;m=v.match(/^(\d{2})(\d{2})(\d{4})$/);if(m)return `${m[1]}-${m[2]}-${m[3]}`;return v}
 const today=()=>new Date().toISOString().slice(0,10);
 $('rateDate').value=today();
 
@@ -1290,7 +1290,7 @@ $('generateInvoice').onclick=()=>{
   const payments=list.filter(t=>t.entry_type==='Payment').reduce((s,t)=>s+Number(t.amount||0),0);
   const credits=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((s,t)=>s+Number(t.amount||0),0);
   const ending=balanceBefore+charges-payments-credits;
-  const invoiceDate=new Date().toLocaleDateString('en-US');
+  const invoiceDate=displayDate(today());
 $('invoiceOutput').innerHTML=`
   <div style="border:1px solid #ddd;padding:28px;background:white;color:#222;max-width:850px;margin:20px auto;line-height:1.5">
     <h2 style="text-align:center;margin:0 0 8px">Growing With Grace Christian Learning Center, LLC</h2>
@@ -1301,9 +1301,9 @@ $('invoiceOutput').innerHTML=`
     <p style="text-align:center;margin:0 0 4px"><strong>Invoice Date:</strong> ${esc(invoiceDate)}</p>
     <p style="text-align:center;color:#a33;font-size:12px;margin:0 0 22px">Payment arrangements must be made within 10 days of the invoice date.</p>
     <p style="margin:8px 0"><strong>Child:</strong> ${esc(child.name)}</p>
-        <p style="margin:8px 0"><strong>Billing period:</strong> ${esc(new Date(from + 'T12:00:00').toLocaleDateString('en-US', {month:'2-digit',day:'2-digit',year:'numeric'}))} through ${esc(new Date(to + 'T12:00:00').toLocaleDateString('en-US', {month:'2-digit',day:'2-digit',year:'numeric'}))}</p>    
+        <p style="margin:8px 0"><strong>Billing period:</strong> ${esc(displayDate(from))} through ${esc(displayDate(to))}</p>    
                 <p style="margin:8px 0 18px"><strong>Previous balance:</strong> ${money(balanceBefore)}</p>
-    <table style="width:100%;border-collapse:collapse;margin:12px 0"><thead><tr><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Date</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Description</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Type / Method</th><th style="text-align:right;border-bottom:1px solid #999;padding:9px 6px">Amount</th></tr></thead><tbody>${list.map(t=>`<tr><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.entry_date||'')}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.category||'')}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.entry_type||'')}${t.payment_method?' — '+esc(t.payment_method):''}</td><td style="text-align:right;border-bottom:1px solid #ddd;padding:8px 6px">${money(t.amount)}</td></tr>`).join('')||'<tr><td colspan="4" style="padding:8px">No transactions in this billing period.</td></tr>'}</tbody></table>
+    <table style="width:100%;border-collapse:collapse;margin:12px 0"><thead><tr><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Date</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Description</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Type / Method</th><th style="text-align:right;border-bottom:1px solid #999;padding:9px 6px">Amount</th></tr></thead><tbody>${list.map(t=>`<tr><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(displayDate(t.entry_date||''))}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.category||'')}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.entry_type||'')}${t.payment_method?' — '+esc(t.payment_method):''}</td><td style="text-align:right;border-bottom:1px solid #ddd;padding:8px 6px">${money(t.amount)}</td></tr>`).join('')||'<tr><td colspan="4" style="padding:8px">No transactions in this billing period.</td></tr>'}</tbody></table>
     <div style="margin-top:20px"><p style="margin:8px 0"><strong>New charges:</strong> ${money(charges)}</p><p style="margin:8px 0"><strong>Payments received:</strong> ${money(payments)}</p><p style="margin:8px 0"><strong>Credits / adjustments:</strong> ${money(credits)}</p></div>
     <hr style="margin:18px 0"><h3 style="margin:0 0 12px">Balance after this period: ${money(ending)}</h3>
     <div style="color:#c00000;font-weight:bold;border:1px solid #c00000;padding:10px;margin-top:12px">Positive balance = amount owed. Negative balance = credit.</div>
