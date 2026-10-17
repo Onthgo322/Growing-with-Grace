@@ -657,7 +657,7 @@ const monthTransactions = transactions
 const charges = transactions
   .filter(t => {
     if (t.entry_type !== 'Charge') return false;
-    const billingStart = t.week_start || t.entry_date || '';
+    const billingStart = t.entry_date || '';
     const entryDate = t.entry_date || '';
     const isMonthlyCCAP = String(t.category || '').trim().toUpperCase() === 'CCAP';
     // Monthly CCAP charges belong to the month of their billing-period start,
@@ -709,7 +709,7 @@ const methodTotals = {
 Object.keys(methodTotals).forEach(method => {
   methodTotals[method] = transactions
     .filter(t => {
-      const date = t.week_start || t.entry_date || '';
+      const date = t.entry_date || '';
       const inWeek =
         date >= from &&
         date <= weekEnd &&
@@ -735,10 +735,10 @@ Object.keys(methodTotals).forEach(method => {
         const credits = transactions
           .filter(t =>
             t.entry_type === 'Credit / Adjustment' &&
-            (t.week_start || t.entry_date) >= from &&
-            (t.week_start || t.entry_date) <= weekEnd &&
-            Number((t.week_start || t.entry_date).slice(0,4)) === year &&
-            Number((t.week_start || t.entry_date).slice(5,7)) === month + 1
+            (t.entry_date || '') >= from &&
+            (t.entry_date || '') <= weekEnd &&
+            Number((t.entry_date || '').slice(0,4)) === year &&
+            Number((t.entry_date || '').slice(5,7)) === month + 1
           )
           .reduce((sum, t) => sum + Number(t.amount || 0), 0);
         monthCharges += charges;
