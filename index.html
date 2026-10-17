@@ -278,8 +278,15 @@ function setEntryWeek(dateValue) {
 $('entryDate').value = today();
 setEntryWeek(today());
 $('entryDate').addEventListener('change', () => {
-  // Entry date identifies the transaction/month; it must never overwrite the week dates the user entered.
+  // Keep the care-week dates independent from the transaction/month date.
+  // Restore them after other change handlers have run, so Entry date can never reset them.
+  const savedWeekStart = $('weekStart').value;
+  const savedWeekEnd = $('weekEnd').value;
   if ($('txType').value === 'Charge' && $('txCategory').value === 'CCAP') updateCcapMonthlyCalculation();
+  queueMicrotask(() => {
+    $('weekStart').value = savedWeekStart;
+    $('weekEnd').value = savedWeekEnd;
+  });
 });
  function status(id,msg){$(id).textContent=msg}
 const savedKey=localStorage.getItem('growingGraceSupabaseKey');
