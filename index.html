@@ -663,8 +663,17 @@ const charges = transactions
 
        
 
-const methodTotals = {};
-paymentMethods.forEach(method => {
+
+const methodTotals = {
+  'Cash': 0,
+  'Check': 0,
+  'Cash App': 0,
+  'Direct deposit': 0,
+  'CCAP': 0,
+  'Other': 0
+};
+
+Object.keys(methodTotals).forEach(method => {
   methodTotals[method] = transactions
     .filter(t => {
       const date = t.entry_date || '';
@@ -678,9 +687,19 @@ paymentMethods.forEach(method => {
 
       if (method === 'CCAP') {
         return (
-          (t.entry_type === 'Payment' && t.payment_method === 'CCAP') ||
-          (t.entry_type === 'Charge' && t.category === 'CCAP')
+          (t.entry_type === 'Payment' &&
+            String(t.payment_method || '').trim().toUpperCase() === 'CCAP') ||
+          (t.entry_type === 'Charge' &&
+            String(t.category || '').trim().toUpperCase() === 'CCAP')
         );
+      }
+
+      return t.entry_type === 'Payment' &&
+        t.payment_method === method;
+    })
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+});
+
       }
 
       return t.entry_type === 'Payment' &&
@@ -701,10 +720,11 @@ paymentMethods.forEach(method => {
           .reduce((sum, t) => sum + Number(t.amount || 0), 0);
         monthCharges += charges;
         monthPayments += payments;
-monthCredits += credits;
-            paymentMethods.forEach(method => {
-          monthPaymentMethods[method] += methodTotals[method];
-        });   
+monthCredits += credits;        
+Object.keys(monthPaymentMethods).forEach(method => {
+  monthPaymentMethods[method] += methodTotals[method];
+});
+   
        
         // Show only weeks that overlap this month.
         if (friday >= monthStart && monday <= monthEnd){
