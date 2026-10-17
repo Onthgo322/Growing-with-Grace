@@ -388,7 +388,7 @@ async function loadDeletedTransactions(){
   }).join('')||'<tr><td colspan="6">No deleted transactions found.</td></tr>';
 }
  
-async function loadAll(){let results=await Promise.all([sb.from('daycare_children').select('*').order('name'),sb.from('daycare_rates').select('*').order('effective_date',{ascending:false}),sb.from('daycare_transactions').select('*').order('entry_date',{ascending:false})]);for(let i=0;i<results.length;i++){if(results[i].error){alert('Database error: '+results[i].error.message);return}}children=results[0].data||[];rates=results[1].data||[];txs=results[2].data||[];renderAll()}
+async function loadAll(){const base=await Promise.all([sb.from('daycare_children').select('*').order('name'),sb.from('daycare_rates').select('*').order('effective_date',{ascending:false})]);for(let i=0;i<base.length;i++){if(base[i].error){alert('Database error: '+base[i].error.message);return}}children=base[0].data||[];rates=base[1].data||[];let allTransactions=[];const pageSize=1000;for(let start=0;;start+=pageSize){const page=await sb.from('daycare_transactions').select('*').order('entry_date',{ascending:false}).range(start,start+pageSize-1);if(page.error){alert('Database error loading transactions: '+page.error.message);return}const rows=page.data||[];allTransactions=allTransactions.concat(rows);if(rows.length<pageSize)break;}txs=allTransactions;renderAll()}
 function renderAll(){renderChildren();renderRates();renderTx();renderDashboard();renderSelects();updateChildRatePreview()}
 
 
