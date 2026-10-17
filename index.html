@@ -303,9 +303,10 @@ $('entryDate').addEventListener('change', () => {
 const savedKey=localStorage.getItem('growingGraceSupabaseKey');
 if(savedKey)$('anonKey').value=savedKey;
 
-// If this browser already has the publishable key, initialize the database quietly
-// so the setup panel does not appear every time the app opens.
-if(savedKey){
+// Restore a saved connection inside an async function; this script is not a module,
+// so top-level await would prevent the entire app from running.
+(async()=>{
+  if(!savedKey)return;
   try{
     if(!window.supabase?.createClient) throw new Error('Supabase library did not load.');
     sb=window.supabase.createClient($('projectUrl').value.trim(),savedKey);
@@ -323,7 +324,7 @@ if(savedKey){
     $('setup').classList.remove('hidden');
     status('connectionStatus','Please reconnect your database: '+(e?.message||String(e)));
   }
-}
+})();
 
 $('connectBtn').onclick = async () => {
   const url = $('projectUrl').value.trim();
