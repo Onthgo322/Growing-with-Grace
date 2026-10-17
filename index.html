@@ -655,13 +655,22 @@ const monthTransactions = transactions
         
 
 const charges = transactions
-  .filter(t =>
-    t.entry_type === 'Charge' &&
-    (t.week_start || t.entry_date) >= from &&
-    (t.week_start || t.entry_date) <= to &&
-    Number((t.week_start || t.entry_date).slice(0, 4)) === year &&
-    Number((t.week_start || t.entry_date).slice(5, 7)) === month + 1
-  )
+  .filter(t => {
+    if (t.entry_type !== 'Charge') return false;
+    const billingStart = t.week_start || t.entry_date || '';
+    const entryDate = t.entry_date || '';
+    const isMonthlyCCAP = String(t.category || '').trim().toUpperCase() === 'CCAP';
+    // Monthly CCAP charges belong to the month of their billing-period start,
+    // and should appear once in that month's ledger even when the period spans the month.
+    if (isMonthlyCCAP) {
+      return Number(billingStart.slice(0, 4)) === year &&
+        Number(billingStart.slice(5, 7)) === month + 1;
+    }
+    // Regular weekly charges belong to the week containing their billing-period start.
+    return billingStart >= from && billingStart <= to &&
+      Number(billingStart.slice(0, 4)) === year &&
+      Number(billingStart.slice(5, 7)) === month + 1;
+  })
   .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
        
