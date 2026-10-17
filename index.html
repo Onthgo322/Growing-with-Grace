@@ -260,6 +260,15 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 let sb=null,user=null,children=[],rates=[],txs=[];
+let childSelectionResetTimer=null;
+function keepChildSelectedAfterTransaction(childId){
+  $('txChild').value=childId;
+  if(childSelectionResetTimer)clearTimeout(childSelectionResetTimer);
+  childSelectionResetTimer=setTimeout(()=>{
+    $('txChild').value='';
+    childSelectionResetTimer=null;
+  },30*60*1000);
+}
 const $=id=>document.getElementById(id), money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD'});
 const today=()=>new Date().toISOString().slice(0,10);
 $('rateDate').value=today();
@@ -1205,8 +1214,8 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
       $('txAmount').value='';
       $('txNotes').value='';
       await loadAll();
-      $('txChild').value='';
-      alert('Entry saved.');
+      keepChildSelectedAfterTransaction(child.id);
+      alert('Entry saved. The child will stay selected for your next transaction and reset after 30 minutes without another saved transaction.');
     }catch(error){
       alert('Could not save entry: '+(error?.message||String(error)));
     }finally{
