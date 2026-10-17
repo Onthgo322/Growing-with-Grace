@@ -1022,7 +1022,34 @@ amt=$('txCategory').value==='Non-school day'?Number(r.summer||0):$('txCategory')
 }
   $('txAmount').value=Number(amt||0).toFixed(2);
 };
-// Do not automatically look up a rate when entering a charge. One-time charges can be entered manually; use Fill weekly rate only when a saved rate is wanted.
+// Automatically fill a saved rate for non-CCAP charges when one exists.
+// If no matching rate exists, leave the amount alone so one-time charges can be entered manually.
+const autoFillSavedRate=()=>{
+  if($('txType').value!=='Charge'||$('txCategory').value==='CCAP')return;
+  const c=children.find(c=>c.id===$('txChild').value);
+  if(!c)return;
+  const date=$('entryDate').value||$('weekStart').value||today();
+  let category=c.rate_category;
+  if(c.date_of_birth&&category!=='Before/After School Care'){
+    const b=new Date(c.date_of_birth+'T12:00:00');
+    const d=new Date(date+'T12:00:00');
+    let age=d.getFullYear()-b.getFullYear();
+    if(d.getMonth()<b.getMonth()||(d.getMonth()===b.getMonth()&&d.getDate()<b.getDate()))age--;
+    category=age<2?'Infant':age<3?'2-Year':age<4?'3-Year':age<5?'4-Year':'5–12 Years';
+  }
+  const r=rates.filter(r=>r.category===category&&r.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
+  if(!r)return;
+  let amount;
+  if(c.rate_type==='fixed'){
+    amount=Number(c.fixed_weekly_rate||0);
+    if($('txCategory').value==='Non-school day'||$('txCategory').value==='Summer')amount/=5;
+  }else{
+    amount=$('txCategory').value==='Non-school day'||$('txCategory').value==='Summer'?Number(r.summer||0):Number(r.school_day||0);
+    amount*=1-Number(c.employee_discount_percent||0)/100;
+  }
+  $('txAmount').value=Number(amount||0).toFixed(2);
+};
+['txChild','txType','entryDate','weekStart','txCategory'].forEach(id=>$(id).addEventListener('change',autoFillSavedRate));
 function toggleCcapDayFields(){
 const show = $('txCategory').value === 'CCAP';
  $('ccapDayFields').style.display = show ? '' : 'none';
