@@ -1053,7 +1053,7 @@ const autoFillSavedRate=()=>{
 function toggleCcapDayFields(){
  const child=children.find(c=>c.id===$('txChild').value);
  const isCcapCharge=$('txType').value==='Charge'&&$('txCategory').value==='CCAP';
- const isSchoolAge=!!child&&child.rate_category==='Before/After School Care';
+ const isSchoolAge=!!child&&(child.rate_category==='Before/After School Care'||child.rate_category==='5–12 Years');
  const showSchool=isCcapCharge&&isSchoolAge;
  const showDaycare=isCcapCharge&&!!child&&!isSchoolAge;
  $('ccapDayFields').style.display=showSchool?'':'none';
