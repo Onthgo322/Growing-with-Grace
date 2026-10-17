@@ -277,7 +277,14 @@ function setEntryWeek(dateValue) {
 
 $('entryDate').value = today();
 setEntryWeek(today());
-$('entryDate').addEventListener('change', () => setEntryWeek($('entryDate').value));
+$('entryDate').addEventListener('change', () => {
+  // CCAP is billed by month: changing its entry date must not overwrite the user's week dates.
+  if ($('txType').value === 'Charge' && $('txCategory').value === 'CCAP') {
+    updateCcapMonthlyCalculation();
+    return;
+  }
+  setEntryWeek($('entryDate').value);
+});
  function status(id,msg){$(id).textContent=msg}
 const savedKey=localStorage.getItem('growingGraceSupabaseKey');
 if(savedKey)$('anonKey').value=savedKey; 
@@ -1005,6 +1012,56 @@ window.editChild=async id=>{const c=children.find(x=>x.id===id);if(!c)return;con
  window.archiveChild=async id=>{if(!confirm('Archive this child? Existing transactions will be kept.'))return;const {error}=await sb.from('daycare_children').update({active:false}).eq('id',id).eq('user_id',user.id);if(error)return alert(error.message);await loadAll()};
 window.editRateDate=async(id,category,currentDate)=>{const displayDate=iso=>{const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?m[2]+'/'+m[3]+'/'+m[1]:iso};const entered=prompt('New effective date for '+category+' (MM/DD/YYYY):',displayDate(currentDate));if(entered===null)return;const value=entered.trim();let next='';const m=value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);if(m){const month=Number(m[1]),day=Number(m[2]),year=Number(m[3]),d=new Date(Date.UTC(year,month-1,day));if(d.getUTCFullYear()!==year||d.getUTCMonth()!==month-1||d.getUTCDate()!==day)return alert('Enter a valid date as MM/DD/YYYY, for example 08/01/2026.');next=year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0')}else if(/^(\d{4})-(\d{2})-(\d{2})$/.test(value)){next=value}else{return alert('Enter the date as MM/DD/YYYY, for example 08/01/2026. Hyphens are also accepted.')}const conflict=rates.find(r=>String(r.id)!==String(id)&&r.category===category&&r.effective_date===next);if(conflict)return alert('A rate schedule for '+category+' already exists on '+displayDate(next)+'. No changes made.');if(!confirm('Change only the effective date for '+category+' from '+displayDate(currentDate)+' to '+displayDate(next)+'? Rate amounts and existing transactions will not be changed.'))return;const {error}=await sb.from('daycare_rates').update({effective_date:next}).eq('id',id).eq('user_id',user.id);if(error)return alert('Could not update rate date: '+error.message);await loadAll();alert('Effective date updated. Rate amounts and existing transactions were not changed.')};
 $('saveRate').onclick=async()=>{const obj={user_id:user.id,category:$('rateCategory').value,effective_date:$('rateDate').value,school_day:Number($('schoolRate').value||0),non_school_day:Number($('nonSchoolRate').value||0),summer:Number($('summerRate').value||0),ccap:Number($('ccapRate').value||0),employee_discount_percent:Number($('discountRate').value||0)};const {error}=await sb.from('daycare_rates').upsert(obj,{onConflict:'user_id,category,effective_date'});if(error)return alert(error.message);await loadAll();alert('Rate schedule saved. It will not change earlier charges.')};
+function countWeekdaysInMonth(dateValue){
+  if(!dateValue)return 0;
+  const [year,month]=dateValue.split('-').map(Number);
+  const days=new Date(year,month,0).getDate();
+  let count=0;
+  for(let day=1;day<=days;day++){
+    const weekday=new Date(year,month-1,day).getDay();
+    if(weekday!==0&&weekday!==6)count++;
+  }
+  return count;
+}
+function updateCcapMonthlyCalculation(){
+  if($('txType').value!=='Charge'||$('txCategory').value!=='CCAP')return;
+  const child=children.find(c=>c.id===$('txChild').value);
+  const date=$('entryDate').value;
+  if(!child||!date)return;
+  const [year,month]=date.split('-').map(Number);
+  const monthStart=year+'-'+String(month).padStart(2,'0')+'-01';
+  const nextMonth=month===12?(year+1)+'-01-01':year+'-'+String(month+1).padStart(2,'0')+'-01';
+  const weekdays=countWeekdaysInMonth(date);
+  const isSchoolAge=child.rate_category==='Before/After School Care'||child.rate_category==='5–12 Years';
+  let category=child.rate_category;
+  if(child.date_of_birth&&child.rate_category!=='Before/After School Care'){
+    const b=new Date(child.date_of_birth+'T12:00:00'),d=new Date(date+'T12:00:00');
+    let age=d.getFullYear()-b.getFullYear();
+    if(d.getMonth()<b.getMonth()||(d.getMonth()===b.getMonth()&&d.getDate()<b.getDate()))age--;
+    category=age<2?'Infant':age<3?'2-Year':age<4?'3-Year':age<5?'4-Year':'5–12 Years';
+  }
+  const rate=rates.filter(r=>r.category===category&&r.effective_date<nextMonth&&r.effective_date>=monthStart).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0]
+    ||rates.filter(r=>r.category===category&&r.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
+  if(!rate)return;
+  if(isSchoolAge){
+    const schoolField=$('ccapSchoolDays'),nonSchoolField=$('ccapNonSchoolDays');
+    if(Number(schoolField.value||0)===0&&Number(nonSchoolField.value||0)===0){
+      schoolField.value=weekdays;
+      nonSchoolField.value=0;
+    }
+    const schoolRate=rates.filter(r=>r.category==='Before/After School Care'&&r.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
+    const summerRate=rates.filter(r=>r.category==='5–12 Years'&&r.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
+    const schoolDays=Number(schoolField.value||0),nonSchoolDays=Number(nonSchoolField.value||0);
+    $('txAmount').value=((Number(schoolRate?.school_day||0)/5*schoolDays)+(Number(summerRate?.summer||0)/5*nonSchoolDays)).toFixed(2);
+  }else{
+    const field=$('ccapDaycareDays');
+    if(!field.dataset.userEdited)field.value=weekdays;
+    const weekly=child.rate_type==='fixed'?Number(child.fixed_weekly_rate||0):Number(rate.school_day||0)*(1-Number(child.employee_discount_percent||0)/100);
+    $('txAmount').value=(weekly/5*Number(field.value||0)).toFixed(2);
+  }
+}
+$('ccapDaycareDays').addEventListener('input',()=>{$('ccapDaycareDays').dataset.userEdited='1';updateCcapMonthlyCalculation();});
+['ccapSchoolDays','ccapNonSchoolDays'].forEach(id=>$(id).addEventListener('input',updateCcapMonthlyCalculation));
 $('fillRate').onclick=()=>{
   const c=children.find(c=>c.id===$('txChild').value);
   if(!c)return alert('Add/select a child first.');
@@ -1083,6 +1140,12 @@ $('txCategory').addEventListener('change',toggleCcapDayFields);
 $('txType').addEventListener('change',toggleCcapDayFields);
 $('txChild').addEventListener('change',toggleCcapDayFields);
 toggleCcapDayFields();
+['txChild','txType','txCategory','entryDate'].forEach(id=>$(id).addEventListener('change',()=>{
+  if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'){
+    if($('ccapDaycareDays').dataset.userEdited!=='1')$('ccapDaycareDays').value=countWeekdaysInMonth($('entryDate').value);
+    updateCcapMonthlyCalculation();
+  }
+}));
  window.editTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id));if(!t)return alert('Transaction not found.');const entryDate=prompt('Entry date (YYYY-MM-DD):',t.entry_date||'');if(entryDate===null)return;const weekStart=prompt('Week starts (YYYY-MM-DD):',t.week_start||'');if(weekStart===null)return;const weekEnd=prompt('Week ends (YYYY-MM-DD):',t.week_end||'');if(weekEnd===null)return;const type=prompt('Entry type (Charge or Payment):',t.entry_type||'Charge');if(type===null)return;if(!['Charge','Payment'].includes(type))return alert('Entry type must be Charge or Payment.');const category=prompt('Category:',t.category||'Other');if(category===null)return;const amountText=prompt('Amount:',Number(t.amount||0).toFixed(2));if(amountText===null)return;const amount=Number(amountText);if(!Number.isFinite(amount)||amount<0)return alert('Enter a valid amount.');const notes=prompt('Notes / details:',t.notes||'');if(notes===null)return;let paymentMethod=null;if(type==='Payment'){paymentMethod=category.trim().toUpperCase()==='CCAP'?'CCAP':(t.payment_method||'Cash');if(category.trim().toUpperCase()!=='CCAP'){paymentMethod=prompt('Payment method:',paymentMethod);if(paymentMethod===null)return;}}const {error}=await sb.from('daycare_transactions').update({entry_date:entryDate,week_start:weekStart,week_end:weekEnd,entry_type:type,category,amount,notes,payment_method:paymentMethod}).eq('id',id).eq('user_id',user.id);if(error)return alert('Could not update transaction: '+error.message);await loadAll();alert('Transaction updated.')};
 window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id));if(!t)return alert('Transaction not found.');const reason=prompt('Why are you deleting this transaction? (Required)');if(reason===null)return;if(!reason.trim())return alert('Please enter a deletion reason.');if(!confirm('Move this transaction to history and remove it from current totals?'))return;const history={transaction_id:String(t.id),user_id:user.id,transaction_data:t,deletion_reason:reason.trim(),deleted_by:user.id};const {error:historyError}=await sb.from('daycare_transaction_history').insert(history);if(historyError)return alert('Could not save transaction history. Nothing was deleted. '+historyError.message);const {error}=await sb.from('daycare_transactions').delete().eq('id',id).eq('user_id',user.id);if(error)return alert('History was saved, but the transaction could not be removed from current records. '+error.message);await loadAll();alert('Transaction moved to history.')};
  function syncPaymentMethodToCategory(){
