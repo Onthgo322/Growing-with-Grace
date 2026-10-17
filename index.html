@@ -632,17 +632,18 @@ const monthTransactions = transactions
 
         // Charges count only when dated Monday through Friday.
         
+
 const charges = transactions
   .filter(t =>
     t.entry_type === 'Charge' &&
-    (
-      t.category === 'CCAP'
-        ? t.entry_date >= from && t.entry_date <= to
-        : t.week_start === from
-    )
+    t.entry_date >= from &&
+    t.entry_date <= to &&
+    Number((t.entry_date || '').slice(0, 4)) === year &&
+    Number((t.entry_date || '').slice(5, 7)) === month + 1
   )
   .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
+       
        // Payments count even when received on a weekend.
 
 
