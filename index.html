@@ -1246,7 +1246,7 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
       $('txNotes').value='';
       await loadAll();
       keepChildSelectedAfterTransaction(child.id);
-      alert('Entry saved. The child will stay selected for your next transaction and reset after 30 minutes without another saved transaction.');
+      /* Entry saved successfully; suppress the repetitive confirmation popup. */
     }catch(error){
       alert('Could not save entry: '+(error?.message||String(error)));
     }finally{
