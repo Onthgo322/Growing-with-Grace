@@ -195,7 +195,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="field"><label>Week ends</label><input type="date" id="weekEnd"></div>
  <div class="field"><label>Entry date</label><input type="date" id="entryDate"></div><div class="field"><label>Category</label><select id="txCategory"><option>Regular daycare</option><option>CCAP</option><option>Non-school day</option><option>Summer</option><option>Enrollment fee</option><option>Registration/insurance</option><option>Activity fee</option><option>Late pickup</option><option>Late payment fee</option><option>Other</option></select></div>
 <div class="field"><label>Payment method (payments only)</label><select id="payMethod"><option>Cash</option><option>Check</option><option>Cash App</option><option>Direct deposit</option><option>CCAP</option><option>Other</option></select></div><div class="field"><label>Amount ($)</label><input type="number" min="0" step=".01" id="txAmount"></div>
-<div class="field" id="ccapDayFields" style="display:grid"><label>School attendance days this month</label><input type="number" id="ccapSchoolDays" min="0" max="31" step="1" value="0"></div><div class="field" id="ccapNonSchoolField" style="display:none"><label>Non-school attandance days this month </label><input type="number" id="ccapNonSchoolDays" min="0" max="31" step="1" value="0"></div>
+<div class="field" id="ccapFlatField" style="grid-column:1/-1;display:none"><label><input type="checkbox" id="ccapFlatCharge" style="width:auto;margin-right:8px">One-time flat CCAP charge (enter amount manually, such as $150)</label></div><div class="field" id="ccapDayFields" style="display:grid"><label>School attendance days this month</label><input type="number" id="ccapSchoolDays" min="0" max="31" step="1" value="0"></div><div class="field" id="ccapNonSchoolField" style="display:none"><label>Non-school attandance days this month </label><input type="number" id="ccapNonSchoolDays" min="0" max="31" step="1" value="0"></div>
  <div class="field" id="ccapDaycareField" style="display:none"><label>Not school-aged attendance days this month (not in school)</label><input type="number" id="ccapDaycareDays" min="0" max="31" step="1" value="5"></div>
  <div class="field" style="grid-column:1/-1"><label>Notes / check number / details</label><textarea id="txNotes"></textarea></div></div>
 <div class="row"><button class="primary" id="saveTx">Save entry</button><button id="fillRate">Fill weekly rate</button></div><p class="muted small">Suggested weekly rates from your fee schedule: Infant $245, 2-Year $240, 3-Year $235, 4-Year $230, 5–12 Years $225, Before/After School Care $150. Enrollment $100; registration/insurance $40; activity fee $35 where applicable. Confirm the applicable schedule before saving. Late pickup: $5/minute; late payment: $15/day.</p>
@@ -1049,6 +1049,7 @@ function countWeekdaysInMonth(dateValue){
   return count;
 }
 function updateCcapMonthlyCalculation(){
+  if($('ccapFlatCharge')?.checked)return;
   if($('txType').value!=='Charge'||$('txCategory').value!=='CCAP')return;
   const child=children.find(c=>c.id===$('txChild').value);
   const date=$('entryDate').value;
@@ -1104,6 +1105,7 @@ $('fillRate').onclick=()=>{
   let amt=0;
  const ageRate=rates.filter(x=>x.category==='5–12 Years'&&x.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
   if($('txCategory').value==='CCAP'){
+    if($('ccapFlatCharge')?.checked)return alert('Flat CCAP charge selected. Enter the amount manually; the day-based calculation was skipped.');
     const schoolDays=Number($('ccapSchoolDays').value||0);
     const nonSchoolDays=Number($('ccapNonSchoolDays').value||0);
     const daycareDays=Number($('ccapDaycareDays').value||0);
@@ -1157,16 +1159,19 @@ function toggleCcapDayFields(){
  const isSchoolAge=!!child&&(child.rate_category==='Before/After School Care'||child.rate_category==='5–12 Years');
  const showSchool=isCcapCharge&&isSchoolAge;
  const showDaycare=isCcapCharge&&!!child&&!isSchoolAge;
- $('ccapDayFields').style.display=showSchool?'':'none';
- $('ccapNonSchoolField').style.display=showSchool?'':'none';
- $('ccapDaycareField').style.display=showDaycare?'':'none';
+ $('ccapFlatField').style.display=isCcapCharge?'':'none';
+ const flat=$('ccapFlatCharge')?.checked===true;
+ $('ccapDayFields').style.display=showSchool&&!flat?'':'none';
+ $('ccapNonSchoolField').style.display=showSchool&&!flat?'':'none';
+ $('ccapDaycareField').style.display=showDaycare&&!flat?'':'none';
  }
 $('txCategory').addEventListener('change',toggleCcapDayFields);
 $('txType').addEventListener('change',toggleCcapDayFields);
 $('txChild').addEventListener('change',toggleCcapDayFields);
+$('ccapFlatCharge').addEventListener('change',()=>{if($('ccapFlatCharge').checked){$('txAmount').value='';}else if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'){updateCcapMonthlyCalculation();}toggleCcapDayFields();});
 toggleCcapDayFields();
 ['txChild','txType','txCategory','entryDate'].forEach(id=>$(id).addEventListener('change',()=>{
-  if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'){
+  if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'&&!$('ccapFlatCharge').checked){
     if($('ccapDaycareDays').dataset.userEdited!=='1')$('ccapDaycareDays').value=countWeekdaysInMonth($('entryDate').value);
     updateCcapMonthlyCalculation();
   }
