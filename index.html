@@ -1051,13 +1051,18 @@ const autoFillSavedRate=()=>{
 };
 ['txChild','txType','entryDate','weekStart','txCategory'].forEach(id=>$(id).addEventListener('change',autoFillSavedRate));
 function toggleCcapDayFields(){
-const show = $('txCategory').value === 'CCAP';
- $('ccapDayFields').style.display = show ? '' : 'none';
-  $('ccapNonSchoolField').style.display = show ? '' : 'none';
-  $('ccapDaycareField').style.display = show ? '' : 'none';
-  }
+ const child=children.find(c=>c.id===$('txChild').value);
+ const isCcapCharge=$('txType').value==='Charge'&&$('txCategory').value==='CCAP';
+ const isSchoolAge=!!child&&child.rate_category==='Before/After School Care';
+ const showSchool=isCcapCharge&&isSchoolAge;
+ const showDaycare=isCcapCharge&&!!child&&!isSchoolAge;
+ $('ccapDayFields').style.display=showSchool?'':'none';
+ $('ccapNonSchoolField').style.display=showSchool?'':'none';
+ $('ccapDaycareField').style.display=showDaycare?'':'none';
+ }
 $('txCategory').addEventListener('change',toggleCcapDayFields);
 $('txType').addEventListener('change',toggleCcapDayFields);
+$('txChild').addEventListener('change',toggleCcapDayFields);
 toggleCcapDayFields();
  window.editTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id));if(!t)return alert('Transaction not found.');const entryDate=prompt('Entry date (YYYY-MM-DD):',t.entry_date||'');if(entryDate===null)return;const weekStart=prompt('Week starts (YYYY-MM-DD):',t.week_start||'');if(weekStart===null)return;const weekEnd=prompt('Week ends (YYYY-MM-DD):',t.week_end||'');if(weekEnd===null)return;const type=prompt('Entry type (Charge or Payment):',t.entry_type||'Charge');if(type===null)return;if(!['Charge','Payment'].includes(type))return alert('Entry type must be Charge or Payment.');const category=prompt('Category:',t.category||'Other');if(category===null)return;const amountText=prompt('Amount:',Number(t.amount||0).toFixed(2));if(amountText===null)return;const amount=Number(amountText);if(!Number.isFinite(amount)||amount<0)return alert('Enter a valid amount.');const notes=prompt('Notes / details:',t.notes||'');if(notes===null)return;let paymentMethod=null;if(type==='Payment'){paymentMethod=category.trim().toUpperCase()==='CCAP'?'CCAP':(t.payment_method||'Cash');if(category.trim().toUpperCase()!=='CCAP'){paymentMethod=prompt('Payment method:',paymentMethod);if(paymentMethod===null)return;}}const {error}=await sb.from('daycare_transactions').update({entry_date:entryDate,week_start:weekStart,week_end:weekEnd,entry_type:type,category,amount,notes,payment_method:paymentMethod}).eq('id',id).eq('user_id',user.id);if(error)return alert('Could not update transaction: '+error.message);await loadAll();alert('Transaction updated.')};
 window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id));if(!t)return alert('Transaction not found.');const reason=prompt('Why are you deleting this transaction? (Required)');if(reason===null)return;if(!reason.trim())return alert('Please enter a deletion reason.');if(!confirm('Move this transaction to history and remove it from current totals?'))return;const history={transaction_id:String(t.id),user_id:user.id,transaction_data:t,deletion_reason:reason.trim(),deleted_by:user.id};const {error:historyError}=await sb.from('daycare_transaction_history').insert(history);if(historyError)return alert('Could not save transaction history. Nothing was deleted. '+historyError.message);const {error}=await sb.from('daycare_transactions').delete().eq('id',id).eq('user_id',user.id);if(error)return alert('History was saved, but the transaction could not be removed from current records. '+error.message);await loadAll();alert('Transaction moved to history.')};
