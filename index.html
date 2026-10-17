@@ -700,14 +700,6 @@ Object.keys(methodTotals).forEach(method => {
     .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 });
 
-      }
-
-      return t.entry_type === 'Payment' &&
-        t.payment_method === method;
-    })
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-});
-
        
         const credits = transactions
           .filter(t =>
