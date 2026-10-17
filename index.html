@@ -685,15 +685,13 @@ Object.keys(methodTotals).forEach(method => {
 
       if (!inWeek) return false;
 
+
       if (method === 'CCAP') {
-        return (
-          (t.entry_type === 'Payment' &&
-            String(t.payment_method || '').trim().toUpperCase() === 'CCAP') ||
-          (t.entry_type === 'Charge' &&
-            String(t.category || '').trim().toUpperCase() === 'CCAP')
-        );
+        return t.entry_type === 'Payment' &&
+          String(t.payment_method || '').trim().toUpperCase() === 'CCAP';
       }
 
+     
       return t.entry_type === 'Payment' &&
         t.payment_method === method;
     })
