@@ -269,7 +269,7 @@ function keepChildSelectedAfterTransaction(childId){
     childSelectionResetTimer=null;
   },30*60*1000);
 }
-const $=id=>document.getElementById(id), money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD'}); function displayDate(value){const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[2]}${m[3]}${m[1]}`:String(value||'')}
+const $=id=>document.getElementById(id), money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD'}); function displayDate(value){const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[2]}-${m[3]}-${m[1]}`:String(value||'')}
 const today=()=>new Date().toISOString().slice(0,10);
 $('rateDate').value=today();
 
