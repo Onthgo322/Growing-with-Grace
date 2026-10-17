@@ -720,6 +720,17 @@ const charges = transactions
        
 
 
+const normalizeLedgerPaymentMethod = value => {
+  const method = String(value || '').trim().toLowerCase().replace(/[ _-]+/g, ' ');
+  if (method === 'cash') return 'Cash';
+  if (method === 'check' || method === 'cheque') return 'Check';
+  if (method === 'cash app' || method === 'cashapp') return 'Cash App';
+  if (method === 'direct deposit' || method === 'deposit' || method === 'bank deposit' || method === 'bank transfer' || method === 'electronic deposit') return 'Direct deposit';
+  if (method === 'ccap') return 'CCAP';
+  if (method === 'other') return 'Other';
+  return 'Other';
+};
+
 const methodTotals = {
   'Cash': 0,
   'Check': 0,
@@ -729,29 +740,14 @@ const methodTotals = {
   'Other': 0
 };
 
-Object.keys(methodTotals).forEach(method => {
-  methodTotals[method] = transactions
-    .filter(t => {
-      const date = t.entry_date || '';
-      const inWeek =
-        date >= from &&
-        date <= weekEnd &&
-        Number(date.slice(0, 4)) === year &&
-        Number(date.slice(5, 7)) === month + 1;
-
-      if (!inWeek) return false;
-
-
-      if (method === 'CCAP') {
-        return t.entry_type === 'Payment' &&
-          String(t.payment_method || '').trim().toUpperCase() === 'CCAP';
-      }
-
-     
-      return t.entry_type === 'Payment' &&
-        t.payment_method === method;
-    })
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+transactions.forEach(t => {
+  const date = t.entry_date || '';
+  const inWeek = date >= from && date <= weekEnd &&
+    Number(date.slice(0, 4)) === year &&
+    Number(date.slice(5, 7)) === month + 1;
+  if (!inWeek || t.entry_type !== 'Payment') return;
+  const method = normalizeLedgerPaymentMethod(t.payment_method);
+  methodTotals[method] += Number(t.amount || 0);
 });
 
        
