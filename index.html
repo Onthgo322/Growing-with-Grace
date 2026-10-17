@@ -663,7 +663,10 @@ const charges = transactions
     // Monthly CCAP charges belong to the month of their billing-period start,
     // and should appear once in that month's ledger even when the period spans the month.
     if (isMonthlyCCAP) {
-      return Number(billingStart.slice(0, 4)) === year &&
+      // Show a monthly CCAP charge only in the single ledger week containing
+      // the billing-period start date, not in every week of that month.
+      return billingStart >= from && billingStart <= to &&
+        Number(billingStart.slice(0, 4)) === year &&
         Number(billingStart.slice(5, 7)) === month + 1;
     }
     // Regular weekly charges belong to the week containing their billing-period start.
