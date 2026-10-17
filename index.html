@@ -306,6 +306,10 @@ $('entryDate').addEventListener('change', () => {
   if ($('txType').value === 'Charge' && $('txCategory').value === 'CCAP') updateCcapMonthlyCalculation();
 });
 $('weekEnd').addEventListener('change',()=>{if($('weekEnd').value)$('entryDate').value=$('weekEnd').value;});
+const entryDateHelp=document.createElement('small');
+entryDateHelp.className='muted';
+entryDateHelp.textContent='Entry Date defaults to Week Ends (Friday). You can change Entry Date manually if needed.';
+if($('entryDate')&&!$('entryDateHelp')){entryDateHelp.id='entryDateHelp';$('entryDate').insertAdjacentElement('afterend',entryDateHelp);}
 function advanceEntryWeek(){
   const start=$('weekStart').value;
   const end=$('weekEnd').value;
