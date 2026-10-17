@@ -833,7 +833,25 @@ Object.keys(monthPaymentMethods).forEach(method => {
 
 
 
-function renderRates(){ const categoryOrder={'Infant':1,'2-Year':2,'3-Year':3,'4-Year':4,'5–12 Years':5,'Before/After School Care':6}; const sortedRates=[...rates].sort((a,b)=>b.effective_date.localeCompare(a.effective_date)||(categoryOrder[a.category]||99)-(categoryOrder[b.category]||99)||String(a.category).localeCompare(String(b.category))); $('ratesRows').innerHTML=sortedRates.map(r=>`<tr><td>${r.effective_date}</td><td>${esc(r.category)}</td><td>${money(r.school_day)}</td><td>${money(r.non_school_day)}</td><td>${money(r.summer)}</td><td>${money(r.ccap)}</td><td>${Number(r.employee_discount_percent||0)}%</td><td><button type="button" onclick="window.editRateDate('${String(r.id||'').replace(/'/g,"\\'")}','${String(r.category).replace(/'/g,"\\'")}','${r.effective_date}')">Edit date</button></td></tr>`).join('')||'<tr><td colspan="8">No rate schedules saved yet.</td></tr>'}
+function renderRates(){ const categoryOrder={'Infant':1,'2-Year':2,'3-Year':3,'4-Year':4,'5–12 Years':5,'Before/After School Care':6}; const sortedRates=[...rates].sort((a,b)=>b.effective_date.localeCompare(a.effective_date)||(categoryOrder[a.category]||99)-(categoryOrder[b.category]||99)||String(a.category).localeCompare(String(b.category))); $('ratesRows').innerHTML=sortedRates.map(r=>`<tr><td>${r.effective_date}</td><td>${esc(r.category)}</td><td>${money(r.school_day)}</td><td>${money(r.non_school_day)}</td><td>${money(r.summer)}</td><td>${money(r.ccap)}</td><td>${Number(r.employee_discount_percent||0)}%</td><td><button type="button" onclick="window.editRateAmounts('${String(r.id||'').replace(/'/g,"\\'")}','${String(r.category).replace(/'/g,"\\'")}','${r.effective_date}')">Edit rate</button> <button type="button" onclick="window.editRateDate('${String(r.id||'').replace(/'/g,"\\'")}','${String(r.category).replace(/'/g,"\\'")}','${r.effective_date}')">Edit date</button></td></tr>`).join('')||'<tr><td colspan="8">No rate schedules saved yet.</td></tr>'}
+window.editRateAmounts=async(id,category,effectiveDate)=>{
+ const r=rates.find(x=>String(x.id)===String(id));
+ if(!r)return alert('Rate schedule not found. Refresh the page and try again.');
+ const ask=(label,value)=>prompt(label,Number(value||0).toFixed(2));
+ const schoolText=ask('School-day weekly rate for '+category+' effective '+effectiveDate+':',r.school_day);if(schoolText===null)return;
+ const nonSchoolText=ask('Non-school-day weekly rate:',r.non_school_day);if(nonSchoolText===null)return;
+ const summerText=ask('Summer weekly rate:',r.summer);if(summerText===null)return;
+ const ccapText=ask('CCAP weekly rate:',r.ccap);if(ccapText===null)return;
+ const discountText=prompt('Employee discount percentage (0–100):',String(Number(r.employee_discount_percent||0)));if(discountText===null)return;
+ const values=[schoolText,nonSchoolText,summerText,ccapText].map(Number);
+ const discount=Number(discountText);
+ if(values.some((v,i)=>!Number.isFinite(v)||v<0||String([schoolText,nonSchoolText,summerText,ccapText][i]).trim()==='')||!Number.isFinite(discount)||discount<0||discount>100)return alert('Enter valid non-negative rate amounts and a discount from 0 to 100. No changes were made.');
+ if(!confirm('Save corrected amounts for '+category+' effective '+effectiveDate+'? Previously recorded charges and payments will not change.'))return;
+ const {error}=await sb.from('daycare_rates').update({school_day:values[0],non_school_day:values[1],summer:values[2],ccap:values[3],employee_discount_percent:discount}).eq('id',id).eq('user_id',user.id);
+ if(error)return alert('Could not update rate: '+error.message);
+ await loadAll();
+ alert('Rate amounts updated. Previously recorded transactions were not changed.');
+};
 function printReport(){
   document.body.dataset.printMode = 'report';
   window.print();
