@@ -1022,7 +1022,7 @@ amt=$('txCategory').value==='Non-school day'?Number(r.summer||0):$('txCategory')
 }
   $('txAmount').value=Number(amt||0).toFixed(2);
 };
-const autoFillRate=()=>{if($('txType').value==='Charge')$('fillRate').onclick()};['txChild','txType','weekStart','txCategory'].forEach(id=>$(id).addEventListener('change',autoFillRate));
+// Do not automatically look up a rate when entering a charge. One-time charges can be entered manually; use Fill weekly rate only when a saved rate is wanted.
 function toggleCcapDayFields(){
 const show = $('txCategory').value === 'CCAP';
  $('ccapDayFields').style.display = show ? '' : 'none';
