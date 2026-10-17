@@ -191,9 +191,9 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <section class="panel tabpage hidden" id="page-entry"><h2>Charges & Payments</h2><div class="grid">
 <div class="field"><label>Child</label><select id="txChild"></select></div>
 <div class="field"><label>Entry type</label><select id="txType"><option>Charge</option><option>Payment</option><option>Credit / Adjustment</option></select></div>
-<div class="field"><label>Week starts</label><input type="date" id="weekStart"></div>
-<div class="field"><label>Week ends</label><input type="date" id="weekEnd"></div>
- <div class="field"><label>Entry date</label><input type="date" id="entryDate"></div><div class="field"><label>Category</label><select id="txCategory"><option>Regular daycare</option><option>CCAP</option><option>Non-school day</option><option>Summer</option><option>Enrollment fee</option><option>Registration/insurance</option><option>Activity fee</option><option>Late pickup</option><option>Late payment fee</option><option>Other</option></select></div>
+<div class="field"><label>Week starts (MMDDYYYY)</label><input type="text" id="weekStart" inputmode="numeric" placeholder="MMDDYYYY"></div>
+<div class="field"><label>Week ends (MMDDYYYY)</label><input type="text" id="weekEnd" inputmode="numeric" placeholder="MMDDYYYY"></div>
+ <div class="field"><label>Entry date (MMDDYYYY)</label><input type="text" id="entryDate" inputmode="numeric" placeholder="MMDDYYYY"></div><div class="field"><label>Category</label><select id="txCategory"><option>Regular daycare</option><option>CCAP</option><option>Non-school day</option><option>Summer</option><option>Enrollment fee</option><option>Registration/insurance</option><option>Activity fee</option><option>Late pickup</option><option>Late payment fee</option><option>Other</option></select></div>
 <div class="field"><label>Payment method (payments only)</label><select id="payMethod"><option>Cash</option><option>Check</option><option>Cash App</option><option>Direct deposit</option><option>CCAP</option><option>Other</option></select></div><div class="field"><label>Amount ($)</label><input type="number" min="0" step=".01" id="txAmount"></div>
 <div class="field" id="ccapFlatField" style="grid-column:1/-1;display:none"><label><input type="checkbox" id="ccapFlatCharge" style="width:auto;margin-right:8px">One-time flat CCAP charge (enter amount manually, such as $150)</label></div><div class="field" id="ccapDayFields" style="display:grid"><label>School attendance days this month</label><input type="number" id="ccapSchoolDays" min="0" max="31" step="1" value="0"></div><div class="field" id="ccapNonSchoolField" style="display:none"><label>Non-school attandance days this month </label><input type="number" id="ccapNonSchoolDays" min="0" max="31" step="1" value="0"></div>
  <div class="field" id="ccapDaycareField" style="display:none"><label>Not school-aged attendance days this month (not in school)</label><input type="number" id="ccapDaycareDays" min="0" max="31" step="1" value="5"></div>
@@ -277,6 +277,7 @@ function setEntryWeek(dateValue) {
 }
 
 $('entryDate').value = today();
+['weekStart','weekEnd','entryDate'].forEach(id=>$(id).addEventListener('blur',()=>normalizeFlexibleDateField(id)));
 setEntryWeek(today());
 $('entryDate').addEventListener('change', () => {
   // Keep the care-week dates independent from the transaction/month date.
@@ -361,6 +362,14 @@ function renderAll(){renderChildren();renderRates();renderTx();renderDashboard()
 
 
 
+function normalizeFlexibleDateField(id){
+ const el=$(id);if(!el)return true;const raw=el.value.trim();if(!raw)return true;
+ let month,day,year;const compact=raw.replace(/[\\/.-]/g,'');
+ if(/^\\d{8}$/.test(compact)){month=Number(compact.slice(0,2));day=Number(compact.slice(2,4));year=Number(compact.slice(4,8));}
+ else {const m=raw.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})$/);if(!m){alert('Enter date as MMDDYYYY, MM/DD/YYYY, or MM-DD-YYYY.');el.focus();return false;}month=Number(m[1]);day=Number(m[2]);year=Number(m[3]);}
+ const d=new Date(Date.UTC(year,month-1,day));if(month<1||month>12||d.getUTCFullYear()!==year||d.getUTCMonth()!==month-1||d.getUTCDate()!==day){alert('Please enter a valid date as MMDDYYYY, MM/DD/YYYY, or MM-DD-YYYY.');el.focus();return false;}
+ el.value=year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');return true;
+}
 function categoryForBirthdate(birthdate, asOf = today()) {
   if (!birthdate) return '';
   const birth = new Date(birthdate + 'T12:00:00');
