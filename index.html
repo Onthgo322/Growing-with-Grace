@@ -185,6 +185,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
  <section class="panel tabpage hidden" id="page-rates"><h2>Rates</h2><p class="muted">These editable rates apply to new charges only. Previously recorded charges are not changed when you update a rate.</p>
 <div class="grid"><div class="field"><label>Category</label><select id="rateCategory"><option>Infant</option><option>2-Year</option><option>3-Year</option><option>4-Year</option><option>5–12 Years</option><option>Before/After School Care</option></select></div><div class="field"><label>Effective date</label><input type="date" id="rateDate"></div><div class="field"><label>School-day weekly rate ($)</label><input type="number" min="0" step=".01" id="schoolRate"></div><div class="field"><label>Non-school-day rate ($)</label><input type="number" min="0" step=".01" id="nonSchoolRate"></div><div class="field"><label>Summer weekly rate ($)</label><input type="number" min="0" step=".01" id="summerRate"></div><div class="field"><label>CCAP weekly rate ($)</label><input type="number" min="0" step=".01" id="ccapRate"></div><div class="field"><label>Employee discount (%)</label><input type="number" min="0" max="100" step=".01" id="discountRate"></div></div>
 <button class="primary" id="saveRate">Save rate schedule</button>
+<button type="button" id="moveCurrentRatesToJuly" style="margin-top:8px">Set current rates to July 1, 2026</button>
 <h3>Saved rate schedules</h3><div class="tablewrap"><table><thead><tr><th>Effective</th><th>Category</th><th>School day</th><th>Non-school day</th><th>Summer</th><th>CCAP</th><th>Employee discount</th><th>Actions</th></tr></thead><tbody id="ratesRows"></tbody></table></div></section>
 
 <section class="panel tabpage hidden" id="page-entry"><h2>Charges & Payments</h2><div class="grid">
@@ -844,6 +845,27 @@ Object.keys(monthPaymentMethods).forEach(method => {
 
 
 function renderRates(){ const categoryOrder={'Infant':1,'2-Year':2,'3-Year':3,'4-Year':4,'5–12 Years':5,'Before/After School Care':6}; const sortedRates=[...rates].sort((a,b)=>b.effective_date.localeCompare(a.effective_date)||(categoryOrder[a.category]||99)-(categoryOrder[b.category]||99)||String(a.category).localeCompare(String(b.category))); $('ratesRows').innerHTML=sortedRates.map(r=>`<tr><td>${r.effective_date}</td><td>${esc(r.category)}</td><td>${money(r.school_day)}</td><td>${money(r.non_school_day)}</td><td>${money(r.summer)}</td><td>${money(r.ccap)}</td><td>${Number(r.employee_discount_percent||0)}%</td><td><button type="button" onclick="window.editRateAmounts('${String(r.id||'').replace(/'/g,"\\'")}','${String(r.category).replace(/'/g,"\\'")}','${r.effective_date}')">Edit rate</button> <button type="button" onclick="window.editRateDate('${String(r.id||'').replace(/'/g,"\\'")}','${String(r.category).replace(/'/g,"\\'")}','${r.effective_date}')">Edit date</button></td></tr>`).join('')||'<tr><td colspan="8">No rate schedules saved yet.</td></tr>'}
+$('moveCurrentRatesToJuly').onclick=async()=>{
+ const target='2026-07-01',current='2026-08-01';
+ const expected=['Infant','2-Year','3-Year','4-Year','5–12 Years','Before/After School Care'];
+ const moving=rates.filter(r=>r.effective_date===current&&expected.includes(r.category));
+ if(moving.length!==expected.length||expected.some(category=>!moving.some(r=>r.category===category))){
+  return alert('I could not verify all six current rate schedules dated 08/01/2026. Nothing was changed. Please refresh Rates and check the saved schedules.');
+ }
+ const conflicts=expected.filter(category=>rates.some(r=>r.category===category&&r.effective_date===target));
+ if(conflicts.length)return alert('A July 1, 2026 schedule already exists for: '+conflicts.join(', ')+'. Nothing was changed.');
+ if(!confirm('Change all six current rate schedules from August 1, 2026 to July 1, 2026? The old January 1 schedules will remain. Existing ledger transactions will NOT be changed or recalculated.'))return;
+ const button=$('moveCurrentRatesToJuly');button.disabled=true;const label=button.textContent;button.textContent='Updating…';
+ try{
+  for(const r of moving){
+   const {error}=await sb.from('daycare_rates').update({effective_date:target}).eq('id',r.id).eq('user_id',user.id);
+   if(error){alert('Stopped while updating '+r.category+': '+error.message+'. Some earlier schedules may already have changed; refresh Rates to verify.');await loadAll();return;}
+  }
+  await loadAll();
+  alert('The six current rate schedules are now effective July 1, 2026. Existing ledger transactions were not changed.');
+ }catch(e){alert('Could not finish updating rate dates: '+(e?.message||String(e))+'. Refresh Rates to verify.');}
+ finally{button.disabled=false;button.textContent=label;}
+};
 window.editRateAmounts=async(id,category,effectiveDate)=>{
  const r=rates.find(x=>String(x.id)===String(id));
  if(!r)return alert('Rate schedule not found. Refresh the page and try again.');
