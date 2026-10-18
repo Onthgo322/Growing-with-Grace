@@ -315,7 +315,11 @@ $('nextWeek').onclick=()=>{advanceEntryWeek();};
 $('repeatLastEntry').onclick=()=>{
   const childId=$('txChild').value;
   if(!childId)return alert('Select the child first.');
-  const previous=txs.filter(t=>String(t.child_id)===String(childId)).sort((a,b)=>(b.entry_date||'').localeCompare(a.entry_date||''))[0];
+  const selectedType=$('txType').value||'Charge';
+  const childEntries=txs.filter(t=>String(t.child_id)===String(childId));
+  const matchingType=childEntries.filter(t=>String(t.entry_type||'').toLowerCase()===String(selectedType).toLowerCase());
+  const pool=matchingType.length?matchingType:childEntries;
+  const previous=pool.sort((a,b)=>(b.entry_date||'').localeCompare(a.entry_date||''))[0];
   if(!previous)return alert('There is no saved entry for this child to repeat yet.');
   $('txType').value=previous.entry_type||'Charge';
   $('txCategory').value=previous.category||'Regular daycare';
