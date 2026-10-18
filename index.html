@@ -702,7 +702,7 @@ const monthTransactions = transactions
       }).join('');
 
 
-      // Each week belongs to the month in which its Friday (week end) falls.
+      // Each week belongs to the month in which its Monday (week start) falls.
       // This prevents cross-month weeks from appearing twice.
       const firstMonday = new Date(monthStart);
       firstMonday.setDate(
@@ -723,31 +723,24 @@ const monthTransactions = transactions
         const to = iso(friday);
         const weekEnd = iso(sunday);
 
-        // Charges belong to the month in which the billing week ends (Friday).
-const ledgerWeekEnd = t => {
-  if (t.week_end) return t.week_end;
-  const start = t.week_start || t.entry_date || '';
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(start)) return start;
-  const d = new Date(start + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + 4);
-  return d.toISOString().slice(0, 10);
-};
+        // Charges belong to the month in which the billing week starts (Monday).
+const ledgerWeekStart = t => t.week_start || t.entry_date || '';
 const charges = transactions
   .filter(t => {
     if (t.entry_type !== 'Charge') return false;
     const billingStart = t.week_start || t.entry_date || '';
-    const billingEnd = ledgerWeekEnd(t);
+    const billingStart = ledgerWeekStart(t);
     const isMonthlyCCAP = String(t.category || '').trim().toUpperCase() === 'CCAP';
     // Keep a one-time monthly CCAP charge in only the week containing its start,
-    // but assign that week to the month in which the week ends.
+    // and assign that week to the month in which the week starts.
     if (isMonthlyCCAP) {
       return billingStart >= from && billingStart <= to &&
-        Number(billingEnd.slice(0, 4)) === year &&
-        Number(billingEnd.slice(5, 7)) === month + 1;
+        Number(billingStart.slice(0, 4)) === year &&
+        Number(billingStart.slice(5, 7)) === month + 1;
     }
     return billingStart >= from && billingStart <= to &&
-      Number(billingEnd.slice(0, 4)) === year &&
-      Number(billingEnd.slice(5, 7)) === month + 1;
+      Number(billingStart.slice(0, 4)) === year &&
+      Number(billingStart.slice(5, 7)) === month + 1;
   })
   .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
@@ -763,8 +756,8 @@ const charges = transactions
              t.entry_type === 'Payment' &&
              date >= from &&
              date <= weekEnd &&
-             Number(ledgerWeekEnd(t).slice(0, 4)) === year &&
-             Number(ledgerWeekEnd(t).slice(5, 7)) === month + 1
+             Number(ledgerWeekStart(t).slice(0, 4)) === year &&
+             Number(ledgerWeekStart(t).slice(5, 7)) === month + 1
            );
          })
          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
@@ -795,8 +788,8 @@ const methodTotals = {
 transactions.forEach(t => {
   const date = t.week_start || t.entry_date || '';
   const inWeek = date >= from && date <= weekEnd &&
-    Number(ledgerWeekEnd(t).slice(0, 4)) === year &&
-    Number(ledgerWeekEnd(t).slice(5, 7)) === month + 1;
+    Number(ledgerWeekStart(t).slice(0, 4)) === year &&
+    Number(ledgerWeekStart(t).slice(5, 7)) === month + 1;
   if (!inWeek || t.entry_type !== 'Payment') return;
   const method = normalizeLedgerPaymentMethod(t.payment_method);
   methodTotals[method] += Number(t.amount || 0);
@@ -808,8 +801,8 @@ transactions.forEach(t => {
             t.entry_type === 'Credit / Adjustment' &&
             (t.week_start || t.entry_date || '') >= from &&
             (t.week_start || t.entry_date || '') <= to &&
-            Number(ledgerWeekEnd(t).slice(0,4)) === year &&
-            Number(ledgerWeekEnd(t).slice(5,7)) === month + 1
+            Number(ledgerWeekStart(t).slice(0,4)) === year &&
+            Number(ledgerWeekStart(t).slice(5,7)) === month + 1
           )
           .reduce((sum, t) => sum + Number(t.amount || 0), 0);
         monthCharges += charges;
@@ -821,7 +814,7 @@ Object.keys(monthPaymentMethods).forEach(method => {
    
        
         // Show only weeks that overlap this month.
-        if (friday >= monthStart && friday <= monthEnd){
+        if (monday >= monthStart && monday <= monthEnd){
           rows += `<tr>
             <td style="white-space:nowrap;line-height:1.45">${displayDate(from)} -<br>${displayDate(to)}</td>
             <td>${money(charges)}</td>
