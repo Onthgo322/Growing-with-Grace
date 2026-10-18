@@ -318,11 +318,15 @@ $('repeatLastEntry').onclick=()=>{
   const selectedType=$('txType').value||'Charge';
   const childEntries=txs.filter(t=>String(t.child_id)===String(childId));
   const matchingType=childEntries.filter(t=>String(t.entry_type||'').toLowerCase()===String(selectedType).toLowerCase());
-  const previous=matchingType.slice().sort((a,b)=>(b.entry_date||'').localeCompare(a.entry_date||''))[0];
+  const currentStart=$('weekStart').value;
+  const currentEnd=$('weekEnd').value;
+  // Prefer the entry for the week currently shown, rather than copying a different week's amount.
+  const currentWeekEntry=matchingType.find(t=>String(t.week_start||'')===currentStart&&String(t.week_end||'')===currentEnd);
+  const previous=currentWeekEntry||matchingType.filter(t=>(t.week_start||t.entry_date||'')<currentStart).slice().sort((a,b)=>(b.week_start||b.entry_date||'').localeCompare(a.week_start||a.entry_date||''))[0]||matchingType.slice().sort((a,b)=>(b.entry_date||'').localeCompare(a.entry_date||''))[0];
   if(!previous)return alert('There is no saved '+selectedType.toLowerCase()+' entry for this child to repeat yet.');
   const addDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
-  let targetStart=$('weekStart').value;
-  let targetEnd=$('weekEnd').value;
+  let targetStart=currentStart;
+  let targetEnd=currentEnd;
   if(targetStart&&targetEnd){targetStart=addDays(targetStart,7);targetEnd=addDays(targetEnd,7);}
   else{targetStart=addDays(previous.week_start||previous.entry_date||today(),7);targetEnd=addDays(previous.week_end||previous.entry_date||today(),7);}
   const duplicate=childEntries.find(t=>String(t.entry_type||'').toLowerCase()===String(selectedType).toLowerCase()&&String(t.week_start||'')===targetStart&&String(t.week_end||'')===targetEnd);
