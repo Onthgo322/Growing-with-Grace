@@ -338,8 +338,9 @@ $('repeatLastEntry').onclick=()=>{
   }
   $('txType').value=previous.entry_type||selectedType;
   $('txCategory').value=previous.category||'Regular daycare';
-  // Copy the previous amount as a starting point; the user can edit it before saving.
-  $('txAmount').value=Number(previous.amount||0).toFixed(2);
+  // Keep any amount the user has already entered; only copy the prior entry amount when blank.
+  const amountAlreadyEntered=String($('txAmount').value||'').trim();
+  if(!amountAlreadyEntered)$('txAmount').value=Number(previous.amount||0).toFixed(2);
   $('payMethod').value=previous.payment_method||'Cash';
   $('txNotes').value=previous.notes||'';
   $('txAmount').focus();
