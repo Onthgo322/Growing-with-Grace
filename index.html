@@ -409,8 +409,8 @@ $('connectBtn').onclick = async () => {
 $('forgetBtn').onclick=()=>{$('anonKey').value='';sb=null;user=null;$('authPanel').classList.add('hidden');$('app').classList.add('hidden');status('connectionStatus','Key cleared from this page.');};
 $('signUpBtn').onclick=async()=>{if(!sb)return;const {data,error}=await sb.auth.signUp({email:$('email').value.trim(),password:$('password').value});status('authStatus',error?error.message:'Account request submitted. If email confirmation is enabled, check your email before signing in.')};
 $('signInBtn').onclick=async()=>{if(!sb)return;const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error){status('authStatus',error.message);return}user=data.user;await startApp()};
-$('signOutBtn').onclick=async()=>{await sb.auth.signOut();user=null;$('app').classList.add('hidden');$('signOutBtn').classList.add('hidden');status('authStatus','Signed out.')};
-async function startApp(){ $('app').classList.remove('hidden');$('signOutBtn').classList.remove('hidden');$('signedInAs').textContent='Signed in: '+user.email;status('authStatus','Signed in.');await loadAll(); }
+$('signOutBtn').onclick=async()=>{await sb.auth.signOut();user=null;$('app').classList.add('hidden');$('authPanel').classList.remove('hidden');$('signOutBtn').classList.add('hidden');status('authStatus','Signed out.')};
+async function startApp(){ $('authPanel').classList.add('hidden');$('app').classList.remove('hidden');$('signOutBtn').classList.remove('hidden');$('signedInAs').textContent='Signed in: '+user.email;status('authStatus','Signed in.');await loadAll(); }
 
 
 
