@@ -1199,7 +1199,7 @@ function updateCcapMonthlyCalculation(){
     const schoolField=$('ccapSchoolDays'),nonSchoolField=$('ccapNonSchoolDays');
     const calendar=getCcapSchoolCalendar(child);
     if(calendar){
-      const index=month-1;
+      const index=month>=7?month-7:month+5;
       schoolField.value=calendar.school[index];
       nonSchoolField.value=calendar.nonSchool[index];
     }else if(Number(schoolField.value||0)===0&&Number(nonSchoolField.value||0)===0){
