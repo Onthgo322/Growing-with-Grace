@@ -174,7 +174,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
  <div class="field"><label>Fixed weekly rate ($)</label><input type="number" id="childFixedRate" min="0" step="0.01" placeholder="Example: 200.00"></div>
  <button class="primary" id="addChild">Add child</button>
  </div>
-<h3>Current children</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Category</th><th>Rate type</th><th>Employee discount</th><th>Weekly rate</th><th>Daily rate (÷ 5)</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
+<h3>Current children</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Age</th><th>Category</th><th>Category check</th><th>Rate type</th><th>Employee discount</th><th>Weekly rate</th><th>Daily rate (÷ 5)</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
 <section class="panel tabpage hidden" id="page-ledger">
   <button onclick="document.querySelector('[data-tab=&quot;children&quot;]').click()">← Back to Children</button>
   <h2 id="ledgerTitle">Child Ledger</h2>
@@ -543,10 +543,22 @@ function renderChildren() {
   $('childrenRows').innerHTML = children
     .filter(c => c.active !== false)
     .map(c => {
+      const expectedCategory = categoryForBirthdate(c.date_of_birth);
       const category =
         c.rate_category === 'Before/After School Care'
           ? c.rate_category
-          : (categoryForBirthdate(c.date_of_birth) || c.rate_category || '');
+          : (expectedCategory || c.rate_category || '');
+      const age = childAge(c.date_of_birth) || 'Birthday missing';
+      const categoryCheck =
+        c.rate_category === 'Before/After School Care'
+          ? 'School-care category'
+          : !c.date_of_birth
+            ? 'Add birthday'
+            : !expectedCategory
+              ? 'Check birthday'
+              : c.rate_category === expectedCategory
+                ? 'Matches age'
+                : 'Check: should be ' + expectedCategory;
 
       let weekly = 0;
 
@@ -572,11 +584,13 @@ function renderChildren() {
   
       return `<tr>
         <td><button type="button" onclick="window.openChildLedger('${c.id}')">${esc(c.name)}</button></td>
+        <td>${esc(age)}</td>
         <td>${esc(category)}</td>
+        <td>${esc(categoryCheck)}</td>
         <td>${c.rate_type === 'fixed' ? 'Fixed weekly' : 'Percentage'}</td>
         <td>${c.rate_type === 'fixed' ? '—' : Number(c.employee_discount_percent || 0) + '%'}</td>
-        <td>$${weekly.toFixed(2)}</td>
-        <td>$${(weekly / 5).toFixed(2)}</td>
+        <td>${weekly.toFixed(2)}</td>
+        <td>${(weekly / 5).toFixed(2)}</td>
         <td>
           <button onclick="editChild('${c.id}')">Edit</button>
           <button class="danger" onclick="archiveChild('${c.id}')">Archive</button>
@@ -584,7 +598,7 @@ function renderChildren() {
       </tr>`;
      
     })
-    .join('') || '<tr><td colspan="7">No children yet.</td></tr>';
+    .join('') || '<tr><td colspan="9">No children yet.</td></tr>';
 }
 
  
