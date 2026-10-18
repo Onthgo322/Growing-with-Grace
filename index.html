@@ -745,14 +745,14 @@ const charges = transactions
 
        const payments = transactions
          .filter(t => {
-           const date = t.week_start || t.entry_date || '';
-           return (
-             t.entry_type === 'Payment' &&
-             date >= from &&
-             date <= weekEnd &&
-             Number(ledgerWeekStart(t).slice(0, 4)) === year &&
-             Number(ledgerWeekStart(t).slice(5, 7)) === month + 1
-           );
+           // Use the actual entry date so payments are assigned to the month
+           // they were recorded, even if the billing week began earlier.
+           const paymentDate = t.entry_date || t.week_start || '';
+           return t.entry_type === 'Payment' &&
+             paymentDate >= from &&
+             paymentDate <= to &&
+             Number(paymentDate.slice(0, 4)) === year &&
+             Number(paymentDate.slice(5, 7)) === month + 1;
          })
          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
@@ -780,10 +780,10 @@ const methodTotals = {
 };
 
 transactions.forEach(t => {
-  const date = t.week_start || t.entry_date || '';
-  const inWeek = date >= from && date <= weekEnd &&
-    Number(ledgerWeekStart(t).slice(0, 4)) === year &&
-    Number(ledgerWeekStart(t).slice(5, 7)) === month + 1;
+  const date = t.entry_date || t.week_start || '';
+  const inWeek = date >= from && date <= to &&
+    Number(date.slice(0, 4)) === year &&
+    Number(date.slice(5, 7)) === month + 1;
   if (!inWeek || t.entry_type !== 'Payment') return;
   const method = normalizeLedgerPaymentMethod(t.payment_method);
   methodTotals[method] += Number(t.amount || 0);
