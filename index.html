@@ -728,7 +728,6 @@ const ledgerWeekStart = t => t.week_start || t.entry_date || '';
 const charges = transactions
   .filter(t => {
     if (t.entry_type !== 'Charge') return false;
-    const billingStart = t.week_start || t.entry_date || '';
     const billingStart = ledgerWeekStart(t);
     const isMonthlyCCAP = String(t.category || '').trim().toUpperCase() === 'CCAP';
     // Keep a one-time monthly CCAP charge in only the week containing its start,
