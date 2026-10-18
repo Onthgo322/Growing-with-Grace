@@ -723,23 +723,18 @@ const monthTransactions = transactions
         const to = iso(friday);
         const weekEnd = iso(sunday);
 
-        // Charges belong to the month in which the billing week starts (Monday).
+        // Weekly charges use their week-start date. Monthly CCAP charges use their
+// separate entry date so they appear in the month they cover, in the week
+// containing the first weekday entry date (even if that week began last month).
 const ledgerWeekStart = t => t.week_start || t.entry_date || '';
 const charges = transactions
   .filter(t => {
     if (t.entry_type !== 'Charge') return false;
-    const billingStart = ledgerWeekStart(t);
     const isMonthlyCCAP = String(t.category || '').trim().toUpperCase() === 'CCAP';
-    // Keep a one-time monthly CCAP charge in only the week containing its start,
-    // and assign that week to the month in which the week starts.
-    if (isMonthlyCCAP) {
-      return billingStart >= from && billingStart <= to &&
-        Number(billingStart.slice(0, 4)) === year &&
-        Number(billingStart.slice(5, 7)) === month + 1;
-    }
-    return billingStart >= from && billingStart <= to &&
-      Number(billingStart.slice(0, 4)) === year &&
-      Number(billingStart.slice(5, 7)) === month + 1;
+    const billingDate = isMonthlyCCAP ? (t.entry_date || t.week_start || '') : ledgerWeekStart(t);
+    return billingDate >= from && billingDate <= to &&
+      Number(billingDate.slice(0, 4)) === year &&
+      Number(billingDate.slice(5, 7)) === month + 1;
   })
   .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
