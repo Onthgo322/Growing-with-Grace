@@ -670,6 +670,7 @@ let detailHtml = '';
       const monthEnd = new Date(year, month + 1, 0);
       const beginningBalance = balance;
       let monthCharges = 0;
+      let monthCcapCharges = 0;
       let monthPayments = 0;
      let monthCredits = 0;
              const monthPaymentMethods = {
@@ -750,11 +751,19 @@ const ledgerBucketDate = t => {
   if (isMonthlyCCAP && date && Number(date.slice(0,4)) === year && Number(date.slice(5,7)) === month + 1 && date < firstVisibleWeekStart) return firstVisibleWeekStart;
   return date;
 };
+const ccapCharges = transactions
+  .filter(t => {
+    if (t.entry_type !== 'Charge' || String(t.category || '').trim().toUpperCase() !== 'CCAP') return false;
+    const billingDate = ledgerBucketDate(t);
+    return billingDate >= from && billingDate <= to &&
+      Number(billingDate.slice(0, 4)) === year &&
+      Number(billingDate.slice(5, 7)) === month + 1;
+  })
+  .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 const charges = transactions
   .filter(t => {
-    if (t.entry_type !== 'Charge') return false;
-    const isMonthlyCCAP = String(t.category || '').trim().toUpperCase() === 'CCAP';
-    const billingDate = isMonthlyCCAP ? ledgerBucketDate(t) : ledgerWeekStart(t);
+    if (t.entry_type !== 'Charge' || String(t.category || '').trim().toUpperCase() === 'CCAP') return false;
+    const billingDate = ledgerWeekStart(t);
     return billingDate >= from && billingDate <= to &&
       Number(billingDate.slice(0, 4)) === year &&
       Number(billingDate.slice(5, 7)) === month + 1;
@@ -822,7 +831,8 @@ transactions.forEach(t => {
             Number(ledgerWeekStart(t).slice(5,7)) === month + 1
           )
           .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-        monthCharges += charges;
+        monthCharges += charges + ccapCharges;
+        monthCcapCharges += ccapCharges;
         monthPayments += payments;
 monthCredits += credits;        
 Object.keys(monthPaymentMethods).forEach(method => {
@@ -835,6 +845,7 @@ Object.keys(monthPaymentMethods).forEach(method => {
           rows += `<tr>
             <td style="white-space:nowrap;line-height:1.45">${displayDate(from)} -<br>${displayDate(to)}</td>
             <td>${money(charges)}</td>
+<td>${money(ccapCharges)}</td>
 <td>${money(methodTotals['Cash'])}</td>
 <td>${money(methodTotals['Check'])}</td>
 <td>${money(methodTotals['Cash App'])}</td>
@@ -843,7 +854,7 @@ Object.keys(monthPaymentMethods).forEach(method => {
 <td>${money(methodTotals['Other'])}</td>
 <td>${money(credits)}</td>
              
-<td>${money(charges - payments - credits)}</td>
+<td>${money(charges + ccapCharges - payments - credits)}</td>
            
                      </tr>`;
         }
@@ -861,7 +872,8 @@ Object.keys(monthPaymentMethods).forEach(method => {
           <table>
             <thead><tr>
 <th>Monday–Friday</th>
-<th>Charges</th>
+<th>Regular Charges</th>
+<th>CCAP Charges</th>
 <th>Cash</th>
 <th>Check</th>
 <th>Cash App</th>
@@ -872,10 +884,11 @@ Object.keys(monthPaymentMethods).forEach(method => {
 <th>Difference</th>
              
                          </tr></thead>
-            <tbody>${rows || '<tr><td colspan="9">No transactions</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="10">No transactions</td></tr>'}</tbody>
             <tfoot><tr>
               <th>Month totals</th>
-             <th>${money(monthCharges)}</th>
+             <th>${money(monthCharges - monthCcapCharges)}</th>
+<th>${money(monthCcapCharges)}</th>
 <th>${money(monthPaymentMethods['Cash'])}</th>
 <th>${money(monthPaymentMethods['Check'])}</th>
 <th>${money(monthPaymentMethods['Cash App'])}</th>
