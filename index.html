@@ -1114,8 +1114,14 @@ function printChildLedger(){
     const table=$('duplicateCcapTable');
     const body=$('duplicateCcapRows');
     if(!chosen){status.textContent='Choose a child above first, then click Review duplicate charges & payments.';table.classList.add('hidden');return;}
+    // Include CCAP charges and CCAP payments. A CCAP payment may be marked
+    // either by category="CCAP" or by payment_method="CCAP".
+    const isCcapRecord=t=>
+      String(t.category||'').trim().toUpperCase()==='CCAP' ||
+      (String(t.entry_type||'').trim().toUpperCase()==='PAYMENT' &&
+       String(t.payment_method||'').trim().toUpperCase()==='CCAP');
     const groups=new Map();
-    txs.filter(t=>String(t.child_id)===String(chosen))
+    txs.filter(t=>String(t.child_id)===String(chosen) && isCcapRecord(t))
       .forEach(t=>{
         const key=[
           String(t.child_id),
@@ -1130,8 +1136,8 @@ function printChildLedger(){
       });
     const duplicates=[...groups.values()].filter(group=>group.length>1).flat()
       .sort((a,b)=>String(a.entry_date||'').localeCompare(String(b.entry_date||''))||String(a.id||'').localeCompare(String(b.id||'')));
-    if(!duplicates.length){status.textContent='No exact duplicate charges or payments found for this child (same type, category, date, amount, and payment method). No records were changed.';table.classList.add('hidden');body.innerHTML='';return;}
-    status.textContent='Found '+duplicates.length+' records in duplicate groups. Review each row carefully. Use Move to history only for an extra record you have confirmed should be removed from current totals. No records have been changed yet.';
+    if(!duplicates.length){status.textContent='No exact duplicate CCAP charges or payments found for this child (same type, category, date, amount, and payment method). No records were changed.';table.classList.add('hidden');body.innerHTML='';return;}
+    status.textContent='Found '+duplicates.length+' records in duplicate CCAP groups. This includes CCAP charges and payments marked with category CCAP or payment method CCAP. Review carefully; no records have been changed. Use Move to history only for an extra record you have confirmed should be removed from current totals.';
     body.innerHTML=duplicates.map(t=>'<tr><td>'+esc(displayDate(t.entry_date||''))+'</td><td>'+esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Archived child')+'</td><td>'+esc(t.entry_type||'')+'</td><td>'+esc(t.category||'')+'</td><td>'+money(t.amount)+'</td><td>'+esc(t.payment_method||'—')+'</td><td>'+esc(String(t.id))+'</td><td><button type="button" class="danger" onclick="deleteTransaction(\''+String(t.id).replace(/'/g,"\\'")+'\')">Move to history</button></td></tr>').join('');
     table.classList.remove('hidden');
   });
