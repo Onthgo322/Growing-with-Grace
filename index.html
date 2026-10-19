@@ -1453,7 +1453,8 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     const obj={user_id:user.id,child_id:child.id,week_start:$('weekStart').value,week_end:$('weekEnd').value,entry_date:entryDate,entry_type:$('txType').value,category:$('txCategory').value,payment_method:$('txType').value==='Payment' ? $('payMethod').value:null,amount,notes:$('txNotes').value.trim()};
     // CCAP is charged once per child per calendar month. Block a second
     // CCAP charge for that child and month before it can create another row.
-    const isMonthlyCcapCharge=obj.entry_type==='Charge' && String(obj.category||'').trim().toUpperCase()==='CCAP';
+    const isFlatCcapCharge=$('ccapFlatCharge')?.checked===true;
+    const isMonthlyCcapCharge=obj.entry_type==='Charge' && String(obj.category||'').trim().toUpperCase()==='CCAP' && !isFlatCcapCharge;
     if(isMonthlyCcapCharge){
       const monthKey=String(obj.entry_date||'').slice(0,7);
       const existingCcap=txs.find(t=>
@@ -1469,7 +1470,7 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     }
     // For non-CCAP transactions, warn about exact duplicates but allow a confirmed
     // separate legitimate transaction.
-    const likelyDuplicate=!isMonthlyCcapCharge && txs.find(t=>
+    const likelyDuplicate=!isMonthlyCcapCharge && !isFlatCcapCharge && txs.find(t=>
       String(t.child_id)===String(obj.child_id) &&
       String(t.entry_type||'')===obj.entry_type &&
       String(t.category||'').trim().toLowerCase()===obj.category.trim().toLowerCase() &&
