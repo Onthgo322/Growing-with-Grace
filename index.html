@@ -141,7 +141,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <h2>Connect your database</h2>
 <p class="muted">Your project URL is already entered. Paste the <b>publishable</b> key from Supabase → API Keys. This is not your service-role or secret key.</p>
 <div class="field"><label for="projectUrl">Supabase project URL</label><input id="projectUrl" value="https://qiypwbokgzlkvdydxpsk.supabase.co"></div>
-<div class="field"><label for="anonKey">Publishable key</label><input id="anonKey" type="password" autocomplete="off" placeholder="Paste sb_publishable_… key"value=""></div>
+<div class="field"><label for="anonKey">Publishable key</label><input id="anonKey" type="password" autocomplete="off" placeholder="Paste sb_publishable_… key" value=""></div>
 <div class="row"><button class="primary" id="connectBtn" style="background:#6f4a8e;color:white;display:inline-block!important;visibility:visible!important;opacity:1!important">Connect</button><button id="forgetBtn">Clear key from this browser</button></div>
  <div id="connectionStatus" class="status">Not connected.</div>
 </section>
@@ -270,6 +270,18 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Safe diagnostic runs independently if the main app script fails to initialize.
+document.addEventListener("DOMContentLoaded",()=>{
+  const connect=document.getElementById("connectBtn");
+  const message=document.getElementById("connectionStatus");
+  if(connect&&message){
+    connect.addEventListener("click",()=>{
+      if(!connect.onclick) message.textContent="The Connect button was tapped, but the app connection handler did not load. Please refresh once and try again.";
+    },true);
+  }
+});
+</script>
 <script>
 let sb=null,user=null,children=[],rates=[],txs=[];
 let childSelectionResetTimer=null;
