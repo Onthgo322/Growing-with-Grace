@@ -1377,7 +1377,7 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
       String(t.week_start||'')===obj.week_start &&
       String(t.week_end||'')===obj.week_end
     );
-    if(likelyDuplicate && !confirm('A transaction with the same child, type, category, amount, and dates is already saved. This may be a duplicate. Do you still want to save another one?\n\nChoose Cancel to keep the existing record and avoid adding a duplicate. Choose OK only if this is a separate legitimate transaction.'))return;
+    if(likelyDuplicate && !confirm('A transaction with the same child, type, category, amount, and dates is already saved. This may be a duplicate. Do you still want to save another one?\\n\\nChoose Cancel to keep the existing record and avoid adding a duplicate. Choose OK only if this is a separate legitimate transaction.'))return;
     button.disabled=true;
     const originalLabel=button.textContent;
     button.textContent='Saving…';
