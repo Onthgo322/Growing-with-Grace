@@ -1461,7 +1461,9 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
         String(t.child_id)===String(obj.child_id) &&
         String(t.entry_type||'')==='Charge' &&
         String(t.category||'').trim().toUpperCase()==='CCAP' &&
-        String(t.entry_date||'').slice(0,7)===monthKey
+        String(t.entry_date||'').slice(0,7)===monthKey &&
+        // A $150 one-time flat CCAP fee is separate from the regular calculated monthly CCAP charge.
+        !(Math.round(Number(t.amount||0)*100)===15000)
       );
       if(existingCcap){
         alert('A CCAP charge is already saved for '+child.name+' for '+monthKey+'. No new entry was added. Check Recent Transactions before entering CCAP again.');
