@@ -1134,10 +1134,12 @@ function printChildLedger(){
         if(!groups.has(key))groups.set(key,[]);
         groups.get(key).push(t);
       });
-    const duplicates=[...groups.values()].filter(group=>group.length>1).flat()
+    // Keep the first matching record as the original and show only additional matching records here.
+    // This review list does not remove or alter anything in Recent Transactions.
+    const duplicates=[...groups.values()].filter(group=>group.length>1).flatMap(group=>group.slice(1))
       .sort((a,b)=>String(a.entry_date||'').localeCompare(String(b.entry_date||''))||String(a.id||'').localeCompare(String(b.id||'')));
     if(!duplicates.length){status.textContent='No exact duplicate CCAP charges or payments found for this child (same type, category, date, amount, and payment method). No records were changed.';table.classList.add('hidden');body.innerHTML='';return;}
-    status.textContent='Found '+duplicates.length+' records in duplicate CCAP groups. This includes CCAP charges and payments marked with category CCAP or payment method CCAP. Review carefully; no records have been changed. Use Move to history only for an extra record you have confirmed should be removed from current totals.';
+    status.textContent='Found '+duplicates.length+' additional matching records. The first record in each matching group is kept as the original and is not listed here. Nothing has been deleted or changed. Use Move to history only after confirming an extra record should no longer count toward current totals.';
     body.innerHTML=duplicates.map(t=>'<tr><td>'+esc(displayDate(t.entry_date||''))+'</td><td>'+esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Archived child')+'</td><td>'+esc(t.entry_type||'')+'</td><td>'+esc(t.category||'')+'</td><td>'+money(t.amount)+'</td><td>'+esc(t.payment_method||'—')+'</td><td>'+esc(String(t.id))+'</td><td><button type="button" class="danger" onclick="deleteTransaction(\''+String(t.id).replace(/'/g,"\\'")+'\')">Move to history</button></td></tr>').join('');
     table.classList.remove('hidden');
   });
