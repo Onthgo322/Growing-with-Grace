@@ -280,6 +280,38 @@ document.addEventListener("DOMContentLoaded",()=>{
   const keyInput=document.getElementById("anonKey");
   const urlInput=document.getElementById("projectUrl");
   if(!connect||!message||!keyInput||!urlInput)return;
+  const signIn=document.getElementById("signInBtn");
+  if(signIn){
+    signIn.onclick=async()=>{
+      const authStatus=document.getElementById("authStatus");
+      const email=document.getElementById("email")?.value.trim();
+      const password=document.getElementById("password")?.value;
+      signIn.disabled=true;
+      if(authStatus)authStatus.textContent="Signing in...";
+      try{
+        if(!window.supabase?.createClient)throw new Error("Supabase library did not load. Refresh the page and try again.");
+        if(typeof sb==="undefined"||!sb){
+          const url=document.getElementById("projectUrl")?.value.trim();
+          const key=localStorage.getItem("growingGraceSupabaseKey")||document.getElementById("anonKey")?.value.trim();
+          if(!url||!key)throw new Error("Database connection is missing. Please click Connect again.");
+          const client=window.supabase.createClient(url,key);
+          if(typeof sb!=="undefined")sb=client;
+          else window.gwgSignInClient=client;
+        }
+        const client=(typeof sb!=="undefined"&&sb)?sb:window.gwgSignInClient;
+        if(!client)throw new Error("The database client could not be initialized. Please reconnect.");
+        const {data,error}=await client.auth.signInWithPassword({email,password});
+        if(error)throw error;
+        if(!data?.user)throw new Error("Sign-in returned no user.");
+        if(typeof user!=="undefined")user=data.user;
+        if(typeof startApp==="function"){await startApp();}
+        else throw new Error("Sign-in succeeded, but the ledger script did not finish loading. Please tell me this exact message.");
+      }catch(error){
+        console.error("Independent sign-in failed:",error);
+        if(authStatus)authStatus.textContent="Sign-in error: "+(error?.message||String(error));
+      }finally{signIn.disabled=false;}
+    };
+  }
   connect.onclick=async()=>{
     const url=urlInput.value.trim();
     const key=keyInput.value.trim();
