@@ -271,15 +271,33 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// Safe diagnostic runs independently if the main app script fails to initialize.
+// Independent connection handler: keep database connection usable even if another
+// part of the main app script stops during initialization.
 document.addEventListener("DOMContentLoaded",()=>{
   const connect=document.getElementById("connectBtn");
   const message=document.getElementById("connectionStatus");
-  if(connect&&message){
-    connect.addEventListener("click",()=>{
-      if(!connect.onclick) message.textContent="The Connect button was tapped, but the app connection handler did not load. Please refresh once and try again.";
-    },true);
-  }
+  const keyInput=document.getElementById("anonKey");
+  const urlInput=document.getElementById("projectUrl");
+  if(!connect||!message||!keyInput||!urlInput)return;
+  connect.onclick=async()=>{
+    const url=urlInput.value.trim();
+    const key=keyInput.value.trim();
+    if(!url||!key){message.textContent="Enter the project URL and publishable key.";return;}
+    message.textContent="Connecting to Supabase...";
+    try{
+      if(!window.supabase?.createClient)throw new Error("Supabase library did not load. Check your internet connection and refresh.");
+      localStorage.setItem("growingGraceSupabaseKey",key);
+      const client=window.supabase.createClient(url,key);
+      const {error}=await client.auth.getSession();
+      if(error)throw error;
+      message.textContent="Connected to Supabase. Sign in or create your account.";
+      document.getElementById("authPanel")?.classList.remove("hidden");
+      if(typeof sb!=="undefined")sb=client;
+    }catch(error){
+      console.error("Independent database connection failed:",error);
+      message.textContent="Could not connect: "+(error?.message||String(error));
+    }
+  };
 });
 </script>
 <script>
