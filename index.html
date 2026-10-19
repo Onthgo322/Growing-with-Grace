@@ -331,6 +331,21 @@ function setEntryWeek(dateValue) {
 $('weekEnd').value = today();
 ['weekStart','weekEnd'].forEach(id=>$(id).addEventListener('blur',()=>normalizeFlexibleDateField(id)));
 setEntryWeek(today());
+// When the user changes the Monday week-start date, keep the week-end date on
+// that same week's Friday instead of leaving a stale date from the prior week.
+$('weekStart').addEventListener('change',()=>{
+  const start=$('weekStart').value;
+  if(!start)return;
+  const d=new Date(start+'T12:00:00');
+  d.setDate(d.getDate()+4);
+  const friday=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const previousEnd=$('weekEnd').value;
+  $('weekEnd').value=friday;
+  // Keep ordinary transaction dates aligned when they were following the old week-end.
+  if($('txCategory').value!=='CCAP' && (!$('txEntryDate').value || $('txEntryDate').value===previousEnd || $('txEntryDate').value<start)){
+    $('txEntryDate').value=friday;
+  }
+});
 $('weekEnd').addEventListener('change',()=>{if($('weekEnd').value)$('weekEnd').value=$('weekEnd').value;});
 function advanceEntryWeek(){
   const start=$('weekStart').value;
@@ -1432,6 +1447,7 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     if(!Number.isFinite(amount)||amount<=0)return alert('Enter an amount greater than $0.00.');
     if(!$('weekEnd').value)return alert('Please enter the transaction date.');
     if(!$('weekStart').value||!$('weekEnd').value)return alert('Please enter the week start and end dates.');
+    if($('weekEnd').value < $('weekStart').value)return alert('The week end date cannot be earlier than the week start date. Choose the correct Friday for this week before saving.');
     const entryDate=$('txEntryDate').value||$('weekEnd').value;
     if(!entryDate)return alert('Please enter an entry date.');
     const obj={user_id:user.id,child_id:child.id,week_start:$('weekStart').value,week_end:$('weekEnd').value,entry_date:entryDate,entry_type:$('txType').value,category:$('txCategory').value,payment_method:$('txType').value==='Payment' ? $('payMethod').value:null,amount,notes:$('txNotes').value.trim()};
