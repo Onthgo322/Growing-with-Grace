@@ -1365,6 +1365,19 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     const entryDate=$('txEntryDate').value||$('weekEnd').value;
     if(!entryDate)return alert('Please enter an entry date.');
     const obj={user_id:user.id,child_id:child.id,week_start:$('weekStart').value,week_end:$('weekEnd').value,entry_date:entryDate,entry_type:$('txType').value,category:$('txCategory').value,payment_method:$('txType').value==='Payment' ? $('payMethod').value:null,amount,notes:$('txNotes').value.trim()};
+    // Warn about a likely accidental duplicate before inserting. Charges and payments
+    // remain separate transaction types, so a charge and payment for the same amount
+    // are never treated as duplicates of each other.
+    const likelyDuplicate=txs.find(t=>
+      String(t.child_id)===String(obj.child_id) &&
+      String(t.entry_type||'')===obj.entry_type &&
+      String(t.category||'').trim().toLowerCase()===obj.category.trim().toLowerCase() &&
+      Math.round(Number(t.amount||0)*100)===Math.round(obj.amount*100) &&
+      String(t.entry_date||'')===obj.entry_date &&
+      String(t.week_start||'')===obj.week_start &&
+      String(t.week_end||'')===obj.week_end
+    );
+    if(likelyDuplicate && !confirm('A transaction with the same child, type, category, amount, and dates is already saved. This may be a duplicate. Do you still want to save another one?\n\nChoose Cancel to keep the existing record and avoid adding a duplicate. Choose OK only if this is a separate legitimate transaction.'))return;
     button.disabled=true;
     const originalLabel=button.textContent;
     button.textContent='Saving…';
