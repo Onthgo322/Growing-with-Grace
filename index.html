@@ -584,7 +584,7 @@ function renderChildren() {
   
       return `<tr>
         <td><button type="button" onclick="window.openChildLedger('${c.id}')">${esc(c.name)}</button></td>
-        <td>${esc(age)}</td>
+        <td style="white-space:pre-line">${esc(age)}</td>
         <td>${esc(category)}</td>
         <td>${esc(categoryCheck)}</td>
         <td>${c.rate_type === 'fixed' ? 'Fixed weekly' : 'Percentage'}</td>
@@ -613,7 +613,7 @@ function renderChildren() {
     years--;
     months += 12;
   }
-  return `${years} years, ${months} months`;
+  return `${years} years\n${months} months`;
 }
  
 
