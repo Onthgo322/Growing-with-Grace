@@ -1145,7 +1145,8 @@ function printChildLedger(){
       .sort((a,b)=>String(a.entry_date||'').localeCompare(String(b.entry_date||''))||String(a.id||'').localeCompare(String(b.id||'')));
     if(!duplicates.length){status.textContent='No extra monthly CCAP charges or exact duplicate CCAP payments found for this child. No records were changed.';table.classList.add('hidden');body.innerHTML='';return;}
     status.textContent='Found '+duplicates.length+' extra record(s). CCAP charges are checked once per child per month; CCAP payments are checked for exact matches. The earliest record in each group is kept as the original. Nothing has been deleted or changed. Use Move to history only after confirming an extra record should no longer count toward current totals.';
-    body.innerHTML=duplicates.map(t=>'<tr><td>'+esc(displayDate(t.entry_date||''))+'</td><td>'+esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Archived child')+'</td><td>'+esc(t.entry_type||'')+'</td><td>'+esc(t.category||'')+'</td><td>'+money(t.amount)+'</td><td>'+esc(t.payment_method||'—')+'</td><td>'+esc(String(t.id))+'</td><td><button type="button" class="danger" onclick="deleteTransaction(\\''+String(t.id).replace(/'/g,"\\\\'")+'\\')">Move to history</button></td></tr>').join('');
+    body.innerHTML=duplicates.map(t=>'<tr><td>'+esc(displayDate(t.entry_date||''))+'</td><td>'+esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Archived child')+'</td><td>'+esc(t.entry_type||'')+'</td><td>'+esc(t.category||'')+'</td><td>'+money(t.amount)+'</td><td>'+esc(t.payment_method||'—')+'</td><td>'+esc(String(t.id))+'</td><td><button type="button" class="danger" data-duplicate-id="'+esc(String(t.id))+'">Move to history</button></td></tr>').join('');
+    body.querySelectorAll('[data-duplicate-id]').forEach(button=>button.addEventListener('click',()=>deleteTransaction(button.dataset.duplicateId)));
     table.classList.remove('hidden');
   });
 
