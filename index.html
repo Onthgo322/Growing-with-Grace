@@ -741,11 +741,20 @@ const monthTransactions = transactions
 // separate entry date so they appear in the month they cover, in the week
 // containing the first weekday entry date (even if that week began last month).
 const ledgerWeekStart = t => t.week_start || t.entry_date || '';
+const firstVisibleMonday = new Date(monthStart);
+firstVisibleMonday.setDate(firstVisibleMonday.getDate() + ((8 - firstVisibleMonday.getDay()) % 7));
+const firstVisibleWeekStart = iso(firstVisibleMonday);
+const ledgerBucketDate = t => {
+  const date = t.entry_date || t.week_start || '';
+  const isMonthlyCCAP = String(t.category || '').trim().toUpperCase() === 'CCAP';
+  if (isMonthlyCCAP && date && Number(date.slice(0,4)) === year && Number(date.slice(5,7)) === month + 1 && date < firstVisibleWeekStart) return firstVisibleWeekStart;
+  return date;
+};
 const charges = transactions
   .filter(t => {
     if (t.entry_type !== 'Charge') return false;
     const isMonthlyCCAP = String(t.category || '').trim().toUpperCase() === 'CCAP';
-    const billingDate = isMonthlyCCAP ? (t.entry_date || t.week_start || '') : ledgerWeekStart(t);
+    const billingDate = isMonthlyCCAP ? ledgerBucketDate(t) : ledgerWeekStart(t);
     return billingDate >= from && billingDate <= to &&
       Number(billingDate.slice(0, 4)) === year &&
       Number(billingDate.slice(5, 7)) === month + 1;
@@ -794,7 +803,7 @@ const methodTotals = {
 };
 
 transactions.forEach(t => {
-  const date = t.entry_date || t.week_start || '';
+  const date = (String(t.category || '').trim().toUpperCase() === 'CCAP') ? ledgerBucketDate(t) : (t.entry_date || t.week_start || '');
   const inWeek = date >= from && date <= to &&
     Number(date.slice(0, 4)) === year &&
     Number(date.slice(5, 7)) === month + 1;
