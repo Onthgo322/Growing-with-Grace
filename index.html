@@ -1836,3 +1836,341 @@ th:last-child, td:last-child {
  
 </script>
 </body></html>
++amount.toFixed(2)+' on '+displayDate(entryDate)+'.';feedback.style.display='block';
+    }catch(error){
+      alert('The save could not be verified: '+(error?.message||String(error))+'. Please check Recent Entries before trying again.');
+    }finally{
+      button.disabled=false;
+      button.textContent=originalLabel;
+    }
+  };
+
+ 
+
+// Bulk paper-ledger import. Entries are previewed and validated before being written to Supabase.
+let reviewedBulkEntries=[];
+function parseLedgerDate(value){
+  const v=String(value||'').trim();
+  let m=v.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if(m){const mm=Number(m[1]),dd=Number(m[2]),yy=Number(m[3]);const d=new Date(Date.UTC(yy,mm-1,dd));if(d.getUTCFullYear()!==yy||d.getUTCMonth()!==mm-1||d.getUTCDate()!==dd)return null;return yy+'-'+String(mm).padStart(2,'0')+'-'+String(dd).padStart(2,'0')}
+  m=v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(m){const yy=Number(m[1]),mm=Number(m[2]),dd=Number(m[3]);const d=new Date(Date.UTC(yy,mm-1,dd));if(d.getUTCFullYear()===yy&&d.getUTCMonth()===mm-1&&d.getUTCDate()===dd)return v}
+  return null;
+}
+function previewBulkLedger(){
+  reviewedBulkEntries=[];
+  const child=children.find(c=>String(c.id)===String($('bulkChild').value));
+  if(!child){$('bulkStatus').textContent='Select a child first.';$('saveBulk').disabled=true;return}
+  const lines=$('bulkRows').value.split(/\\r?\\n/).map((line,i)=>({line:line.trim(),number:i+1})).filter(x=>x.line);
+  const errors=[];
+  for(const item of lines){
+    const parts=item.line.split('|').map(x=>x.trim());
+    if(parts.length<6){errors.push('Line '+item.number+': expected at least 6 fields separated by |.');continue}
+    const [rawType,category,rawDate,rawStart,rawEnd,rawAmount,rawMethod='',notes='']=parts;
+    const type=rawType.toLowerCase()==='charge'?'Charge':rawType.toLowerCase()==='payment'?'Payment':rawType.toLowerCase()==='credit / adjustment'?'Credit / Adjustment':null;
+    const entryDate=parseLedgerDate(rawDate),weekStart=parseLedgerDate(rawStart),weekEnd=parseLedgerDate(rawEnd),amount=Number(rawAmount);
+    if(!type){errors.push('Line '+item.number+': type must be Charge, Payment, or Credit / Adjustment.');continue}
+    if(!category){errors.push('Line '+item.number+': category is required.');continue}
+    if(!entryDate||!weekStart||!weekEnd){errors.push('Line '+item.number+': check entry date, week start, and week end.');continue}
+    if(weekStart>weekEnd){errors.push('Line '+item.number+': week start is after week end.');continue}
+    if(rawAmount===''||!Number.isFinite(amount)||amount<=0){errors.push('Line '+item.number+': amount must be greater than zero.');continue}
+    if(type==='Payment'&&!rawMethod){errors.push('Line '+item.number+': payment method is required for payments.');continue}
+    reviewedBulkEntries.push({user_id:user.id,child_id:child.id,entry_type:type,category,entry_date:entryDate,week_start:weekStart,week_end:weekEnd,amount,payment_method:type==='Payment'?(category.trim().toUpperCase()==='CCAP'?'CCAP':rawMethod):null,notes:notes||'Entered from paper ledger'});
+  }
+  if(errors.length){reviewedBulkEntries=[];$('bulkPreviewRows').innerHTML='<tr><td colspan="8">'+errors.map(esc).join('<br>')+'</td></tr>';$('bulkStatus').textContent='Fix the listed issues, then preview again. Nothing has been saved.';$('saveBulk').disabled=true;return}
+  $('bulkPreviewRows').innerHTML=reviewedBulkEntries.map((t,i)=>'<tr><td>'+(i+1)+'</td><td>'+displayDate(t.entry_date)+'</td><td>'+displayDate(t.week_start)+'–'+displayDate(t.week_end)+'</td><td>'+esc(t.entry_type)+'</td><td>'+esc(t.category)+'</td><td>'+money(t.amount)+'</td><td>'+esc(t.payment_method||'')+'</td><td>'+esc(t.notes||'')+'</td></tr>').join('');
+  $('bulkStatus').textContent=reviewedBulkEntries.length+' entries reviewed for '+esc(child.name)+'. Check every row before saving.';
+  $('saveBulk').disabled=reviewedBulkEntries.length===0;
+}
+$('previewBulk').onclick=previewBulkLedger;
+$('saveBulk').onclick=async()=>{
+  if(!reviewedBulkEntries.length)return alert('Preview and review the entries first.');
+  if(!confirm('Save '+reviewedBulkEntries.length+' reviewed entries for '+(children.find(c=>String(c.id)===String($('bulkChild').value))?.name||'this child')+' to Supabase? This will add new transactions and will not change the beginning balance.'))return;
+  const button=$('saveBulk');button.disabled=true;button.textContent='Saving…';
+  try{
+    const {error}=await sb.from('daycare_transactions').insert(reviewedBulkEntries);
+    if(error){$('bulkStatus').textContent='Supabase did not save the entries: '+error.message+'. Nothing was reported as saved.';return}
+    const count=reviewedBulkEntries.length;
+    $('bulkStatus').textContent='Saved '+count+' entries to Supabase. Reloading the ledger…';
+    $('bulkRows').value='';reviewedBulkEntries=[];
+    await loadAll();
+    $('bulkPreviewRows').innerHTML='<tr><td colspan="8">Entries saved. Paste the next set when ready.</td></tr>';
+    $('bulkStatus').textContent='Saved '+count+' entries to Supabase and refreshed the app.';
+  }catch(error){$('bulkStatus').textContent='Could not save entries: '+(error?.message||String(error));}
+  finally{button.textContent='Save reviewed entries';button.disabled=reviewedBulkEntries.length===0;}
+};
+
+$('loadDeleted').onclick=loadDeletedTransactions;
+
+ $('runReport').onclick=()=>{let list=txs.filter(t=>(!$('reportChild').value||t.child_id===$('reportChild').value)&&(!$('reportFrom').value||t.entry_date>=$('reportFrom').value)&&(!$('reportTo').value||t.entry_date<=$('reportTo').value)&&(!$('reportType').value||t.entry_type===$('reportType').value));$('reportRows').innerHTML=list.map(t=>`<tr><td>${displayDate(t.entry_date)}</td><td>${displayDate(t.week_start)}–${displayDate(t.week_end)}</td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')}</td><td>${esc(t.notes||'')}</td></tr>`).join('')||'<tr><td colspan="8">No matching entries.</td></tr>';const ch=list.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),pa=list.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('reportSummary').textContent=`${list.length} entries · Charges ${money(ch)} · Payments ${money(pa)} · Balance ${money(ch-pa)}`};
+
+document.querySelector('[data-tab="deleted"]').onclick=()=>{
+  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('primary',b.dataset.tab==='deleted'));
+  document.querySelectorAll('.tabpage').forEach(p=>p.classList.add('hidden'));
+  $('page-deleted').classList.remove('hidden');
+  loadDeletedTransactions();
+};
+
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const target=$('page-'+b.dataset.tab);if(!target)return;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x===b));document.querySelectorAll('.tabpage').forEach(x=>x.classList.add('hidden'));target.classList.remove('hidden');});
+ 
+$('generateInvoice').onclick=()=>{
+  const child=children.find(c=>String(c.id)===$('invoiceChild').value);
+  const from=$('invoiceFrom').value;
+  const to=$('invoiceTo').value;
+  if(!child)return alert('Please select a child.');
+  if(!from||!to)return alert('Please select the start and end dates.');
+  if(from>to)return alert('The start date must be before the end date.');
+  // Invoice periods follow the transaction's billing-period start when available,
+  // rather than the date the transaction was entered into the app.
+  const billingDate=t=>t.week_start||t.entry_date||'';
+  const list=txs.filter(t=>String(t.child_id)===String(child.id)).filter(t=>billingDate(t)>=from&&billingDate(t)<=to).sort((a,b)=>(a.entry_date||'').localeCompare(b.entry_date||''));
+  const prior=txs.filter(t=>String(t.child_id)===String(child.id)&&billingDate(t)<from);
+  const balanceBefore=Number(child.beginning_balance||0)+prior.reduce((sum,t)=>{if(t.entry_type==='Charge')return sum+Number(t.amount||0);if(t.entry_type==='Payment'||t.entry_type==='Credit / Adjustment')return sum-Number(t.amount||0);return sum;},0);
+  const charges=list.filter(t=>t.entry_type==='Charge').reduce((s,t)=>s+Number(t.amount||0),0);
+  const payments=list.filter(t=>t.entry_type==='Payment').reduce((s,t)=>s+Number(t.amount||0),0);
+  const credits=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((s,t)=>s+Number(t.amount||0),0);
+  const ending=balanceBefore+charges-payments-credits;
+  const invoiceDate=displayDate(today());
+$('invoiceOutput').innerHTML=`
+  <div style="border:1px solid #ddd;padding:28px;background:white;color:#222;max-width:850px;margin:20px auto;line-height:1.5">
+    <h2 style="text-align:center;margin:0 0 8px">Growing With Grace Christian Learning Center, LLC</h2>
+    <p style="text-align:center;margin:3px 0">Contact: Angela Mattson</p>
+    <p style="text-align:center;margin:3px 0">Email: Growingwithgracefargo@gmail.com</p>
+    <p style="text-align:center;margin:3px 0 18px">Phone: (701) 540-2432</p>
+    <h3 style="text-align:center;margin:0 0 8px">Childcare Invoice</h3>
+    <p style="text-align:center;margin:0 0 4px"><strong>Invoice Date:</strong> ${esc(invoiceDate)}</p>
+    <p style="text-align:center;color:#a33;font-size:12px;margin:0 0 22px">Payment arrangements must be made within 10 days of the invoice date.</p>
+    <p style="margin:8px 0"><strong>Child:</strong> ${esc(child.name)}</p>
+        <p style="margin:8px 0"><strong>Billing period:</strong> ${esc(displayDate(from))} through ${esc(displayDate(to))}</p>    
+                <p style="margin:8px 0 18px"><strong>Previous balance:</strong> ${money(balanceBefore)}</p>
+    <table style="width:100%;border-collapse:collapse;margin:12px 0"><thead><tr><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Date</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Description</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Type / Method</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Notes</th><th style="text-align:right;border-bottom:1px solid #999;padding:9px 6px">Amount</th></tr></thead><tbody>${list.map(t=>`<tr><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(displayDate(t.entry_date||''))}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.category||'')}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.entry_type||'')}${t.payment_method?' — '+esc(t.payment_method):''}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px;white-space:pre-wrap">${esc(t.notes||'')}</td><td style="text-align:right;border-bottom:1px solid #ddd;padding:8px 6px">${money(t.amount)}</td></tr>`).join('')||'<tr><td colspan="4" style="padding:8px">No transactions in this billing period.</td></tr>'}</tbody></table>
+    <div style="margin-top:20px"><p style="margin:8px 0"><strong>New charges:</strong> ${money(charges)}</p><p style="margin:8px 0"><strong>Payments received:</strong> ${money(payments)}</p><p style="margin:8px 0"><strong>Credits / adjustments:</strong> ${money(credits)}</p></div>
+    <hr style="margin:18px 0"><h3 style="margin:0 0 12px">Balance after this period: ${money(ending)}</h3>
+    <div style="color:#c00000;font-weight:bold;border:1px solid #c00000;padding:10px;margin-top:12px">Positive balance = amount owed. Negative balance = credit.</div>
+  </div>`;
+ 
+ };
+
+
+function printInvoice(){
+  const invoice = document.getElementById('invoiceOutput');
+
+  if (!invoice || !invoice.innerHTML.trim()) {
+    alert('Generate the invoice first.');
+    return;
+  }
+
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    alert('Please allow pop-ups for this site, then try printing again.');
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Childcare Invoice</title>
+<style>
+@page { margin: 10mm; }
+body {
+  font: 14px Arial, sans-serif;
+  color: #222;
+  margin: 0;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th, td {
+  padding: 8px 6px;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+}
+th:last-child, td:last-child {
+  text-align: right;
+}
+</style>
+</head>
+<body>${invoice.innerHTML}</body>
+</html>`);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
+
+
+ 
+</script>
+</body></html>
++amount.toFixed(2)+' on '+displayDate(entryDate)+'.';feedback.style.display='block';
+    }catch(error){
+      alert('The save could not be verified: '+(error?.message||String(error))+'. Please check Recent Entries before trying again.');
+    }finally{
+      button.disabled=false;
+      button.textContent=originalLabel;
+    }
+  };
+
+ 
+
+// Bulk paper-ledger import. Entries are previewed and validated before being written to Supabase.
+let reviewedBulkEntries=[];
+function parseLedgerDate(value){
+  const v=String(value||'').trim();
+  let m=v.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if(m){const mm=Number(m[1]),dd=Number(m[2]),yy=Number(m[3]);const d=new Date(Date.UTC(yy,mm-1,dd));if(d.getUTCFullYear()!==yy||d.getUTCMonth()!==mm-1||d.getUTCDate()!==dd)return null;return yy+'-'+String(mm).padStart(2,'0')+'-'+String(dd).padStart(2,'0')}
+  m=v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(m){const yy=Number(m[1]),mm=Number(m[2]),dd=Number(m[3]);const d=new Date(Date.UTC(yy,mm-1,dd));if(d.getUTCFullYear()===yy&&d.getUTCMonth()===mm-1&&d.getUTCDate()===dd)return v}
+  return null;
+}
+function previewBulkLedger(){
+  reviewedBulkEntries=[];
+  const child=children.find(c=>String(c.id)===String($('bulkChild').value));
+  if(!child){$('bulkStatus').textContent='Select a child first.';$('saveBulk').disabled=true;return}
+  const lines=$('bulkRows').value.split(/\\r?\\n/).map((line,i)=>({line:line.trim(),number:i+1})).filter(x=>x.line);
+  const errors=[];
+  for(const item of lines){
+    const parts=item.line.split('|').map(x=>x.trim());
+    if(parts.length<6){errors.push('Line '+item.number+': expected at least 6 fields separated by |.');continue}
+    const [rawType,category,rawDate,rawStart,rawEnd,rawAmount,rawMethod='',notes='']=parts;
+    const type=rawType.toLowerCase()==='charge'?'Charge':rawType.toLowerCase()==='payment'?'Payment':rawType.toLowerCase()==='credit / adjustment'?'Credit / Adjustment':null;
+    const entryDate=parseLedgerDate(rawDate),weekStart=parseLedgerDate(rawStart),weekEnd=parseLedgerDate(rawEnd),amount=Number(rawAmount);
+    if(!type){errors.push('Line '+item.number+': type must be Charge, Payment, or Credit / Adjustment.');continue}
+    if(!category){errors.push('Line '+item.number+': category is required.');continue}
+    if(!entryDate||!weekStart||!weekEnd){errors.push('Line '+item.number+': check entry date, week start, and week end.');continue}
+    if(weekStart>weekEnd){errors.push('Line '+item.number+': week start is after week end.');continue}
+    if(rawAmount===''||!Number.isFinite(amount)||amount<=0){errors.push('Line '+item.number+': amount must be greater than zero.');continue}
+    if(type==='Payment'&&!rawMethod){errors.push('Line '+item.number+': payment method is required for payments.');continue}
+    reviewedBulkEntries.push({user_id:user.id,child_id:child.id,entry_type:type,category,entry_date:entryDate,week_start:weekStart,week_end:weekEnd,amount,payment_method:type==='Payment'?(category.trim().toUpperCase()==='CCAP'?'CCAP':rawMethod):null,notes:notes||'Entered from paper ledger'});
+  }
+  if(errors.length){reviewedBulkEntries=[];$('bulkPreviewRows').innerHTML='<tr><td colspan="8">'+errors.map(esc).join('<br>')+'</td></tr>';$('bulkStatus').textContent='Fix the listed issues, then preview again. Nothing has been saved.';$('saveBulk').disabled=true;return}
+  $('bulkPreviewRows').innerHTML=reviewedBulkEntries.map((t,i)=>'<tr><td>'+(i+1)+'</td><td>'+displayDate(t.entry_date)+'</td><td>'+displayDate(t.week_start)+'–'+displayDate(t.week_end)+'</td><td>'+esc(t.entry_type)+'</td><td>'+esc(t.category)+'</td><td>'+money(t.amount)+'</td><td>'+esc(t.payment_method||'')+'</td><td>'+esc(t.notes||'')+'</td></tr>').join('');
+  $('bulkStatus').textContent=reviewedBulkEntries.length+' entries reviewed for '+esc(child.name)+'. Check every row before saving.';
+  $('saveBulk').disabled=reviewedBulkEntries.length===0;
+}
+$('previewBulk').onclick=previewBulkLedger;
+$('saveBulk').onclick=async()=>{
+  if(!reviewedBulkEntries.length)return alert('Preview and review the entries first.');
+  if(!confirm('Save '+reviewedBulkEntries.length+' reviewed entries for '+(children.find(c=>String(c.id)===String($('bulkChild').value))?.name||'this child')+' to Supabase? This will add new transactions and will not change the beginning balance.'))return;
+  const button=$('saveBulk');button.disabled=true;button.textContent='Saving…';
+  try{
+    const {error}=await sb.from('daycare_transactions').insert(reviewedBulkEntries);
+    if(error){$('bulkStatus').textContent='Supabase did not save the entries: '+error.message+'. Nothing was reported as saved.';return}
+    const count=reviewedBulkEntries.length;
+    $('bulkStatus').textContent='Saved '+count+' entries to Supabase. Reloading the ledger…';
+    $('bulkRows').value='';reviewedBulkEntries=[];
+    await loadAll();
+    $('bulkPreviewRows').innerHTML='<tr><td colspan="8">Entries saved. Paste the next set when ready.</td></tr>';
+    $('bulkStatus').textContent='Saved '+count+' entries to Supabase and refreshed the app.';
+  }catch(error){$('bulkStatus').textContent='Could not save entries: '+(error?.message||String(error));}
+  finally{button.textContent='Save reviewed entries';button.disabled=reviewedBulkEntries.length===0;}
+};
+
+$('loadDeleted').onclick=loadDeletedTransactions;
+
+ $('runReport').onclick=()=>{let list=txs.filter(t=>(!$('reportChild').value||t.child_id===$('reportChild').value)&&(!$('reportFrom').value||t.entry_date>=$('reportFrom').value)&&(!$('reportTo').value||t.entry_date<=$('reportTo').value)&&(!$('reportType').value||t.entry_type===$('reportType').value));$('reportRows').innerHTML=list.map(t=>`<tr><td>${displayDate(t.entry_date)}</td><td>${displayDate(t.week_start)}–${displayDate(t.week_end)}</td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')}</td><td>${esc(t.notes||'')}</td></tr>`).join('')||'<tr><td colspan="8">No matching entries.</td></tr>';const ch=list.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),pa=list.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('reportSummary').textContent=`${list.length} entries · Charges ${money(ch)} · Payments ${money(pa)} · Balance ${money(ch-pa)}`};
+
+document.querySelector('[data-tab="deleted"]').onclick=()=>{
+  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('primary',b.dataset.tab==='deleted'));
+  document.querySelectorAll('.tabpage').forEach(p=>p.classList.add('hidden'));
+  $('page-deleted').classList.remove('hidden');
+  loadDeletedTransactions();
+};
+
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const target=$('page-'+b.dataset.tab);if(!target)return;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x===b));document.querySelectorAll('.tabpage').forEach(x=>x.classList.add('hidden'));target.classList.remove('hidden');});
+ 
+$('generateInvoice').onclick=()=>{
+  const child=children.find(c=>String(c.id)===$('invoiceChild').value);
+  const from=$('invoiceFrom').value;
+  const to=$('invoiceTo').value;
+  if(!child)return alert('Please select a child.');
+  if(!from||!to)return alert('Please select the start and end dates.');
+  if(from>to)return alert('The start date must be before the end date.');
+  // Invoice periods follow the transaction's billing-period start when available,
+  // rather than the date the transaction was entered into the app.
+  const billingDate=t=>t.week_start||t.entry_date||'';
+  const list=txs.filter(t=>String(t.child_id)===String(child.id)).filter(t=>billingDate(t)>=from&&billingDate(t)<=to).sort((a,b)=>(a.entry_date||'').localeCompare(b.entry_date||''));
+  const prior=txs.filter(t=>String(t.child_id)===String(child.id)&&billingDate(t)<from);
+  const balanceBefore=Number(child.beginning_balance||0)+prior.reduce((sum,t)=>{if(t.entry_type==='Charge')return sum+Number(t.amount||0);if(t.entry_type==='Payment'||t.entry_type==='Credit / Adjustment')return sum-Number(t.amount||0);return sum;},0);
+  const charges=list.filter(t=>t.entry_type==='Charge').reduce((s,t)=>s+Number(t.amount||0),0);
+  const payments=list.filter(t=>t.entry_type==='Payment').reduce((s,t)=>s+Number(t.amount||0),0);
+  const credits=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((s,t)=>s+Number(t.amount||0),0);
+  const ending=balanceBefore+charges-payments-credits;
+  const invoiceDate=displayDate(today());
+$('invoiceOutput').innerHTML=`
+  <div style="border:1px solid #ddd;padding:28px;background:white;color:#222;max-width:850px;margin:20px auto;line-height:1.5">
+    <h2 style="text-align:center;margin:0 0 8px">Growing With Grace Christian Learning Center, LLC</h2>
+    <p style="text-align:center;margin:3px 0">Contact: Angela Mattson</p>
+    <p style="text-align:center;margin:3px 0">Email: Growingwithgracefargo@gmail.com</p>
+    <p style="text-align:center;margin:3px 0 18px">Phone: (701) 540-2432</p>
+    <h3 style="text-align:center;margin:0 0 8px">Childcare Invoice</h3>
+    <p style="text-align:center;margin:0 0 4px"><strong>Invoice Date:</strong> ${esc(invoiceDate)}</p>
+    <p style="text-align:center;color:#a33;font-size:12px;margin:0 0 22px">Payment arrangements must be made within 10 days of the invoice date.</p>
+    <p style="margin:8px 0"><strong>Child:</strong> ${esc(child.name)}</p>
+        <p style="margin:8px 0"><strong>Billing period:</strong> ${esc(displayDate(from))} through ${esc(displayDate(to))}</p>    
+                <p style="margin:8px 0 18px"><strong>Previous balance:</strong> ${money(balanceBefore)}</p>
+    <table style="width:100%;border-collapse:collapse;margin:12px 0"><thead><tr><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Date</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Description</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Type / Method</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Notes</th><th style="text-align:right;border-bottom:1px solid #999;padding:9px 6px">Amount</th></tr></thead><tbody>${list.map(t=>`<tr><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(displayDate(t.entry_date||''))}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.category||'')}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.entry_type||'')}${t.payment_method?' — '+esc(t.payment_method):''}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px;white-space:pre-wrap">${esc(t.notes||'')}</td><td style="text-align:right;border-bottom:1px solid #ddd;padding:8px 6px">${money(t.amount)}</td></tr>`).join('')||'<tr><td colspan="4" style="padding:8px">No transactions in this billing period.</td></tr>'}</tbody></table>
+    <div style="margin-top:20px"><p style="margin:8px 0"><strong>New charges:</strong> ${money(charges)}</p><p style="margin:8px 0"><strong>Payments received:</strong> ${money(payments)}</p><p style="margin:8px 0"><strong>Credits / adjustments:</strong> ${money(credits)}</p></div>
+    <hr style="margin:18px 0"><h3 style="margin:0 0 12px">Balance after this period: ${money(ending)}</h3>
+    <div style="color:#c00000;font-weight:bold;border:1px solid #c00000;padding:10px;margin-top:12px">Positive balance = amount owed. Negative balance = credit.</div>
+  </div>`;
+ 
+ };
+
+
+function printInvoice(){
+  const invoice = document.getElementById('invoiceOutput');
+
+  if (!invoice || !invoice.innerHTML.trim()) {
+    alert('Generate the invoice first.');
+    return;
+  }
+
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    alert('Please allow pop-ups for this site, then try printing again.');
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Childcare Invoice</title>
+<style>
+@page { margin: 10mm; }
+body {
+  font: 14px Arial, sans-serif;
+  color: #222;
+  margin: 0;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th, td {
+  padding: 8px 6px;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+}
+th:last-child, td:last-child {
+  text-align: right;
+}
+</style>
+</head>
+<body>${invoice.innerHTML}</body>
+</html>`);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
+
+
+ 
+</script>
+</body></html>
