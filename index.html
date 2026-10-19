@@ -1139,20 +1139,17 @@ function printChildLedger(){
       (String(t.entry_type||'').trim().toUpperCase()==='PAYMENT' &&
        String(t.payment_method||'').trim().toUpperCase()==='CCAP');
     const groups=new Map();
+    // Flag only exact matches: child, type, category, date, amount, and payment method.
     txs.filter(t=>String(t.child_id)===String(chosen) && isCcapRecord(t))
       .forEach(t=>{
-        const type=String(t.entry_type||'').trim().toUpperCase();
-        const category=String(t.category||'').trim().toUpperCase();
-        const date=String(t.entry_date||'');
-        const monthlyCharge=type==='CHARGE' && category==='CCAP';
-        // A child should have one monthly CCAP charge. For payments, flag only exact matches.
-        const key=monthlyCharge
-          ? [String(t.child_id),type,category,date.slice(0,7)].join('|')
-          : [
-              String(t.child_id),type,category,date,
-              Math.round(Number(t.amount||0)*100),
-              String(t.payment_method||'').trim().toUpperCase()
-            ].join('|');
+        const key=[
+          String(t.child_id),
+          String(t.entry_type||'').trim().toUpperCase(),
+          String(t.category||'').trim().toUpperCase(),
+          String(t.entry_date||''),
+          Math.round(Number(t.amount||0)*100),
+          String(t.payment_method||'').trim().toUpperCase()
+        ].join('|');
         if(!groups.has(key))groups.set(key,[]);
         groups.get(key).push(t);
       });
@@ -1161,8 +1158,8 @@ function printChildLedger(){
       .filter(group=>group.length>1)
       .flatMap(group=>group.sort((a,b)=>String(a.entry_date||'').localeCompare(String(b.entry_date||''))||String(a.id||'').localeCompare(String(b.id||''))).slice(1))
       .sort((a,b)=>String(a.entry_date||'').localeCompare(String(b.entry_date||''))||String(a.id||'').localeCompare(String(b.id||'')));
-    if(!duplicates.length){status.textContent='No extra monthly CCAP charges or exact duplicate CCAP payments found for this child. No records were changed.';table.classList.add('hidden');body.innerHTML='';return;}
-    status.textContent='Found '+duplicates.length+' extra record(s). CCAP charges are checked once per child per month; CCAP payments are checked for exact matches. The earliest record in each group is kept as the original. Nothing has been deleted or changed. Use Move to history only after confirming an extra record should no longer count toward current totals.';
+    if(!duplicates.length){status.textContent='No exact duplicate CCAP transactions found for this child. No records were changed.';table.classList.add('hidden');body.innerHTML='';return;}
+    status.textContent='Found '+duplicates.length+' exact duplicate record(s). Matches require the same child, transaction type, category, date, amount, and payment method. The earliest record in each group is kept as the original. Nothing has been deleted or changed. Use Move to history only after confirming an extra record should no longer count toward current totals.';
     body.innerHTML=duplicates.map(t=>'<tr><td>'+esc(displayDate(t.entry_date||''))+'</td><td>'+esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Archived child')+'</td><td>'+esc(t.entry_type||'')+'</td><td>'+esc(t.category||'')+'</td><td>'+money(t.amount)+'</td><td>'+esc(t.payment_method||'—')+'</td><td>'+esc(String(t.id))+'</td><td><button type="button" class="danger" data-duplicate-id="'+esc(String(t.id))+'">Move to history</button></td></tr>').join('');
     body.querySelectorAll('[data-duplicate-id]').forEach(button=>button.addEventListener('click',()=>deleteTransaction(button.dataset.duplicateId)));
     table.classList.remove('hidden');
