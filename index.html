@@ -1545,7 +1545,7 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
       $('txAmount').value='';
       $('txNotes').value='';
       keepChildSelectedAfterTransaction(child.id);
-      const feedback=$('saveFeedback');feedback.textContent='Saved and verified: '+child.name+' — '+obj.category+' '+obj.entry_type+' 
+      const feedback=$('saveFeedback');feedback.textContent='Saved and verified: '+child.name+' — '+obj.category+' '+obj.entry_type+'.';
     }catch(error){
       alert('The save could not be verified: '+(error?.message||String(error))+'. Please check Recent Entries before trying again.');
     }finally{
