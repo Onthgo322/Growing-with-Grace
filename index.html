@@ -155,7 +155,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div id="app" class="hidden">
 <div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected</div></div><button onclick="printTransactions()">Print Transactions</button></div></div>
 <nav class="noprint">
-<button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
+<button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="transfers">Transfers</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
  
 <button class="tab" data-tab="deleted">Deleted Transactions</button>
 
@@ -202,6 +202,20 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <h3>Recent entries</h3><div class="field" style="max-width:420px"><label for="txRecentChild">Choose a child to view recent entries</label><select id="txRecentChild"><option value="">— Select a child —</option></select></div><div class="row"><button type="button" id="exportChildTransactions">Export selected child transactions (CSV)</button></div><p class="muted small">Exports the selected child’s existing transactions for review only. It does not change saved records.</p><p id="txRecentStatus" class="muted small" aria-live="polite"></p><div class="row"><button type="button" id="reviewDuplicateCcap">Review duplicate charges &amp; payments</button></div><p id="duplicateCcapStatus" class="muted small" aria-live="polite"></p><div class="tablewrap"><table id="duplicateCcapTable" class="hidden"><thead><tr><th>Date</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Payment method</th><th>Record ID</th><th>Action</th></tr></thead><tbody id="duplicateCcapRows"></tbody></table></div><div class="tablewrap"><table><thead><tr><th>Date / week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method / notes</th></tr></thead><tbody id="txRows"></tbody></table></div></section>
 
 
+<section class="panel tabpage hidden" id="page-transfers">
+<h2>Transfers Between Children</h2>
+<p class="muted">Transfer an amount between two child accounts. The app records two matching Credit / Adjustment entries using positive amounts, so the database does not need to accept negative transaction amounts.</p>
+<div class="grid">
+<div class="field"><label for="transferFrom">From child</label><select id="transferFrom"><option value="">Select child</option></select></div>
+<div class="field"><label for="transferTo">To child</label><select id="transferTo"><option value="">Select child</option></select></div>
+<div class="field"><label for="transferType">Debit or Credit</label><select id="transferType"><option value="Debit">Debit</option><option value="Credit">Credit</option></select></div>
+<div class="field"><label for="transferAmount">Amount ($)</label><input id="transferAmount" type="number" min="0.01" step="0.01" placeholder="Enter positive amount"></div>
+<div class="field"><label for="transferDate">Transfer date</label><input id="transferDate" type="date"></div>
+<div class="field" style="grid-column:1/-1"><label for="transferNotes">Notes</label><input id="transferNotes" type="text" placeholder="Example: Transfer from sibling account"></div>
+</div>
+<p class="muted small">Debit increases the From child's balance and decreases the To child's balance. Credit decreases the From child's balance and increases the To child's balance.</p>
+<button class="primary" id="saveTransfer">Save transfer</button><p id="transferStatus" class="status" aria-live="polite"></p>
+</section>
 <section class="panel tabpage hidden" id="page-bulkimport">
 <h2>Bulk Ledger Entry</h2>
 <p class="muted">Review and save multiple paper-ledger entries to your connected Supabase database. Nothing is saved until you select Save reviewed entries. The beginning balance is not changed by this tool.</p>
@@ -1230,7 +1244,7 @@ function printChildLedger(){
 
   function renderTx(){const chosen=$('txRecentChild')?.value||'';const status=$('txRecentStatus');if(!chosen){if(status)status.textContent='';$('txRows').innerHTML='<tr><td colspan="6">Select a child above to view their recent entries.</td></tr>';return}const list=txs.filter(t=>String(t.child_id)===String(chosen)).sort((a,b)=>String(b.week_end||'').localeCompare(String(a.week_end||''))||String(b.id||'').localeCompare(String(a.id||'')));if(status){const newest=list[0];const payments=list.filter(t=>String(t.entry_type||'').toLowerCase()==='payment');const newestPayment=payments.slice().sort((a,b)=>String(b.week_end||'').localeCompare(String(a.week_end||'')))[0];status.textContent='Loaded '+list.length+' entries for this child'+(newest?'. Most recent week ending: '+displayDate(newest.week_end)+'.':' No entries were found for this child.')+' Payments found: '+payments.length+(newestPayment?'; most recent payment week ending: '+displayDate(newestPayment.week_end):'; no payment entries found')+'. Total transactions loaded: '+txs.length+'.'}$('txRows').innerHTML=list.map(t=>`<tr><td>${displayDate(t.week_start)}–${displayDate(t.week_end)}</td><td>${esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Archived child')}</td><td>${esc(t.entry_type||'')}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')} ${esc(t.notes||'')}<br><button onclick="editTransaction('${t.id}')">Edit</button> <button class="danger" onclick="deleteTransaction('${t.id}')">Delete</button></td></tr>`).join('')||'<tr><td colspan="6">No entries recorded for this child.</td></tr>'}
  function renderDashboard(){const charges=txs.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),payments=txs.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('countChildren').textContent=children.filter(c=>c.active!==false).length;$('sumCharges').textContent=money(charges);$('sumPayments').textContent=money(payments);$('balance').textContent=money(charges-payments)}
-function renderSelects(){const recentChild=$('txRecentChild')?.value||'';let childOpts=children.filter(c=>c.active!==false).map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.rate_category)}</option>`).join('');$('txChild').innerHTML='<option value="">— Select a child —</option>'+childOpts;$('txChild').value='';$('reportChild').innerHTML='<option value="">All children</option>'+childOpts;$('txRecentChild').innerHTML='<option value="">— Select a child —</option>'+childOpts;if(recentChild&&children.some(c=>String(c.id)===String(recentChild)&&c.active!==false))$('txRecentChild').value=recentChild;$('txRecentChild').onchange=renderTx;$('invoiceChild').innerHTML='<option value="">Select a child</option>'+childOpts;$('bulkChild').innerHTML='<option value="">Select a child</option>'+childOpts}
+function renderSelects(){const recentChild=$('txRecentChild')?.value||'';let childOpts=children.filter(c=>c.active!==false).map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.rate_category)}</option>`).join('');$('txChild').innerHTML='<option value="">— Select a child —</option>'+childOpts;$('transferFrom').innerHTML='<option value="">Select child</option>'+childOpts;$('transferTo').innerHTML='<option value="">Select child</option>'+childOpts;$('txChild').value='';$('reportChild').innerHTML='<option value="">All children</option>'+childOpts;$('txRecentChild').innerHTML='<option value="">— Select a child —</option>'+childOpts;if(recentChild&&children.some(c=>String(c.id)===String(recentChild)&&c.active!==false))$('txRecentChild').value=recentChild;$('txRecentChild').onchange=renderTx;$('invoiceChild').innerHTML='<option value="">Select a child</option>'+childOpts;$('bulkChild').innerHTML='<option value="">Select a child</option>'+childOpts}
 
  
  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -1635,10 +1649,10 @@ $('generateInvoice').onclick=()=>{
   const billingDate=t=>t.week_start||t.entry_date||'';
   const list=txs.filter(t=>String(t.child_id)===String(child.id)).filter(t=>billingDate(t)>=from&&billingDate(t)<=to).sort((a,b)=>(a.entry_date||'').localeCompare(b.entry_date||''));
   const prior=txs.filter(t=>String(t.child_id)===String(child.id)&&billingDate(t)<from);
-  const balanceBefore=Number(child.beginning_balance||0)+prior.reduce((sum,t)=>{if(t.entry_type==='Charge')return sum+Number(t.amount||0);if(t.entry_type==='Payment'||t.entry_type==='Credit / Adjustment')return sum-Number(t.amount||0);return sum;},0);
+  const balanceBefore=Number(child.beginning_balance||0)+prior.reduce((sum,t)=>{if(t.entry_type==='Charge')return sum+Number(t.amount||0);if(t.entry_type==='Payment')return sum-Number(t.amount||0);if(t.entry_type==='Credit / Adjustment')return sum+(String(t.category||'').trim()==='Transfer Debit'?Number(t.amount||0):-Number(t.amount||0));return sum;},0);
   const charges=list.filter(t=>t.entry_type==='Charge').reduce((s,t)=>s+Number(t.amount||0),0);
   const payments=list.filter(t=>t.entry_type==='Payment').reduce((s,t)=>s+Number(t.amount||0),0);
-  const credits=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((s,t)=>s+Number(t.amount||0),0);
+  const credits=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((s,t)=>s+(String(t.category||'').trim()==='Transfer Debit'?-1:1)*Number(t.amount||0),0);
   const ending=balanceBefore+charges-payments-credits;
   const invoiceDate=displayDate(today());
 $('invoiceOutput').innerHTML=`
@@ -1713,5 +1727,35 @@ th:last-child, td:last-child {
 
 
  
+
+$('saveTransfer').onclick=async()=>{
+ const fromId=$('transferFrom').value,toId=$('transferTo').value,type=$('transferType').value,amount=Number($('transferAmount').value),date=$('transferDate').value;
+ if(!fromId||!toId)return alert('Select both children.');
+ if(String(fromId)===String(toId))return alert('Choose two different children.');
+ if(!Number.isFinite(amount)||amount<=0)return alert('Enter a positive amount.');
+ if(!date)return alert('Choose the transfer date.');
+ const fromChild=children.find(c=>String(c.id)===String(fromId)),toChild=children.find(c=>String(c.id)===String(toId));
+ if(!fromChild||!toChild)return alert('Could not find both children. Refresh and try again.');
+ if(!confirm('Save a $'+amount.toFixed(2)+' '+type+' transfer from '+fromChild.name+' to '+toChild.name+'? Two linked entries will be created.'))return;
+ const btn=$('saveTransfer');btn.disabled=true;btn.textContent='Saving…';
+ const transferId='TR-'+Date.now(),note=( $('transferNotes').value.trim()||'Transfer between child accounts')+' ['+transferId+']';
+ const fromCategory=type==='Debit'?'Transfer Debit':'Transfer Credit',toCategory=type==='Debit'?'Transfer Credit':'Transfer Debit';
+ const rows=[
+ {user_id:user.id,child_id:fromId,entry_date:date,week_start:date,week_end:date,entry_type:'Credit / Adjustment',category:fromCategory,payment_method:null,amount,notes:note+' — '+type+' from '+fromChild.name+' to '+toChild.name},
+ {user_id:user.id,child_id:toId,entry_date:date,week_start:date,week_end:date,entry_type:'Credit / Adjustment',category:toCategory,payment_method:null,amount,notes:note+' — counterpart of '+fromChild.name+' transfer'}
+ ];
+ try{
+  const {data,error}=await sb.from('daycare_transactions').insert(rows).select('*');
+  if(error){alert('Transfer not saved: '+error.message);return;}
+  await loadAll();
+  const ids=new Set((data||[]).map(t=>String(t.id)));
+  const verified=(data||[]).length===2&&[...ids].every(id=>txs.some(t=>String(t.id)===id));
+  if(!verified){$('transferStatus').textContent='The database response could not verify both entries in the refreshed ledger. Check both children before retrying.';return;}
+  $('transferAmount').value='';$('transferNotes').value='';
+  $('transferStatus').textContent='Transfer saved and both entries verified.';
+  alert('Transfer saved and verified for both children.');
+ }catch(e){alert('Could not verify transfer: '+(e?.message||String(e))+'. Check both children before retrying.');}
+ finally{btn.disabled=false;btn.textContent='Save transfer';}
+};
 </script>
 </body></html>
