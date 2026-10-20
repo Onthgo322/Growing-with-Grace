@@ -1356,7 +1356,7 @@ function updateCcapMonthlyCalculation(){
   if($('ccapFlatCharge')?.checked)return;
   if($('txType').value!=='Charge'||$('txCategory').value!=='CCAP')return;
   const child=children.find(c=>c.id===$('txChild').value);
-  const date=$('weekEnd').value;
+  const date=$('txEntryDate').value||$('weekEnd').value;
   if(!child||!date)return;
   const [year,month]=date.split('-').map(Number);
   const monthStart=year+'-'+String(month).padStart(2,'0')+'-01';
