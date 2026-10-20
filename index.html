@@ -886,7 +886,7 @@ const charges = transactions
          .filter(t => {
            // Use the actual entry date so payments are assigned to the month
            // they were recorded, even if the billing week began earlier.
-           const paymentDate = t.entry_date || t.week_start || '';
+           const paymentDate = (String(t.category || '').trim().toUpperCase() === 'CCAP') ? (t.entry_date || t.week_start || '') : (t.week_start || t.entry_date || '');
            return t.entry_type === 'Payment' &&
              paymentDate >= from &&
              paymentDate <= to &&
@@ -919,7 +919,7 @@ const methodTotals = {
 };
 
 transactions.forEach(t => {
-  const date = (String(t.category || '').trim().toUpperCase() === 'CCAP') ? ledgerBucketDate(t) : (t.entry_date || t.week_start || '');
+  const date = (String(t.category || '').trim().toUpperCase() === 'CCAP') ? ledgerBucketDate(t) : (t.week_start || t.entry_date || '');
   const inWeek = date >= from && date <= to &&
     Number(date.slice(0, 4)) === year &&
     Number(date.slice(5, 7)) === month + 1;
