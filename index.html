@@ -274,6 +274,19 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <script>
 // Independent connection handler: keep database connection usable even if another
 // part of the main app script stops during initialization.
+// Report startup failures from the main ledger script without changing saved data.
+window.addEventListener("error",(event)=>{
+  const text=event?.message||"Unknown JavaScript error";
+  console.error("Ledger startup error:",text,event?.filename,event?.lineno);
+  const status=document.getElementById("authStatus");
+  if(status)status.textContent="Ledger loading error: "+text+(event?.lineno?" (line "+event.lineno+")":"");
+});
+window.addEventListener("unhandledrejection",(event)=>{
+  const reason=event?.reason?.message||String(event?.reason||"Unknown promise error");
+  console.error("Ledger startup promise error:",reason);
+  const status=document.getElementById("authStatus");
+  if(status)status.textContent="Ledger loading error: "+reason;
+});
 document.addEventListener("DOMContentLoaded",()=>{
   const connect=document.getElementById("connectBtn");
   const message=document.getElementById("connectionStatus");
