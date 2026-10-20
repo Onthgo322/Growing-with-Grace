@@ -277,9 +277,10 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 // Report startup failures from the main ledger script without changing saved data.
 window.addEventListener("error",(event)=>{
   const text=event?.message||"Unknown JavaScript error";
+  window.__gwgLastStartupError=text+(event?.lineno?" (line "+event.lineno+")":"");
   console.error("Ledger startup error:",text,event?.filename,event?.lineno);
   const status=document.getElementById("authStatus");
-  if(status)status.textContent="Ledger loading error: "+text+(event?.lineno?" (line "+event.lineno+")":"");
+  if(status)status.textContent="Ledger loading error: "+window.__gwgLastStartupError;
 });
 window.addEventListener("unhandledrejection",(event)=>{
   const reason=event?.reason?.message||String(event?.reason||"Unknown promise error");
@@ -321,7 +322,8 @@ document.addEventListener("DOMContentLoaded",()=>{
         else throw new Error("Sign-in succeeded, but the ledger script did not finish loading. Please tell me this exact message.");
       }catch(error){
         console.error("Independent sign-in failed:",error);
-        if(authStatus)authStatus.textContent="Sign-in error: "+(error?.message||String(error));
+        const startupError=window.__gwgLastStartupError;
+        if(authStatus)authStatus.textContent=startupError?"Ledger startup error: "+startupError:"Sign-in error: "+(error?.message||String(error));
       }finally{signIn.disabled=false;}
     };
   }
