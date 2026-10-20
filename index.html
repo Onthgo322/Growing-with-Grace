@@ -1665,7 +1665,7 @@ $('generateInvoice').onclick=()=>{
   const balanceBefore=Number(child.beginning_balance||0)+prior.reduce((sum,t)=>{if(t.entry_type==='Charge')return sum+Number(t.amount||0);if(t.entry_type==='Payment')return sum-Number(t.amount||0);if(t.entry_type==='Credit / Adjustment')return sum+(String(t.category||'').trim()==='Transfer Debit'?Number(t.amount||0):-Number(t.amount||0));return sum;},0);
   const charges=list.filter(t=>t.entry_type==='Charge').reduce((s,t)=>s+Number(t.amount||0),0);
   const payments=list.filter(t=>t.entry_type==='Payment').reduce((s,t)=>s+Number(t.amount||0),0);
-  const credits=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((s,t)=>s+Number(t.amount||0),0);
+  const credits=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((s,t)=>s+(String(t.category||'').trim()==='Transfer Debit'?-1:1)*Number(t.amount||0),0);
   const ending=balanceBefore+charges-payments-credits;
   const invoiceDate=displayDate(today());
 $('invoiceOutput').innerHTML=`
@@ -1919,10 +1919,10 @@ $('generateInvoice').onclick=()=>{
   const billingDate=t=>t.week_start||t.entry_date||'';
   const list=txs.filter(t=>String(t.child_id)===String(child.id)).filter(t=>billingDate(t)>=from&&billingDate(t)<=to).sort((a,b)=>(a.entry_date||'').localeCompare(b.entry_date||''));
   const prior=txs.filter(t=>String(t.child_id)===String(child.id)&&billingDate(t)<from);
-  const balanceBefore=Number(child.beginning_balance||0)+prior.reduce((sum,t)=>{if(t.entry_type==='Charge')return sum+Number(t.amount||0);if(t.entry_type==='Payment'||t.entry_type==='Credit / Adjustment')return sum-Number(t.amount||0);return sum;},0);
+  const balanceBefore=Number(child.beginning_balance||0)+prior.reduce((sum,t)=>{if(t.entry_type==='Charge')return sum+Number(t.amount||0);if(t.entry_type==='Payment')return sum-Number(t.amount||0);if(t.entry_type==='Credit / Adjustment')return sum+(String(t.category||'').trim()==='Transfer Debit'?Number(t.amount||0):-Number(t.amount||0));return sum;},0);
   const charges=list.filter(t=>t.entry_type==='Charge').reduce((s,t)=>s+Number(t.amount||0),0);
   const payments=list.filter(t=>t.entry_type==='Payment').reduce((s,t)=>s+Number(t.amount||0),0);
-  const credits=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((s,t)=>s+Number(t.amount||0),0);
+  const credits=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((s,t)=>s+(String(t.category||'').trim()==='Transfer Debit'?-1:1)*Number(t.amount||0),0);
   const ending=balanceBefore+charges-payments-credits;
   const invoiceDate=displayDate(today());
 $('invoiceOutput').innerHTML=`
@@ -2161,10 +2161,10 @@ $('generateInvoice').onclick=()=>{
   const billingDate=t=>t.week_start||t.entry_date||'';
   const list=txs.filter(t=>String(t.child_id)===String(child.id)).filter(t=>billingDate(t)>=from&&billingDate(t)<=to).sort((a,b)=>(a.entry_date||'').localeCompare(b.entry_date||''));
   const prior=txs.filter(t=>String(t.child_id)===String(child.id)&&billingDate(t)<from);
-  const balanceBefore=Number(child.beginning_balance||0)+prior.reduce((sum,t)=>{if(t.entry_type==='Charge')return sum+Number(t.amount||0);if(t.entry_type==='Payment'||t.entry_type==='Credit / Adjustment')return sum-Number(t.amount||0);return sum;},0);
+  const balanceBefore=Number(child.beginning_balance||0)+prior.reduce((sum,t)=>{if(t.entry_type==='Charge')return sum+Number(t.amount||0);if(t.entry_type==='Payment')return sum-Number(t.amount||0);if(t.entry_type==='Credit / Adjustment')return sum+(String(t.category||'').trim()==='Transfer Debit'?Number(t.amount||0):-Number(t.amount||0));return sum;},0);
   const charges=list.filter(t=>t.entry_type==='Charge').reduce((s,t)=>s+Number(t.amount||0),0);
   const payments=list.filter(t=>t.entry_type==='Payment').reduce((s,t)=>s+Number(t.amount||0),0);
-  const credits=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((s,t)=>s+Number(t.amount||0),0);
+  const credits=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((s,t)=>s+(String(t.category||'').trim()==='Transfer Debit'?-1:1)*Number(t.amount||0),0);
   const ending=balanceBefore+charges-payments-credits;
   const invoiceDate=displayDate(today());
 $('invoiceOutput').innerHTML=`
