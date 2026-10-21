@@ -1066,8 +1066,16 @@ Object.keys(monthPaymentMethods).forEach(method => {
             <h3 class="print-page-break" style="color: red; font-weight: bold;">All Transaction Details — ${year}</h3>
                  ${detailHtml}
     `; 
+   const adjustmentTransactions = transactions.filter(t => t.entry_type === 'Credit / Adjustment' && String(t.entry_date || '').slice(0,4) === String(year)).sort((a,b)=>String(a.entry_date||'').localeCompare(String(b.entry_date||'')));
    html += `
       <div class="ledger-year-totals"><strong>${year} Totals:</strong> Charges ${money(yearCharges)} &nbsp; | &nbsp; Payments ${money(yearPayments)} &nbsp; | &nbsp; Year-end balance ${money(balance)}</div>
+      <div style="margin-top:6px;font-size:8pt;line-height:1.2;break-inside:avoid;page-break-inside:avoid">
+        <strong>Credits / Adjustments</strong>
+        <table style="width:100%;border-collapse:collapse;font-size:8pt;margin-top:3px">
+          <thead><tr><th style="text-align:left;padding:2px 4px;border-bottom:1px solid #999">Date</th><th style="text-align:right;padding:2px 4px;border-bottom:1px solid #999">Amount</th><th style="text-align:left;padding:2px 4px;border-bottom:1px solid #999">Description</th></tr></thead>
+          <tbody>${adjustmentTransactions.length ? adjustmentTransactions.map(t=>`<tr><td style="padding:2px 4px">${esc(displayDate(t.entry_date||''))}</td><td style="text-align:right;padding:2px 4px">${money(t.amount)}</td><td style="padding:2px 4px">${esc(t.notes||t.category||'Credit / Adjustment')}</td></tr>`).join('') : '<tr><td colspan="3" style="padding:2px 4px">No credits or adjustments recorded.</td></tr>'}</tbody>
+        </table>
+      </div>
     `;
 
     $('ledgerTables').innerHTML = html;
