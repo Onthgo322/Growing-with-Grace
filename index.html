@@ -1190,7 +1190,7 @@ function printTransactions(){
  
 function printChildLedger(){
   const selectedId = $('reportChild').value;
-  const selectedChildren = selectedId ? children.filter(c => String(c.id) === String(selectedId)) : children.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  const selectedChildren = (selectedId ? children.filter(c => String(c.id) === String(selectedId)) : children.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')))).filter((child,index,list)=>list.findIndex(other=>String(other.id)===String(child.id))===index);
   if(!selectedChildren.length) return alert('No children are available to print.');
   const content = $('ledgerContent');
   const originalContent = content.innerHTML;
