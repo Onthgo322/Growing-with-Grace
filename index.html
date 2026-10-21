@@ -1163,30 +1163,24 @@ function printTransactions(){
  
  
 function printChildLedger(){
-  const childId = $('reportChild').value;
-  if(!childId) return alert('Please select a child in Reports first.');
-  window.openChildLedger(childId);
-  setTimeout(() => {
-    const container = $('ledgerTables');
-    const heading = Array.from(container.querySelectorAll('h3'))
-      .find(h => h.textContent.includes('All Transaction Details'));
-    if(heading){
-      let el = heading;
-      while(el){
-        const next = el.nextElementSibling;
-        el.remove();
-        if(!next) break;
-        el = next;
-        if(el.tagName === 'H3' && el.textContent.includes('Year Totals')) break;
-      }
-    }
-    document.body.dataset.printMode = 'ledger';
-    window.onafterprint = () => {
-      delete document.body.dataset.printMode;
-      window.openChildLedger(childId);
-    };
-    window.print();
-  }, 500);
+  const selectedId = $('reportChild').value;
+  const selectedChildren = selectedId ? children.filter(c => String(c.id) === String(selectedId)) : children.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  if(!selectedChildren.length) return alert('No children are available to print.');
+  const content = $('ledgerContent');
+  const originalContent = content.innerHTML;
+  const originalTitle = $('ledgerTitle').textContent;
+  const pages = [];
+  selectedChildren.forEach((child,index)=>{
+    window.openChildLedger(child.id);
+    const tables = $('ledgerTables');
+    if(tables){const heading=Array.from(tables.querySelectorAll('h3')).find(h=>h.textContent.includes('All Transaction Details'));if(heading){let el=heading;while(el){const next=el.nextElementSibling;el.remove();if(!next)break;el=next;if(el.tagName==='H3'&&el.textContent.includes('Year Totals'))break;}}}
+    pages.push('<section style="break-before:'+ (index ? 'right' : 'auto') +';page-break-before:'+ (index ? 'right' : 'auto') +';break-after:right;page-break-after:right"><h2>'+esc(child.name)+' — Monthly Ledger</h2>'+content.innerHTML+'</section>');
+  });
+  content.innerHTML=pages.join('');
+  $('ledgerTitle').textContent=selectedId?(selectedChildren[0].name+' — Monthly Ledger'):'All Children — Monthly Ledgers';
+  document.body.dataset.printMode='ledger';
+  window.onafterprint=()=>{content.innerHTML=originalContent;$('ledgerTitle').textContent=originalTitle;delete document.body.dataset.printMode;if(selectedId)window.openChildLedger(selectedId);};
+  window.print();
 }
  
  $('exportChildTransactions').onclick=()=>{
