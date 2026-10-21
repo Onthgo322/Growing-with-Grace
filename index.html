@@ -22,6 +22,13 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
 .tablewrap{overflow-x:auto}.hidden{display:none!important}.status{font-size:.9rem;padding:8px 0}.small{font-size:.82rem}
 
 @media print {
+  body[data-print-mode="ledger"] #page-ledger > button { display:none !important; }
+  body[data-print-mode="ledger"] #ledgerYear, body[data-print-mode="ledger"] label[for="ledgerYear"] { display:none !important; }
+  body[data-print-mode="ledger"] .ledger-month-heading p { display:none !important; }
+  body[data-print-mode="ledger"] #ledgerTables .tablewrap:not(:first-of-type) thead { display:none !important; }
+  body[data-print-mode="ledger"] .ledger-month-heading { border-top:3px double #555 !important; padding-top:3px !important; margin:4px 0 1px !important; }
+  body[data-print-mode="ledger"] .ledger-year-totals { font-size:7pt !important; line-height:1.1 !important; margin:3px 0 !important; }
+
   body[data-print-mode="ledger"] #ledgerTitle,
   body[data-print-mode="ledger"] #ledgerContent > .ledger-balance-guide,
   body[data-print-mode="ledger"] #ledgerContent > .ledger-year-picker,
@@ -980,7 +987,7 @@ Object.keys(monthPaymentMethods).forEach(method => {
      yearCredits += monthCredits;
 
       html += `
-        <div class="ledger-month-heading"><h3>${monthStart.toLocaleString('en-US', {month:'long'})} ${year}</h3><p>Beginning balance: <strong>${money(beginningBalance)}</strong></p></div>
+        <div class="ledger-month-heading"><h3>${monthStart.toLocaleString(\'en-US\', {month:\'long\'})} ${year}</h3></div>
         <div class="tablewrap">
           <table>
             <thead><tr>
@@ -1044,10 +1051,7 @@ Object.keys(monthPaymentMethods).forEach(method => {
                  ${detailHtml}
     `; 
    html += `
-      <h3>${year} Year Totals</h3>
-      <p>Total charges: <strong>${money(yearCharges)}</strong></p>
-      <p>Total payments: <strong>${money(yearPayments)}</strong></p>
-      <p>Year-end balance: <strong>${money(balance)}</strong></p>
+      <div class="ledger-year-totals"><strong>${year} Totals:</strong> Charges ${money(yearCharges)} &nbsp; | &nbsp; Payments ${money(yearPayments)} &nbsp; | &nbsp; Year-end balance ${money(balance)}</div>
     `;
 
     $('ledgerTables').innerHTML = html;
