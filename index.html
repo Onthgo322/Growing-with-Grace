@@ -441,7 +441,7 @@ $('weekStart').addEventListener('change',()=>{
   const previousEnd=$('weekEnd').value;
   $('weekEnd').value=friday;
   // Keep ordinary transaction dates aligned when they were following the old week-end.
-  if($('txCategory').value!=='CCAP' && (!$('txEntryDate').value || $('txEntryDate').value===previousEnd || $('txEntryDate').value<start)){
+  if($('txType').value==='Charge' && $('txCategory').value!=='CCAP' && (!$('txEntryDate').value || $('txEntryDate').value===previousEnd || $('txEntryDate').value<start)){
     $('txEntryDate').value=friday;
   }
 });
@@ -1599,7 +1599,7 @@ function handleCcapContextChange(event){
       $('weekEnd').value=iso(last);
       $('txEntryDate').value=isCcapPayment?iso(last):iso(first);
     }
-  }else if($('weekEnd').value){$('txEntryDate').value=$('weekEnd').value;}
+  }else if($('txType').value==='Charge'&&$('txCategory').value!=='CCAP'&&$('weekEnd').value){$('txEntryDate').value=$('weekEnd').value;}
   if(isMonthlyCcapCharge){
     if($('ccapDaycareDays').dataset.userEdited!=='1')$('ccapDaycareDays').value=countWeekdaysInMonth($('txEntryDate').value||$('weekEnd').value);
     updateCcapMonthlyCalculation();
