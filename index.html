@@ -1446,6 +1446,10 @@ function getCcapSchoolCalendar(child){
     calendar.children.some(n=>nameParts.includes(n))
   )||null;
 }
+function isCcapSchoolAge(child){
+  const category=String(child?.rate_category||'').trim().toLowerCase().replace(/[–—]/g,'-').replace(/\\s+/g,' ');
+  return category==='before/after school care'||/^5\\s*-\\s*12 years$/.test(category);
+}
 function updateCcapMonthlyCalculation(){
   if($('ccapFlatCharge')?.checked)return;
   if($('txType').value!=='Charge'||$('txCategory').value!=='CCAP')return;
@@ -1456,7 +1460,7 @@ function updateCcapMonthlyCalculation(){
   const monthStart=year+'-'+String(month).padStart(2,'0')+'-01';
   const nextMonth=month===12?(year+1)+'-01-01':year+'-'+String(month+1).padStart(2,'0')+'-01';
   const weekdays=countWeekdaysInMonth(date);
-  const isSchoolAge=child.rate_category==='Before/After School Care'||child.rate_category==='5–12 Years';
+  const isSchoolAge=isCcapSchoolAge(child);
   let category=child.rate_category;
   if(child.date_of_birth&&child.rate_category!=='Before/After School Care'){
     const b=new Date(child.date_of_birth+'T12:00:00'),d=new Date(date+'T12:00:00');
@@ -1560,7 +1564,7 @@ const autoFillSavedRate=()=>{
 function toggleCcapDayFields(){
  const child=children.find(c=>c.id===$('txChild').value);
  const isCcapCharge=$('txType').value==='Charge'&&$('txCategory').value==='CCAP';
- const isSchoolAge=!!child&&(child.rate_category==='Before/After School Care'||child.rate_category==='5–12 Years');
+ const isSchoolAge=!!child&&isCcapSchoolAge(child);
  const showSchool=isCcapCharge&&isSchoolAge;
  const showDaycare=isCcapCharge&&!!child&&!isSchoolAge;
  $('ccapFlatField').style.display=isCcapCharge?'':'none';
