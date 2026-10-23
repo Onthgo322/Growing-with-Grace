@@ -871,7 +871,7 @@ const monthTransactions = transactions
           <td>${esc(t.payment_method || '—')}</td>
           <td>${isCharge ? money(t.amount) : '—'}</td>
           <td>${isPayment ? money(t.amount) : '—'}</td>
-          <td>${isCredit ? money(t.amount) : '—'}</td>
+          <td>${isCredit ? money((String(t.category||'').trim()==='Transfer Debit'?-1:1)*Number(t.amount||0)) : '—'}</td>
           <td>${esc(t.notes || '')}</td>
         </tr>`;
       }).join('');
@@ -990,7 +990,7 @@ transactions.forEach(t => {
             Number(ledgerWeekStart(t).slice(0,4)) === year &&
             Number(ledgerWeekStart(t).slice(5,7)) === month + 1
           )
-          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+          .reduce((sum, t) => sum + (String(t.category||'').trim()==='Transfer Debit'?-1:1)*Number(t.amount || 0), 0);
         monthCharges += charges + ccapCharges;
         monthCcapCharges += ccapCharges;
         monthPayments += payments;
