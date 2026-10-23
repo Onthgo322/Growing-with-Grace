@@ -1489,7 +1489,7 @@ function updateCcapMonthlyCalculation(){
       const index=month>=7?month-7:month+5;
       schoolField.value=calendar.school[index];
       nonSchoolField.value=calendar.nonSchool[index];
-    }else if(Number(schoolField.value||0)===0&&Number(nonSchoolField.value||0)===0){
+    }else if(child.school_calendar!=='other'&&Number(schoolField.value||0)===0&&Number(nonSchoolField.value||0)===0){
       schoolField.value=weekdays;
       nonSchoolField.value=0;
     }
