@@ -1577,8 +1577,18 @@ $('ccapFlatCharge').addEventListener('change',()=>{if($('ccapFlatCharge').checke
 toggleCcapDayFields();
 function handleCcapContextChange(){
   if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'&&!$('ccapFlatCharge').checked){
-    const monthValue=$('weekEnd').value;
-    if(monthValue){const [y,m]=monthValue.split('-').map(Number);const d=new Date(y,m-1,1);while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1);$('txEntryDate').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+    const monthValue=$('weekEnd').value||$('weekStart').value;
+    if(monthValue){
+      const [y,m]=monthValue.split('-').map(Number);
+      const first=new Date(y,m-1,1);
+      while(first.getDay()!==1)first.setDate(first.getDate()+1);
+      const last=new Date(y,m,0);
+      while(last.getDay()!==5)last.setDate(last.getDate()-1);
+      const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      $('weekStart').value=iso(first);
+      $('weekEnd').value=iso(last);
+      $('txEntryDate').value=iso(first);
+    }
   }else if($('weekEnd').value){$('txEntryDate').value=$('weekEnd').value;}
   if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'&&!$('ccapFlatCharge').checked){
     if($('ccapDaycareDays').dataset.userEdited!=='1')$('ccapDaycareDays').value=countWeekdaysInMonth($('txEntryDate').value||$('weekEnd').value);
