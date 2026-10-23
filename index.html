@@ -1439,12 +1439,11 @@ const ccapSchoolCalendars={
   }
 };
 function getCcapSchoolCalendar(child){
-  // Child records usually store the full name; match the first name so a surname
-  // does not prevent the saved school calendar from being selected.
+  // Match first names and nicknames in parentheses, e.g. "Gianna (Gigi) Garrett".
   const name=String(child?.name||'').trim().toLowerCase();
-  const firstName=name.split(/\\s+/)[0];
+  const nameParts=name.match(/[a-z]+/g)||[];
   return Object.values(ccapSchoolCalendars).find(calendar=>
-    calendar.children.includes(firstName)||calendar.children.some(n=>name===n||name.startsWith(n+' '))
+    calendar.children.some(n=>nameParts.includes(n))
   )||null;
 }
 function updateCcapMonthlyCalculation(){
