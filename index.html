@@ -209,7 +209,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
  <div class="field"><label>Fixed weekly rate ($)</label><input type="number" id="childFixedRate" min="0" step="0.01" placeholder="Example: 200.00"></div>
  <button class="primary" id="addChild">Add child</button>
  </div>
-<h3>Current children</h3><p class="muted">Use Edit to set each school-age child's school. CCAP uses this saved calendar assignment; children without a selection may continue using the existing name-based calendar match until updated.</p><div class="tablewrap"><table><thead><tr><th>Name</th><th>Age</th><th>Category</th><th>Category check</th><th>School / calendar</th><th>Rate type</th><th>Employee discount</th><th>Weekly rate</th><th>Daily rate (÷ 5)</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
+<h3>Current children</h3><p class="muted">Use Edit to assign each school-age child to a school. CCAP uses that school's saved calendar for the matching school year.</p><div class="tablewrap"><table><thead><tr><th>Name</th><th>Age</th><th>Category</th><th>Category check</th><th>School / calendar</th><th>Rate type</th><th>Employee discount</th><th>Weekly rate</th><th>Daily rate (÷ 5)</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
 <section class="panel tabpage hidden" id="page-ledger">
   <button onclick="document.querySelector('[data-tab=&quot;children&quot;]').click()">← Back to Children</button>
   <h2 id="ledgerTitle">Child Ledger</h2>
@@ -759,7 +759,7 @@ function renderChildren() {
         <td style="white-space:pre-line;min-width:105px">${esc(age).replace(/\b(years|months)\b/g,'$1').replace(/(\d+) (years|months)/g,'$1&nbsp;$2')}</td>
         <td>${esc(category)}</td>
         <td>${esc(categoryCheck)}</td>
-        <td>${esc(({fargo:'Fargo Public Schools',westFargo:'West Fargo Public Schools',trinity:'Trinity',other:'Other / no matching calendar'})[c.school_calendar] || (isCcapSchoolAge(c) ? 'Not set — check school' : '—'))}</td>
+        <td>${esc(schools.find(s=>String(s.id)===String(c.school_id))?.name || ({fargo:'Fargo Public Schools',westFargo:'West Fargo Public Schools',trinity:'Trinity',other:'Other / no matching calendar'})[c.school_calendar] || (isCcapSchoolAge(c) ? 'Not set — check school' : '—'))}</td>
         <td>${c.rate_type === 'fixed' ? 'Fixed weekly' : 'Percentage'}</td>
         <td>${c.rate_type === 'fixed' ? '—' : Number(c.employee_discount_percent || 0) + '%'}</td>
         <td>${weekly.toFixed(2)}</td>
@@ -1462,7 +1462,7 @@ const ccapSchoolCalendars={
     children:['mira','noah']
   }
 };
-function getDynamicSchoolMonth(child,date){if(!child?.school_id||!date)return null;const [year,month]=date.split('-').map(Number);const label=month>=7?year+'-'+(year+1):(year-1)+'-'+year;const sy=schoolYears.find(y=>String(y.school_id)===String(child.school_id)&&String(y.school_year)===label);if(!sy)return null;return schoolMonths.find(m=>String(m.school_year_id)===String(sy.id)&&Number(m.month_number)===month)||null}\nfunction getCcapSchoolCalendar(child){
+function getDynamicSchoolMonth(child,date){if(!child?.school_id||!date)return null;const [year,month]=date.split('-').map(Number);const label=month>=8?year+'-'+(year+1):(year-1)+'-'+year;const sy=schoolYears.find(y=>String(y.school_id)===String(child.school_id)&&String(y.school_year)===label);if(!sy)return null;return schoolMonths.find(m=>String(m.school_year_id)===String(sy.id)&&Number(m.month_number)===month)||null}\nfunction getCcapSchoolCalendar(child){
   // Prefer the school explicitly saved on the child's profile.
   const assigned=String(child?.school_calendar||'');
   if(assigned==='fargo')return ccapSchoolCalendars.fargo;
@@ -1513,7 +1513,7 @@ function updateCcapMonthlyCalculation(){
       const index=month>=7?month-7:month+5;
       schoolField.value=calendar.school[index];
       nonSchoolField.value=calendar.nonSchool[index];
-    }else if(child.school_calendar!=='other'&&Number(schoolField.value||0)===0&&Number(nonSchoolField.value||0)===0){
+    }else if(!child.school_id&&child.school_calendar!=='other'&&Number(schoolField.value||0)===0&&Number(nonSchoolField.value||0)===0){
       schoolField.value=weekdays;
       nonSchoolField.value=0;
     }
