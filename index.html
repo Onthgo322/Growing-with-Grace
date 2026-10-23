@@ -45,6 +45,9 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
   body[data-print-mode="ledger"] #ledgerTables .ledger-month-print-label.ledger-half-year-start { break-before:page !important; page-break-before:always !important; }
   body[data-print-mode="ledger"] .ledger-month-heading { border-top:3px double #555 !important; padding-top:3px !important; margin:4px 0 1px !important; }
   body[data-print-mode="ledger"] .ledger-year-totals { font-size:6.5pt !important; line-height:1.05 !important; margin:2px 0 !important; white-space:nowrap !important; }
+  body[data-print-mode="ledger"] .ledger-adjustment-details { break-before:page !important; page-break-before:always !important; break-inside:avoid !important; page-break-inside:avoid !important; }
+  body[data-print-mode="ledger"] .ledger-adjustment-details table { page-break-inside:auto !important; }
+  body[data-print-mode="ledger"] .ledger-adjustment-details tr { break-inside:avoid !important; page-break-inside:avoid !important; }
 
   body[data-print-mode="ledger"] #ledgerTitle,
     body[data-print-mode="ledger"] #ledgerContent > .ledger-year-picker,
@@ -1094,7 +1097,7 @@ Object.keys(monthPaymentMethods).forEach(method => {
    html += `
       <div class="ledger-year-totals"><strong>${year} Totals:</strong> Charges ${money(yearCharges)} &nbsp; | &nbsp; Payments ${money(yearPayments)} &nbsp; | &nbsp; Year-end balance ${money(balance)}</div>
       ${adjustmentTransactions.length ? `
-      <div style="margin-top:6px;font-size:8pt;line-height:1.2;break-inside:avoid;page-break-inside:avoid">
+      <div class="ledger-adjustment-details" style="margin-top:6px;font-size:8pt;line-height:1.2;break-inside:avoid;page-break-inside:avoid">
         <strong>Credits / Adjustments</strong>
         <table style="width:100%;border-collapse:collapse;font-size:8pt;margin-top:3px">
           <thead><tr><th style="text-align:left;padding:2px 4px;border-bottom:1px solid #999">Date</th><th style="text-align:right;padding:2px 4px;border-bottom:1px solid #999">Amount</th><th style="text-align:left;padding:2px 4px;border-bottom:1px solid #999">Description</th></tr></thead>
