@@ -1575,27 +1575,31 @@ $('txType').addEventListener('change',toggleCcapDayFields);
 $('txChild').addEventListener('change',toggleCcapDayFields);
 $('ccapFlatCharge').addEventListener('change',()=>{if($('ccapFlatCharge').checked){$('txAmount').value='';}else if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'){updateCcapMonthlyCalculation();}toggleCcapDayFields();});
 toggleCcapDayFields();
-function handleCcapContextChange(){
-  if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'&&!$('ccapFlatCharge').checked){
-    const monthValue=$('weekEnd').value||$('weekStart').value;
+function handleCcapContextChange(event){
+  const isCcap=$('txCategory').value==='CCAP';
+  const isMonthlyCcapCharge=$('txType').value==='Charge'&&!$('ccapFlatCharge').checked;
+  const isCcapPayment=$('txType').value==='Payment';
+  if(isCcap&&(isMonthlyCcapCharge||isCcapPayment)){
+    const changedDate=event&&['weekStart','weekEnd'].includes(event.target.id)?event.target.value:'';
+    const monthValue=changedDate||$('weekStart').value||$('weekEnd').value;
     if(monthValue){
       const [y,m]=monthValue.split('-').map(Number);
       const first=new Date(y,m-1,1);
-      while(first.getDay()!==1)first.setDate(first.getDate()+1);
+      while(first.getDay()===0||first.getDay()===6)first.setDate(first.getDate()+1);
       const last=new Date(y,m,0);
-      while(last.getDay()!==5)last.setDate(last.getDate()-1);
+      while(last.getDay()===0||last.getDay()===6)last.setDate(last.getDate()-1);
       const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
       $('weekStart').value=iso(first);
       $('weekEnd').value=iso(last);
-      $('txEntryDate').value=iso(first);
+      $('txEntryDate').value=isCcapPayment?iso(last):iso(first);
     }
   }else if($('weekEnd').value){$('txEntryDate').value=$('weekEnd').value;}
-  if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'&&!$('ccapFlatCharge').checked){
+  if(isMonthlyCcapCharge){
     if($('ccapDaycareDays').dataset.userEdited!=='1')$('ccapDaycareDays').value=countWeekdaysInMonth($('txEntryDate').value||$('weekEnd').value);
     updateCcapMonthlyCalculation();
   }
 }
-['txChild','txType','txCategory','weekEnd'].forEach(id=>$(id).addEventListener('change',handleCcapContextChange));
+['txChild','txType','txCategory','weekEnd','weekStart'].forEach(id=>$(id).addEventListener('change',handleCcapContextChange));
 $('txEntryDate').addEventListener('change',()=>{
   if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'&&!$('ccapFlatCharge').checked){
     if($('ccapDaycareDays').dataset.userEdited!=='1')$('ccapDaycareDays').value=countWeekdaysInMonth($('txEntryDate').value);
