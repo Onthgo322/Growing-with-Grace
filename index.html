@@ -45,9 +45,12 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;bord
   body[data-print-mode="ledger"] #ledgerTables .ledger-month-print-label.ledger-half-year-start { break-before:page !important; page-break-before:always !important; }
   body[data-print-mode="ledger"] .ledger-month-heading { border-top:3px double #555 !important; padding-top:3px !important; margin:4px 0 1px !important; }
   body[data-print-mode="ledger"] .ledger-year-totals { font-size:6.5pt !important; line-height:1.05 !important; margin:2px 0 !important; white-space:nowrap !important; }
-  body[data-print-mode="ledger"] .ledger-adjustment-details { break-before:page !important; page-break-before:always !important; break-inside:avoid !important; page-break-inside:avoid !important; }
-  body[data-print-mode="ledger"] .ledger-adjustment-details table { page-break-inside:auto !important; }
+  body[data-print-mode="ledger"] .ledger-adjustment-details { break-before:page !important; page-break-before:always !important; break-inside:auto !important; page-break-inside:auto !important; }
+  body[data-print-mode="ledger"] .ledger-adjustment-details > strong { display:block !important; break-after:avoid-page !important; page-break-after:avoid !important; }
+  body[data-print-mode="ledger"] .ledger-adjustment-details table { display:table !important; width:100% !important; page-break-inside:auto !important; border-collapse:collapse !important; }
+  body[data-print-mode="ledger"] .ledger-adjustment-details thead { display:table-header-group !important; }
   body[data-print-mode="ledger"] .ledger-adjustment-details tr { break-inside:avoid !important; page-break-inside:avoid !important; }
+  body[data-print-mode="ledger"] .ledger-adjustment-details td { overflow-wrap:anywhere !important; }
 
   body[data-print-mode="ledger"] #ledgerTitle,
     body[data-print-mode="ledger"] #ledgerContent > .ledger-year-picker,
