@@ -200,6 +200,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="field"><label>Child's full name</label><input id="childName" placeholder="Child name"></div>
 <div class="field"><label>Child's birthdate</label><input type="date" id="childBirthdate"></div> 
 <div class="field"><label>Rate category</label><select id="childCategory"><option>Infant</option><option>2-Year</option><option>3-Year</option><option>4-Year</option><option>5–12 Years</option><option>Before/After School Care</option></select></div>
+<div class="field"><label>School / CCAP calendar (for school-age children)</label><select id="childSchool"><option value="">Not set / not school-aged</option><option value="fargo">Fargo Public Schools</option><option value="westFargo">West Fargo Public Schools</option><option value="trinity">Trinity</option><option value="other">Other / no matching calendar</option></select></div>
 
 <div class="field"><label>Rate type</label><select id="childRateType"><option value="percentage">Percentage discount</option><option value="fixed">Fixed weekly rate</option></select></div>
 <div class="field"><label>Employee discount (%)</label><input type="number" id="childDiscount" min="0" max="100" step="0.01" value="0" placeholder="0"></div>
@@ -208,7 +209,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
  <div class="field"><label>Fixed weekly rate ($)</label><input type="number" id="childFixedRate" min="0" step="0.01" placeholder="Example: 200.00"></div>
  <button class="primary" id="addChild">Add child</button>
  </div>
-<h3>Current children</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Age</th><th>Category</th><th>Category check</th><th>Rate type</th><th>Employee discount</th><th>Weekly rate</th><th>Daily rate (÷ 5)</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
+<h3>Current children</h3><p class="muted">Use Edit to set each school-age child's school. CCAP uses this saved calendar assignment; children without a selection may continue using the existing name-based calendar match until updated.</p><div class="tablewrap"><table><thead><tr><th>Name</th><th>Age</th><th>Category</th><th>Category check</th><th>School / calendar</th><th>Rate type</th><th>Employee discount</th><th>Weekly rate</th><th>Daily rate (÷ 5)</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
 <section class="panel tabpage hidden" id="page-ledger">
   <button onclick="document.querySelector('[data-tab=&quot;children&quot;]').click()">← Back to Children</button>
   <h2 id="ledgerTitle">Child Ledger</h2>
@@ -751,6 +752,7 @@ function renderChildren() {
         <td style="white-space:pre-line;min-width:105px">${esc(age).replace(/\b(years|months)\b/g,'$1').replace(/(\d+) (years|months)/g,'$1&nbsp;$2')}</td>
         <td>${esc(category)}</td>
         <td>${esc(categoryCheck)}</td>
+        <td>${esc(({fargo:'Fargo Public Schools',westFargo:'West Fargo Public Schools',trinity:'Trinity',other:'Other / no matching calendar'})[c.school_calendar] || (isCcapSchoolAge(c) ? 'Not set — check school' : '—'))}</td>
         <td>${c.rate_type === 'fixed' ? 'Fixed weekly' : 'Percentage'}</td>
         <td>${c.rate_type === 'fixed' ? '—' : Number(c.employee_discount_percent || 0) + '%'}</td>
         <td>${weekly.toFixed(2)}</td>
@@ -763,7 +765,7 @@ function renderChildren() {
       </tr>`;
      
     })
-    .join('') || '<tr><td colspan="9">No children yet.</td></tr>';
+    .join('') || '<tr><td colspan="10">No children yet.</td></tr>';
 }
 
  
@@ -1356,7 +1358,8 @@ rate_category:$('childCategory').value === 'Before/After School Care'
       fixed_weekly_rate:rateType==='fixed'?fixedRate:null,
       date_of_birth:$('childBirthdate').value||null,
       beginning_balance:Number($('childBeginningBalance').value||0),
-      active:true
+      active:true,
+      school_calendar:$('childSchool').value||null
     });
 
     if(error){
@@ -1366,6 +1369,7 @@ rate_category:$('childCategory').value === 'Before/After School Care'
 
     $('childName').value='';
     $('childBirthdate').value='';
+    $('childSchool').value='';
     $('childDiscount').value='0';
     $('childFixedRate').value='';
    $('childCategory').value = 'Infant';
@@ -1382,7 +1386,7 @@ updateChildRatePreview();
 
  
 
-window.editChild=async id=>{const c=children.find(x=>x.id===id);if(!c)return;const name=prompt('Child name:',c.name);if(name===null)return;if(!name.trim())return alert('Name cannot be blank.');const categoryOptions=['Infant','2-Year','3-Year','4-Year','5–12 Years','Before/After School Care'];const currentCategoryIndex=Math.max(0,categoryOptions.findIndex(option=>option===String(c.rate_category||'').trim().replace(/5\s*[-–—]\s*12\s*Years/i,'5–12 Years')));const categoryChoice=prompt('Choose the child’s rate category by number:\n1. Infant\n2. 2-Year\n3. 3-Year\n4. 4-Year\n5. 5–12 Years\n6. Before/After School Care',String(currentCategoryIndex+1));if(categoryChoice===null)return;const categoryNumber=Number(categoryChoice.trim());if(!Number.isInteger(categoryNumber)||categoryNumber<1||categoryNumber>categoryOptions.length)return alert('Please enter a number from 1 to 6. No changes were saved.');const category=categoryOptions[categoryNumber-1];const storedBirthdate=String(c.date_of_birth||'').slice(0,10);const storedMatch=storedBirthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);const displayBirthdate=storedMatch?storedMatch[2]+storedMatch[3]+storedMatch[1]:storedBirthdate;const birthdate=prompt('Birthdate (MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY; leave blank if unknown):',displayBirthdate);if(birthdate===null)return;const birthTextRaw=birthdate.trim();let birthText='';if(birthTextRaw){let birthMonth,birthDay,birthYear;let compactMatch=birthTextRaw.match(/^(\d{2})(\d{2})(\d{4})$/);let separatedMatch=birthTextRaw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);if(compactMatch){birthMonth=Number(compactMatch[1]);birthDay=Number(compactMatch[2]);birthYear=Number(compactMatch[3]);}else if(separatedMatch){birthMonth=Number(separatedMatch[1]);birthDay=Number(separatedMatch[2]);birthYear=Number(separatedMatch[3]);}else return alert('Use MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY. Example: 04152022, 04-15-2022, or 04/15/2022.');const birthCheck=new Date(birthYear,birthMonth-1,birthDay);if(birthCheck.getFullYear()!==birthYear||birthCheck.getMonth()!==birthMonth-1||birthCheck.getDate()!==birthDay)return alert('Enter a real calendar date as MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY.');birthText=birthYear+'-'+String(birthMonth).padStart(2,'0')+'-'+String(birthDay).padStart(2,'0');}const beginning=prompt('Beginning balance (positive = owed, negative = credit)::',Number(c.beginning_balance||0).toFixed(2));if(beginning===null)return;const beginningBalance=Number(beginning);if(beginning.trim()===''||!Number.isFinite(beginningBalance))return alert('Enter a valid beginning balance.');const rateType=prompt('Rate type: enter percentage or fixed',c.rate_type||'percentage');if(rateType===null)return;const rt=rateType.trim().toLowerCase();if(!['percentage','fixed'].includes(rt))return alert('Enter percentage or fixed.');let pct=0,fixedRate=null;if(rt==='percentage'){const discount=prompt('Employee discount percentage (0–100):',Number(c.employee_discount_percent||0));if(discount===null)return;pct=Number(discount);if(!Number.isFinite(pct)||pct<0||pct>100)return alert('Discount must be between 0 and 100.');}else{const fixed=prompt('Fixed weekly rate ($):',c.fixed_weekly_rate==null?'':Number(c.fixed_weekly_rate).toFixed(2));if(fixed===null)return;fixedRate=Number(fixed);if(fixed.trim()===''||!Number.isFinite(fixedRate)||fixedRate<0)return alert('Enter a valid fixed weekly rate.');}const {error}=await sb.from('daycare_children').update({name:name.trim(),rate_category:category,date_of_birth:birthText||null,beginning_balance:beginningBalance,rate_type:rt,fixed_weekly_rate:fixedRate,employee_discount:rt==='percentage'&&pct>0,employee_discount_percent:pct}).eq('id',id).eq('user_id',user.id);if(error)return alert(error.message);await loadAll();alert('Child updated. Existing charges were not changed.')};
+window.editChild=async id=>{const c=children.find(x=>x.id===id);if(!c)return;const name=prompt('Child name:',c.name);if(name===null)return;if(!name.trim())return alert('Name cannot be blank.');const schoolOptions=[['','Not set / not school-aged'],['fargo','Fargo Public Schools'],['westFargo','West Fargo Public Schools'],['trinity','Trinity'],['other','Other / no matching calendar']];const schoolCurrent=String(c.school_calendar||'');const schoolPrompt=prompt('School / CCAP calendar:\n0. Not set / not school-aged\n1. Fargo Public Schools\n2. West Fargo Public Schools\n3. Trinity\n4. Other / no matching calendar',String(Math.max(0,schoolOptions.findIndex(x=>x[0]===schoolCurrent))));if(schoolPrompt===null)return;const schoolNumber=Number(schoolPrompt.trim());if(!Number.isInteger(schoolNumber)||schoolNumber<0||schoolNumber>4)return alert('Enter a number from 0 to 4. No changes were saved.');const schoolCalendar=schoolOptions[schoolNumber][0]||null;const categoryOptions=['Infant','2-Year','3-Year','4-Year','5–12 Years','Before/After School Care'];const currentCategoryIndex=Math.max(0,categoryOptions.findIndex(option=>option===String(c.rate_category||'').trim().replace(/5\s*[-–—]\s*12\s*Years/i,'5–12 Years')));const categoryChoice=prompt('Choose the child’s rate category by number:\n1. Infant\n2. 2-Year\n3. 3-Year\n4. 4-Year\n5. 5–12 Years\n6. Before/After School Care',String(currentCategoryIndex+1));if(categoryChoice===null)return;const categoryNumber=Number(categoryChoice.trim());if(!Number.isInteger(categoryNumber)||categoryNumber<1||categoryNumber>categoryOptions.length)return alert('Please enter a number from 1 to 6. No changes were saved.');const category=categoryOptions[categoryNumber-1];const storedBirthdate=String(c.date_of_birth||'').slice(0,10);const storedMatch=storedBirthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);const displayBirthdate=storedMatch?storedMatch[2]+storedMatch[3]+storedMatch[1]:storedBirthdate;const birthdate=prompt('Birthdate (MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY; leave blank if unknown):',displayBirthdate);if(birthdate===null)return;const birthTextRaw=birthdate.trim();let birthText='';if(birthTextRaw){let birthMonth,birthDay,birthYear;let compactMatch=birthTextRaw.match(/^(\d{2})(\d{2})(\d{4})$/);let separatedMatch=birthTextRaw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);if(compactMatch){birthMonth=Number(compactMatch[1]);birthDay=Number(compactMatch[2]);birthYear=Number(compactMatch[3]);}else if(separatedMatch){birthMonth=Number(separatedMatch[1]);birthDay=Number(separatedMatch[2]);birthYear=Number(separatedMatch[3]);}else return alert('Use MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY. Example: 04152022, 04-15-2022, or 04/15/2022.');const birthCheck=new Date(birthYear,birthMonth-1,birthDay);if(birthCheck.getFullYear()!==birthYear||birthCheck.getMonth()!==birthMonth-1||birthCheck.getDate()!==birthDay)return alert('Enter a real calendar date as MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY.');birthText=birthYear+'-'+String(birthMonth).padStart(2,'0')+'-'+String(birthDay).padStart(2,'0');}const beginning=prompt('Beginning balance (positive = owed, negative = credit)::',Number(c.beginning_balance||0).toFixed(2));if(beginning===null)return;const beginningBalance=Number(beginning);if(beginning.trim()===''||!Number.isFinite(beginningBalance))return alert('Enter a valid beginning balance.');const rateType=prompt('Rate type: enter percentage or fixed',c.rate_type||'percentage');if(rateType===null)return;const rt=rateType.trim().toLowerCase();if(!['percentage','fixed'].includes(rt))return alert('Enter percentage or fixed.');let pct=0,fixedRate=null;if(rt==='percentage'){const discount=prompt('Employee discount percentage (0–100):',Number(c.employee_discount_percent||0));if(discount===null)return;pct=Number(discount);if(!Number.isFinite(pct)||pct<0||pct>100)return alert('Discount must be between 0 and 100.');}else{const fixed=prompt('Fixed weekly rate ($):',c.fixed_weekly_rate==null?'':Number(c.fixed_weekly_rate).toFixed(2));if(fixed===null)return;fixedRate=Number(fixed);if(fixed.trim()===''||!Number.isFinite(fixedRate)||fixedRate<0)return alert('Enter a valid fixed weekly rate.');}const {error}=await sb.from('daycare_children').update({name:name.trim(),rate_category:category,date_of_birth:birthText||null,beginning_balance:beginningBalance,rate_type:rt,fixed_weekly_rate:fixedRate,employee_discount:rt==='percentage'&&pct>0,employee_discount_percent:pct,school_calendar:schoolCalendar}).eq('id',id).eq('user_id',user.id);if(error)return alert(error.message);await loadAll();alert('Child updated. Existing charges were not changed.')};
 
  window.editChildParents=async id=>{
   const c=children.find(x=>String(x.id)===String(id));
@@ -1439,7 +1443,14 @@ const ccapSchoolCalendars={
   }
 };
 function getCcapSchoolCalendar(child){
-  // Match first names and nicknames in parentheses, e.g. "Gianna (Gigi) Garrett".
+  // Prefer the school explicitly saved on the child's profile.
+  const assigned=String(child?.school_calendar||'');
+  if(assigned==='fargo')return ccapSchoolCalendars.fargo;
+  if(assigned==='westFargo')return ccapSchoolCalendars.westFargo;
+  if(assigned==='trinity')return ccapSchoolCalendars.trinity;
+  if(assigned==='other')return null;
+  // Backward compatibility for existing records until each school-age child's
+  // school is confirmed and saved in the Children section.
   const name=String(child?.name||'').trim().toLowerCase();
   const nameParts=name.match(/[a-z]+/g)||[];
   return Object.values(ccapSchoolCalendars).find(calendar=>
