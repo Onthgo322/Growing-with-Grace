@@ -1447,8 +1447,8 @@ function getCcapSchoolCalendar(child){
   )||null;
 }
 function isCcapSchoolAge(child){
-  const category=String(child?.rate_category||'').trim().toLowerCase().replace(/[–—]/g,'-').replace(/\\s+/g,' ');
-  return category==='before/after school care'||/^5\\s*-\\s*12 years$/.test(category);
+  const category=String(child?.rate_category||'').trim().toLowerCase().replace(/[–—]/g,'-').replace(/\s+/g,' ');
+  return category==='before/after school care'||/^5\s*-\s*12 years$/.test(category);
 }
 function updateCcapMonthlyCalculation(){
   if($('ccapFlatCharge')?.checked)return;
