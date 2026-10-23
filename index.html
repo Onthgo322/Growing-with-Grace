@@ -1235,7 +1235,7 @@ function printChildLedger(){
   selectedChildren.forEach((child,index)=>{
     window.openChildLedger(child.id);
     const tables = $('ledgerTables');
-    if(tables){const heading=Array.from(tables.querySelectorAll('h3')).find(h=>h.textContent.includes('All Transaction Details'));if(heading){let el=heading;while(el){const next=el.nextElementSibling;el.remove();if(!next)break;el=next;if(el.tagName==='H3'&&el.textContent.includes('Year Totals'))break;}}}
+    if(tables){const heading=Array.from(tables.querySelectorAll('h3')).find(h=>h.textContent.includes('All Transaction Details'));if(heading){let el=heading;while(el){if(el.classList && el.classList.contains('ledger-year-totals'))break;const next=el.nextElementSibling;el.remove();if(!next)break;el=next;}}}
     pages.push('<section style="break-before:'+ (index ? 'right' : 'auto') +';page-break-before:'+ (index ? 'right' : 'auto') +';break-after:right;page-break-after:right"><h2>'+esc(child.name)+' — Monthly Ledger</h2>'+content.innerHTML+'</section>');
   });
   content.innerHTML=pages.join('');
