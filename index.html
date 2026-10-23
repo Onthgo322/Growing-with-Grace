@@ -298,6 +298,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
   <h2>Deleted Transactions</h2>
   <p class="muted">Deleted entries are kept here for your records and do not count toward current balances.</p>
   <button class="primary" id="loadDeleted">Refresh Deleted Transactions</button>
+   <button class="danger" id="clearDeletedHistory" style="margin-left:8px">Permanently Clear Deleted History</button>
   <div class="tablewrap">
     <table>
       <thead>
@@ -577,6 +578,26 @@ async function loadDeletedTransactions(){
       <td>${esc(h.deleted_at||'')}</td>
     </tr>`;
   }).join('')||'<tr><td colspan="6">No deleted transactions found.</td></tr>';
+}
+
+async function clearDeletedTransactionHistory(){
+  if(!sb||!user)return alert('Please sign in before clearing deleted history.');
+  const {count,error:countError}=await sb.from('daycare_transaction_history')
+    .select('id',{count:'exact',head:true}).eq('user_id',user.id);
+  if(countError)return alert('Could not check deleted history: '+countError.message);
+  if(!count)return alert('Deleted Transaction History is already empty.');
+  if(!confirm('Permanently erase all '+count+' transaction record(s) in Deleted Transaction History for your account? This cannot be undone. Current transactions, children, parent names, rates, and settings will not be deleted.'))return;
+  if(!confirm('Final confirmation: permanently delete these '+count+' history record(s)?'))return;
+  const {data,error}=await sb.from('daycare_transaction_history')
+    .delete().eq('user_id',user.id).select('id');
+  if(error)return alert('Could not clear deleted history: '+error.message);
+  const deleted=(data||[]).length;
+  await loadDeletedTransactions();
+  if(deleted!==count){
+    alert('Supabase confirmed deletion of '+deleted+' of '+count+' history record(s). Please refresh and check Deleted Transactions again.');
+    return;
+  }
+  alert('Deleted Transaction History has been cleared. Your current transactions and ledger setup were left unchanged.');
 }
  
 async function loadAll(){const base=await Promise.all([sb.from('daycare_children').select('*').order('name'),sb.from('daycare_rates').select('*').order('effective_date',{ascending:false})]);for(let i=0;i<base.length;i++){if(base[i].error){alert('Database error: '+base[i].error.message);return}}children=base[0].data||[];rates=base[1].data||[];let allTransactions=[];const pageSize=1000;for(let start=0;;start+=pageSize){const page=await sb.from('daycare_transactions').select('*').order('entry_date',{ascending:false}).range(start,start+pageSize-1);if(page.error){alert('Database error loading transactions: '+page.error.message);return}const rows=page.data||[];allTransactions=allTransactions.concat(rows);if(rows.length<pageSize)break;}txs=allTransactions;renderAll()}
@@ -1707,6 +1728,7 @@ $('saveBulk').onclick=async()=>{
 };
 
 $('loadDeleted').onclick=loadDeletedTransactions;
+ $('clearDeletedHistory').onclick=clearDeletedTransactionHistory;
 
  $('runReport').onclick=()=>{let list=txs.filter(t=>(!$('reportChild').value||t.child_id===$('reportChild').value)&&(!$('reportFrom').value||t.entry_date>=$('reportFrom').value)&&(!$('reportTo').value||t.entry_date<=$('reportTo').value)&&(!$('reportType').value||t.entry_type===$('reportType').value));$('reportRows').innerHTML=list.map(t=>`<tr><td>${displayDate(t.entry_date)}</td><td>${displayDate(t.week_start)}–${displayDate(t.week_end)}</td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')}</td><td>${esc(t.notes||'')}</td></tr>`).join('')||'<tr><td colspan="8">No matching entries.</td></tr>';const ch=list.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),pa=list.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('reportSummary').textContent=`${list.length} entries · Charges ${money(ch)} · Payments ${money(pa)} · Balance ${money(ch-pa)}`};
 
