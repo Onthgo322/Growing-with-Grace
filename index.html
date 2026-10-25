@@ -241,6 +241,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
  <div class="field" style="grid-column:1/-1"><label>Notes / check number / details</label><textarea id="txNotes"></textarea></div></div>
 <div id="saveFeedback" role="status" aria-live="polite" style="display:none;margin:10px 0 8px;padding:10px 12px;border:1px solid #cdbbdf;border-radius:8px;background:#f7f3fb;color:#342440;font-weight:600;white-space:pre-wrap"></div>
 <div class="entry-actions" style="display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important"><div class="entry-action-column" style="display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0"><button class="primary" id="saveTx" style="width:100%;min-height:44px">Save entry</button><button type="button" id="repeatLastEntry" style="width:100%;min-height:44px">Repeat Last Entry Next Week</button></div><div class="entry-action-column" style="display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0"><button id="fillRate" style="width:100%;min-height:44px">Fill weekly rate</button><button type="button" id="nextWeek" style="width:100%;min-height:44px">Next Week (Monday–Friday)</button></div></div><p class="muted small">Suggested weekly rates from your fee schedule: Infant $245, 2-Year $240, 3-Year $235, 4-Year $230, 5–12 Years $225, Before/After School Care $150. Enrollment $100; registration/insurance $40; activity fee $35 where applicable. Confirm the applicable schedule before saving. Late pickup: $5/minute; late payment: $15/day.</p>
+<h3>Billing Error Checker</h3><p class="muted small">Read-only review of saved entries. Possible issues require your review; no records are changed.</p><button type="button" id="checkBilling">Check saved billing</button><p id="billingCheckStatus" class="muted small" aria-live="polite"></p><div id="billingCheckResults" class="tablewrap"></div>
 <h3>Recent entries</h3><div class="field" style="max-width:420px"><label for="txRecentChild">Choose a child to view recent entries</label><select id="txRecentChild"><option value="">— Select a child —</option></select></div><div class="row"><button type="button" id="exportChildTransactions">Export selected child transactions (CSV)</button></div><p class="muted small">Exports the selected child’s existing transactions for review only. It does not change saved records.</p><p id="txRecentStatus" class="muted small" aria-live="polite"></p><div class="row"><button type="button" id="reviewDuplicateCcap">Review duplicate charges &amp; payments</button></div><p id="duplicateCcapStatus" class="muted small" aria-live="polite"></p><div class="tablewrap"><table id="duplicateCcapTable" class="hidden"><thead><tr><th>Date</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Payment method</th><th>Record ID</th><th>Action</th></tr></thead><tbody id="duplicateCcapRows"></tbody></table></div><div class="tablewrap"><table><thead><tr><th>Date / week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method / notes</th></tr></thead><tbody id="txRows"></tbody></table></div></section>
 
 
@@ -1627,6 +1628,23 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
   }
   $('txType').addEventListener('change',syncPaymentMethodToCategory);
   $('txCategory').addEventListener('change',syncPaymentMethodToCategory);
+  function billingWarnings(t,all){
+    const warnings=[];
+    const amount=Number(t.amount);
+    if(!Number.isFinite(amount)||(t.entry_type!=='Credit / Adjustment'&&amount<=0))warnings.push('Invalid or zero amount');
+    if(t.week_start&&t.week_end&&t.week_start>t.week_end)warnings.push('Week ends before it starts');
+    if(t.entry_type==='Charge'&&String(t.category||'').toUpperCase()!=='CCAP'&&t.entry_date&&t.week_end&&t.entry_date!==t.week_end)warnings.push('Entry date differs from week ending');
+    const matches=all.filter(x=>String(x.child_id)===String(t.child_id)&&String(x.id)!==String(t.id)&&String(x.entry_type)===String(t.entry_type)&&String(x.category||'').toLowerCase()===String(t.category||'').toLowerCase()&&String(x.week_start||'')===String(t.week_start||'')&&String(x.week_end||'')===String(t.week_end||'')&&Math.round(Number(x.amount||0)*100)===Math.round(amount*100));
+    if(matches.length)warnings.push('Possible duplicate ('+matches.length+' other matching entries)');
+    return warnings;
+  }
+  $('checkBilling').onclick=()=>{
+    const status=$('billingCheckStatus'),output=$('billingCheckResults');
+    const findings=txs.flatMap(t=>billingWarnings(t,txs).map(issue=>({t,issue})));
+    status.textContent=findings.length?findings.length+' possible billing issue(s) found. Review before making changes.':'No issues detected by the current checks. This does not guarantee every charge is correct.';
+    output.innerHTML=findings.length?'<table><thead><tr><th>Child</th><th>Date</th><th>Amount</th><th>Possible issue</th></tr></thead><tbody>'+findings.slice(0,250).map(({t,issue})=>'<tr><td>'+esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Unknown child')+'</td><td>'+esc(t.entry_date||t.week_end||'')+'</td><td>'+money(t.amount)+'</td><td>'+esc(issue)+'</td></tr>').join('')+'</tbody></table>':'';
+    if(findings.length>250)status.textContent+=' Showing first 250.';
+  };
   $('saveTx').onclick=async()=>{
     const button=$('saveTx');
     if(button.disabled)return;
@@ -1643,6 +1661,8 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     const entryDate=$('txEntryDate').value||$('weekEnd').value;
     if(!entryDate)return alert('Please enter an entry date.');
     const obj={user_id:user.id,child_id:child.id,week_start:$('weekStart').value,week_end:$('weekEnd').value,entry_date:entryDate,entry_type:$('txType').value,category:$('txCategory').value,payment_method:$('txType').value==='Payment' ? $('payMethod').value:null,amount,notes:$('txNotes').value.trim()};
+    const draftWarnings=billingWarnings(obj,txs);
+    if(draftWarnings.length&&!confirm('Billing check found possible issue(s):\\n- '+draftWarnings.join('\\n- ')+'\\n\\nReview these before saving. Choose Cancel to correct the entry, or OK to continue.'))return;
     // CCAP is charged once per child per calendar month. Block a second
     // CCAP charge for that child and month before it can create another row.
     const isFlatCcapCharge=$('ccapFlatCharge')?.checked===true;
