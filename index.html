@@ -195,7 +195,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div id="app" class="hidden">
 <div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected</div></div><button onclick="printTransactions()">Print Transactions</button></div></div>
 <nav class="noprint">
-<button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="transfers">Transfers</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
+<button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="schools">Schools</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="transfers">Transfers</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
  
 <button class="tab" data-tab="deleted">Deleted Transactions</button>
 
@@ -206,6 +206,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="field"><label>Child's full name</label><input id="childName" placeholder="Child name"></div>
 <div class="field"><label>Child's birthdate</label><input type="date" id="childBirthdate"></div> 
 <div class="field"><label>Rate category</label><select id="childCategory"><option>Infant</option><option>2-Year</option><option>3-Year</option><option>4-Year</option><option>5–12 Years</option><option>Before/After School Care</option></select></div>
+<div class="field"><label>School / CCAP calendar (for school-age children)</label><select id="childSchool"><option value="">Not set / not school-aged</option></select></div>
 
 <div class="field"><label>Rate type</label><select id="childRateType"><option value="percentage">Percentage discount</option><option value="fixed">Fixed weekly rate</option></select></div>
 <div class="field"><label>Employee discount (%)</label><input type="number" id="childDiscount" min="0" max="100" step="0.01" value="0" placeholder="0"></div>
@@ -214,7 +215,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
  <div class="field"><label>Fixed weekly rate ($)</label><input type="number" id="childFixedRate" min="0" step="0.01" placeholder="Example: 200.00"></div>
  <button class="primary" id="addChild">Add child</button>
  </div>
-<h3>Current children</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Age</th><th>Category</th><th>Category check</th><th>Rate type</th><th>Employee discount</th><th>Weekly rate</th><th>Daily rate (÷ 5)</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
+<h3>Current children</h3><p class="muted">Use Edit to assign each school-age child to a school. CCAP uses that school's saved calendar for the matching school year.</p><div class="tablewrap"><table><thead><tr><th>Name</th><th>Age</th><th>Category</th><th>Category check</th><th>School / calendar</th><th>Rate type</th><th>Employee discount</th><th>Weekly rate</th><th>Daily rate (÷ 5)</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
 <section class="panel tabpage hidden" id="page-ledger">
   <button onclick="document.querySelector('[data-tab=&quot;children&quot;]').click()">← Back to Children</button>
   <h2 id="ledgerTitle">Child Ledger</h2>
@@ -222,7 +223,14 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
   <div id="ledgerContent"></div>
   <button onclick="window.print()">Print / Save as PDF</button>
 </section>
- <section class="panel tabpage hidden" id="page-rates"><h2>Rates</h2><p class="muted">These editable rates apply to new charges only. Previously recorded charges are not changed when you update a rate.</p>
+ <section class="panel tabpage hidden" id="page-schools"><h2>Schools & School-Year Calendars</h2>
+<p class="muted">Add each school once, then create a school year and enter school days and non-school days for each month. Counts are saved by school and school year, so older years remain available.</p>
+<div class="grid"><div class="field"><label for="schoolName">School name</label><input id="schoolName" placeholder="Example: Fargo Public Schools"></div><div class="field" style="align-self:end"><button type="button" class="primary" id="addSchool">Add school</button></div></div>
+<h3>Saved schools</h3><div class="tablewrap"><table><thead><tr><th>School</th><th>School years saved</th><th>Actions</th></tr></thead><tbody id="schoolsRows"><tr><td colspan="3">Loading schools…</td></tr></tbody></table></div><hr>
+<h3>School year calendar</h3><div class="grid"><div class="field"><label for="calendarSchool">School</label><select id="calendarSchool"><option value="">Select a school</option></select></div><div class="field"><label for="calendarYear">School year</label><input id="calendarYear" placeholder="2026-2027" value="2026-2027"></div><div class="field" style="align-self:end"><button type="button" class="primary" id="createSchoolYear">Create / open school year</button></div><div class="field"><label for="calendarYearSelect">Saved school year</label><select id="calendarYearSelect"><option value="">Select a school year</option></select></div></div>
+<p class="muted small">Enter Monday–Friday counts. The list starts with August and continues through June; July is at the bottom for summer CCAP calculations. Counts are not automatically guessed from weekdays.</p>
+<div class="tablewrap"><table><thead><tr><th>Month</th><th>School days</th><th>Non-school days</th><th>Action</th></tr></thead><tbody id="schoolMonthRows"><tr><td colspan="4">Choose a school and create or select a school year.</td></tr></tbody></table></div><p id="schoolStatus" class="status" aria-live="polite"></p></section>
+<section class="panel tabpage hidden" id="page-rates"><h2>Rates</h2><p class="muted">These editable rates apply to new charges only. Previously recorded charges are not changed when you update a rate.</p>
 <div class="grid"><div class="field"><label>Category</label><select id="rateCategory"><option>Infant</option><option>2-Year</option><option>3-Year</option><option>4-Year</option><option>5–12 Years</option><option>Before/After School Care</option></select></div><div class="field"><label>Effective date</label><input type="date" id="rateDate"></div><div class="field"><label>School-day weekly rate ($)</label><input type="number" min="0" step=".01" id="schoolRate"></div><div class="field"><label>Non-school-day rate ($)</label><input type="number" min="0" step=".01" id="nonSchoolRate"></div><div class="field"><label>Summer weekly rate ($)</label><input type="number" min="0" step=".01" id="summerRate"></div><div class="field"><label>CCAP weekly rate ($)</label><input type="number" min="0" step=".01" id="ccapRate"></div><div class="field"><label>Employee discount (%)</label><input type="number" min="0" max="100" step=".01" id="discountRate"></div></div>
 <button class="primary" id="saveRate">Save rate schedule</button>
 <button type="button" id="moveCurrentRatesToJuly" style="margin-top:8px">Set current rates to July 1, 2026</button>
@@ -407,7 +415,7 @@ document.addEventListener("DOMContentLoaded",()=>{
 });
 </script>
 <script>
-let sb=null,user=null,children=[],rates=[],txs=[];
+let sb=null,user=null,children=[],rates=[],txs=[],schools=[],schoolYears=[],schoolMonths=[];
 let childSelectionResetTimer=null;
 function keepChildSelectedAfterTransaction(childId){
   $('txChild').value=childId;
@@ -607,8 +615,8 @@ async function clearDeletedTransactionHistory(){
   alert('Deleted Transaction History has been cleared. Your current transactions and ledger setup were left unchanged.');
 }
  
-async function loadAll(){const base=await Promise.all([sb.from('daycare_children').select('*').order('name'),sb.from('daycare_rates').select('*').order('effective_date',{ascending:false})]);for(let i=0;i<base.length;i++){if(base[i].error){alert('Database error: '+base[i].error.message);return}}children=base[0].data||[];rates=base[1].data||[];let allTransactions=[];const pageSize=1000;for(let start=0;;start+=pageSize){const page=await sb.from('daycare_transactions').select('*').order('entry_date',{ascending:false}).range(start,start+pageSize-1);if(page.error){alert('Database error loading transactions: '+page.error.message);return}const rows=page.data||[];allTransactions=allTransactions.concat(rows);if(rows.length<pageSize)break;}txs=allTransactions;renderAll()}
-function renderAll(){renderChildren();renderRates();renderDashboard();renderSelects();renderTx();updateChildRatePreview()}
+async function loadAll(){const base=await Promise.all([sb.from('daycare_children').select('*').order('name'),sb.from('daycare_rates').select('*').order('effective_date',{ascending:false}),sb.from('daycare_schools').select('*').order('name'),sb.from('daycare_school_years').select('*').order('school_year',{ascending:false}),sb.from('daycare_school_months').select('*')]);for(let i=0;i<base.length;i++){if(base[i].error){alert('Database error: '+base[i].error.message+'\n\nIf this mentions a school table, run the school-calendar migration in Supabase SQL Editor, then refresh.');return}}children=base[0].data||[];rates=base[1].data||[];schools=base[2].data||[];schoolYears=base[3].data||[];schoolMonths=base[4].data||[];let allTransactions=[];const pageSize=1000;for(let start=0;;start+=pageSize){const page=await sb.from('daycare_transactions').select('*').order('entry_date',{ascending:false}).range(start,start+pageSize-1);if(page.error){alert('Database error loading transactions: '+page.error.message);return}const rows=page.data||[];allTransactions=allTransactions.concat(rows);if(rows.length<pageSize)break;}txs=allTransactions;renderAll()}
+function renderAll(){renderChildren();renderRates();renderDashboard();renderSelects();renderTx();renderSchools();populateChildSchoolSelect();updateChildRatePreview()}
 
 
 
@@ -758,6 +766,7 @@ function renderChildren() {
         <td style="white-space:pre-line;min-width:105px">${esc(age).replace(/\b(years|months)\b/g,'$1').replace(/(\d+) (years|months)/g,'$1&nbsp;$2')}</td>
         <td>${esc(category)}</td>
         <td>${esc(categoryCheck)}</td>
+        <td>${esc(schools.find(s=>String(s.id)===String(c.school_id))?.name || ({fargo:'Fargo Public Schools',westFargo:'West Fargo Public Schools',trinity:'Trinity',other:'Other / no matching calendar'})[c.school_calendar] || (isCcapSchoolAge(c) ? 'Not set — check school' : '—'))}</td>
         <td>${c.rate_type === 'fixed' ? 'Fixed weekly' : 'Percentage'}</td>
         <td>${c.rate_type === 'fixed' ? '—' : Number(c.employee_discount_percent || 0) + '%'}</td>
         <td>${weekly.toFixed(2)}</td>
@@ -770,7 +779,7 @@ function renderChildren() {
       </tr>`;
      
     })
-    .join('') || '<tr><td colspan="9">No children yet.</td></tr>';
+    .join('') || '<tr><td colspan="10">No children yet.</td></tr>';
 }
 
  
@@ -1330,6 +1339,19 @@ function renderSelects(){const recentChild=$('txRecentChild')?.value||'';let chi
  
  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
+const schoolMonthsOrder=[8,9,10,11,12,1,2,3,4,5,6,7];
+const schoolMonthNames={1:'January',2:'February',3:'March',4:'April',5:'May',6:'June',7:'July',8:'August',9:'September',10:'October',11:'November',12:'December'};
+function schoolCalendarKeyForId(id){const s=schools.find(x=>String(x.id)===String(id));const n=String(s?.name||'').toLowerCase();if(n.includes('west fargo'))return 'westFargo';if(n.includes('fargo'))return 'fargo';if(n.includes('trinity'))return 'trinity';if(n==='other / no matching calendar')return 'other';return null}
+function populateChildSchoolSelect(){const select=$('childSchool');if(!select)return;const current=select.value;select.innerHTML='<option value="">Not set / not school-aged</option>'+schools.filter(s=>s.active!==false).map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+'</option>').join('');if(current&&schools.some(s=>String(s.id)===String(current)))select.value=current}
+function renderSchools(){const rows=$('schoolsRows');if(!rows)return;rows.innerHTML=schools.map(s=>'<tr><td>'+esc(s.name)+'</td><td>'+schoolYears.filter(y=>String(y.school_id)===String(s.id)).length+'</td><td><button type="button" data-rename-school="'+esc(s.id)+'">Rename</button> <button type="button" data-archive-school="'+esc(s.id)+'">Archive</button></td></tr>').join('')||'<tr><td colspan="3">No schools saved yet. Add your first school above.</td></tr>';rows.querySelectorAll('[data-rename-school]').forEach(b=>b.onclick=()=>renameSchool(b.dataset.renameSchool));rows.querySelectorAll('[data-archive-school]').forEach(b=>b.onclick=()=>archiveSchool(b.dataset.archiveSchool));const select=$('calendarSchool');const current=select.value;select.innerHTML='<option value="">Select a school</option>'+schools.filter(s=>s.active!==false).map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+'</option>').join('');if(current&&schools.some(s=>String(s.id)===String(current)))select.value=current;renderSchoolYearOptions();renderSchoolMonths()}
+function renderSchoolYearOptions(){const id=$('calendarSchool')?.value||'',sel=$('calendarYearSelect');if(!sel)return;const prev=sel.value,rows=schoolYears.filter(y=>String(y.school_id)===String(id));sel.innerHTML='<option value="">Select a school year</option>'+rows.map(y=>'<option value="'+esc(y.id)+'">'+esc(y.school_year)+'</option>').join('');if(prev&&rows.some(y=>String(y.id)===String(prev)))sel.value=prev}
+function renderSchoolMonths(){const body=$('schoolMonthRows');if(!body)return;const yearId=$('calendarYearSelect')?.value||'';if(!yearId){body.innerHTML='<tr><td colspan="4">Choose a school and create or select a school year.</td></tr>';return}body.innerHTML=schoolMonthsOrder.map(month=>{const rec=schoolMonths.find(m=>String(m.school_year_id)===String(yearId)&&Number(m.month_number)===month);return '<tr><td>'+schoolMonthNames[month]+'</td><td><input type="number" min="0" max="31" step="1" id="schoolDays_'+month+'" value="'+Number(rec?.school_days||0)+'" style="max-width:110px"></td><td><input type="number" min="0" max="31" step="1" id="nonSchoolDays_'+month+'" value="'+Number(rec?.non_school_days||0)+'" style="max-width:110px"></td><td><button type="button" onclick="saveSchoolMonth('+month+')">Save '+schoolMonthNames[month]+'</button></td></tr>'}).join('')}
+$('calendarSchool').onchange=()=>{renderSchoolYearOptions();renderSchoolMonths()};$('calendarYearSelect').onchange=renderSchoolMonths;
+$('addSchool').onclick=async()=>{const name=$('schoolName').value.trim();if(!name)return alert('Enter a school name.');if(schools.some(s=>s.active!==false&&String(s.name).trim().toLowerCase()===name.toLowerCase()))return alert('That school is already listed.');const {data,error}=await sb.from('daycare_schools').insert({user_id:user.id,name,active:true}).select('*').single();if(error)return alert('Could not add school: '+error.message);schools.push(data);$('schoolName').value='';renderSchools();populateChildSchoolSelect();$('calendarSchool').value=data.id;renderSchoolYearOptions();$('schoolStatus').textContent='Added '+name+'. Now create a school year.'};
+window.renameSchool=async id=>{const s=schools.find(x=>String(x.id)===String(id));if(!s)return;const name=prompt('School name:',s.name);if(name===null)return;if(!name.trim())return alert('School name cannot be blank.');const {data,error}=await sb.from('daycare_schools').update({name:name.trim()}).eq('id',id).eq('user_id',user.id).select('*').single();if(error)return alert('Could not rename school: '+error.message);schools=schools.map(x=>String(x.id)===String(id)?data:x);renderAll();$('schoolStatus').textContent='School name updated.'};
+window.archiveSchool=async id=>{const s=schools.find(x=>String(x.id)===String(id));if(!s)return;if(children.some(c=>String(c.school_id)===String(id)))return alert('This school is assigned to one or more children. Reassign those children before archiving it.');if(!confirm('Archive '+s.name+'? Saved school-year calendars will remain.'))return;const {error}=await sb.from('daycare_schools').update({active:false}).eq('id',id).eq('user_id',user.id);if(error)return alert('Could not archive school: '+error.message);s.active=false;renderSchools();populateChildSchoolSelect();$('schoolStatus').textContent='School archived. Saved calendar history remains.'};
+$('createSchoolYear').onclick=async()=>{const schoolId=$('calendarSchool').value,label=$('calendarYear').value.trim();if(!schoolId)return alert('Choose a school first.');if(!/^\d{4}-\d{4}$/.test(label))return alert('Enter the school year like 2026-2027.');const [start,end]=label.split('-').map(Number);if(end!==start+1)return alert('The second year should be one year after the first.');let existing=schoolYears.find(y=>String(y.school_id)===String(schoolId)&&y.school_year===label);if(!existing){const {data,error}=await sb.from('daycare_school_years').insert({user_id:user.id,school_id:schoolId,school_year:label,start_year:start}).select('*').single();if(error)return alert('Could not create school year: '+error.message);existing=data;schoolYears.push(data);const monthRows=schoolMonthsOrder.map(month=>({user_id:user.id,school_year_id:existing.id,month_number:month,school_days:0,non_school_days:0}));const inserted=await sb.from('daycare_school_months').insert(monthRows).select('*');if(inserted.error)return alert('School year was created, but month rows could not be created: '+inserted.error.message);schoolMonths.push(...(inserted.data||monthRows))}renderSchoolYearOptions();$('calendarYearSelect').value=existing.id;renderSchoolMonths();$('schoolStatus').textContent='Opened '+label+'. Enter counts and save each month.'};
+window.saveSchoolMonth=async month=>{const yearId=$('calendarYearSelect').value;if(!yearId)return alert('Choose a school year first.');const sd=Number($('schoolDays_'+month).value),nd=Number($('nonSchoolDays_'+month).value);if(!Number.isInteger(sd)||sd<0||sd>31||!Number.isInteger(nd)||nd<0||nd>31)return alert('Enter whole-number day counts from 0 to 31.');if(sd+nd>31)return alert('School days plus non-school days cannot exceed 31.');const old=schoolMonths.find(m=>String(m.school_year_id)===String(yearId)&&Number(m.month_number)===month);const res=old?await sb.from('daycare_school_months').update({school_days:sd,non_school_days:nd}).eq('id',old.id).eq('user_id',user.id).select('*').single():await sb.from('daycare_school_months').insert({user_id:user.id,school_year_id:yearId,month_number:month,school_days:sd,non_school_days:nd}).select('*').single();if(res.error)return alert('Could not save '+schoolMonthNames[month]+': '+res.error.message);schoolMonths=schoolMonths.filter(m=>!(String(m.school_year_id)===String(yearId)&&Number(m.month_number)===month));schoolMonths.push(res.data);renderSchoolMonths();$('schoolStatus').textContent=schoolMonthNames[month]+' saved. CCAP will use these counts for this school year.'};
 $('addChild').onclick=async()=>{
   const name=$('childName').value.trim();
  
@@ -1363,7 +1385,8 @@ rate_category:$('childCategory').value === 'Before/After School Care'
       fixed_weekly_rate:rateType==='fixed'?fixedRate:null,
       date_of_birth:$('childBirthdate').value||null,
       beginning_balance:Number($('childBeginningBalance').value||0),
-      active:true
+      active:true,
+      school_id:$('childSchool').value||null, school_calendar:schoolCalendarKeyForId($('childSchool').value)
     });
 
     if(error){
@@ -1373,6 +1396,7 @@ rate_category:$('childCategory').value === 'Before/After School Care'
 
     $('childName').value='';
     $('childBirthdate').value='';
+    $('childSchool').value='';
     $('childDiscount').value='0';
     $('childFixedRate').value='';
    $('childCategory').value = 'Infant';
@@ -1389,7 +1413,7 @@ updateChildRatePreview();
 
  
 
-window.editChild=async id=>{const c=children.find(x=>x.id===id);if(!c)return;const name=prompt('Child name:',c.name);if(name===null)return;if(!name.trim())return alert('Name cannot be blank.');const categoryOptions=['Infant','2-Year','3-Year','4-Year','5–12 Years','Before/After School Care'];const currentCategoryIndex=Math.max(0,categoryOptions.findIndex(option=>option===String(c.rate_category||'').trim().replace(/5\s*[-–—]\s*12\s*Years/i,'5–12 Years')));const categoryChoice=prompt('Choose the child’s rate category by number:\n1. Infant\n2. 2-Year\n3. 3-Year\n4. 4-Year\n5. 5–12 Years\n6. Before/After School Care',String(currentCategoryIndex+1));if(categoryChoice===null)return;const categoryNumber=Number(categoryChoice.trim());if(!Number.isInteger(categoryNumber)||categoryNumber<1||categoryNumber>categoryOptions.length)return alert('Please enter a number from 1 to 6. No changes were saved.');const category=categoryOptions[categoryNumber-1];const storedBirthdate=String(c.date_of_birth||'').slice(0,10);const storedMatch=storedBirthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);const displayBirthdate=storedMatch?storedMatch[2]+storedMatch[3]+storedMatch[1]:storedBirthdate;const birthdate=prompt('Birthdate (MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY; leave blank if unknown):',displayBirthdate);if(birthdate===null)return;const birthTextRaw=birthdate.trim();let birthText='';if(birthTextRaw){let birthMonth,birthDay,birthYear;let compactMatch=birthTextRaw.match(/^(\d{2})(\d{2})(\d{4})$/);let separatedMatch=birthTextRaw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);if(compactMatch){birthMonth=Number(compactMatch[1]);birthDay=Number(compactMatch[2]);birthYear=Number(compactMatch[3]);}else if(separatedMatch){birthMonth=Number(separatedMatch[1]);birthDay=Number(separatedMatch[2]);birthYear=Number(separatedMatch[3]);}else return alert('Use MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY. Example: 04152022, 04-15-2022, or 04/15/2022.');const birthCheck=new Date(birthYear,birthMonth-1,birthDay);if(birthCheck.getFullYear()!==birthYear||birthCheck.getMonth()!==birthMonth-1||birthCheck.getDate()!==birthDay)return alert('Enter a real calendar date as MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY.');birthText=birthYear+'-'+String(birthMonth).padStart(2,'0')+'-'+String(birthDay).padStart(2,'0');}const beginning=prompt('Beginning balance (positive = owed, negative = credit)::',Number(c.beginning_balance||0).toFixed(2));if(beginning===null)return;const beginningBalance=Number(beginning);if(beginning.trim()===''||!Number.isFinite(beginningBalance))return alert('Enter a valid beginning balance.');const rateType=prompt('Rate type: enter percentage or fixed',c.rate_type||'percentage');if(rateType===null)return;const rt=rateType.trim().toLowerCase();if(!['percentage','fixed'].includes(rt))return alert('Enter percentage or fixed.');let pct=0,fixedRate=null;if(rt==='percentage'){const discount=prompt('Employee discount percentage (0–100):',Number(c.employee_discount_percent||0));if(discount===null)return;pct=Number(discount);if(!Number.isFinite(pct)||pct<0||pct>100)return alert('Discount must be between 0 and 100.');}else{const fixed=prompt('Fixed weekly rate ($):',c.fixed_weekly_rate==null?'':Number(c.fixed_weekly_rate).toFixed(2));if(fixed===null)return;fixedRate=Number(fixed);if(fixed.trim()===''||!Number.isFinite(fixedRate)||fixedRate<0)return alert('Enter a valid fixed weekly rate.');}const {error}=await sb.from('daycare_children').update({name:name.trim(),rate_category:category,date_of_birth:birthText||null,beginning_balance:beginningBalance,rate_type:rt,fixed_weekly_rate:fixedRate,employee_discount:rt==='percentage'&&pct>0,employee_discount_percent:pct}).eq('id',id).eq('user_id',user.id);if(error)return alert(error.message);await loadAll();alert('Child updated. Existing charges were not changed.')};
+window.editChild=async id=>{const c=children.find(x=>x.id===id);if(!c)return;const name=prompt('Child name:',c.name);if(name===null)return;if(!name.trim())return alert('Name cannot be blank.');const schoolOptions=[{id:'',name:'Not set / not school-aged'},...schools.filter(s=>s.active!==false).map(s=>({id:String(s.id),name:s.name}))];const legacyKey=String(c.school_calendar||'');const legacySchool=schools.find(s=>schoolCalendarKeyForId(s.id)===legacyKey);const selectedSchoolId=String(c.school_id|| (legacySchool?.id||''));const selectedIndex=Math.max(0,schoolOptions.findIndex(x=>x.id===selectedSchoolId));const schoolPrompt=prompt('School / CCAP calendar:\n'+schoolOptions.map((s,i)=>i+'. '+s.name).join('\n'),String(selectedIndex));if(schoolPrompt===null)return;const schoolNumber=Number(schoolPrompt.trim());if(!Number.isInteger(schoolNumber)||schoolNumber<0||schoolNumber>=schoolOptions.length)return alert('Choose a listed school number. No changes were saved.');const schoolId=schoolOptions[schoolNumber].id||null;const schoolCalendar=schoolCalendarKeyForId(schoolId);const categoryOptions=['Infant','2-Year','3-Year','4-Year','5–12 Years','Before/After School Care'];const currentCategoryIndex=Math.max(0,categoryOptions.findIndex(option=>option===String(c.rate_category||'').trim().replace(/5\s*[-–—]\s*12\s*Years/i,'5–12 Years')));const categoryChoice=prompt('Choose the child’s rate category by number:\n1. Infant\n2. 2-Year\n3. 3-Year\n4. 4-Year\n5. 5–12 Years\n6. Before/After School Care',String(currentCategoryIndex+1));if(categoryChoice===null)return;const categoryNumber=Number(categoryChoice.trim());if(!Number.isInteger(categoryNumber)||categoryNumber<1||categoryNumber>categoryOptions.length)return alert('Please enter a number from 1 to 6. No changes were saved.');const category=categoryOptions[categoryNumber-1];const storedBirthdate=String(c.date_of_birth||'').slice(0,10);const storedMatch=storedBirthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);const displayBirthdate=storedMatch?storedMatch[2]+storedMatch[3]+storedMatch[1]:storedBirthdate;const birthdate=prompt('Birthdate (MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY; leave blank if unknown):',displayBirthdate);if(birthdate===null)return;const birthTextRaw=birthdate.trim();let birthText='';if(birthTextRaw){let birthMonth,birthDay,birthYear;let compactMatch=birthTextRaw.match(/^(\d{2})(\d{2})(\d{4})$/);let separatedMatch=birthTextRaw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);if(compactMatch){birthMonth=Number(compactMatch[1]);birthDay=Number(compactMatch[2]);birthYear=Number(compactMatch[3]);}else if(separatedMatch){birthMonth=Number(separatedMatch[1]);birthDay=Number(separatedMatch[2]);birthYear=Number(separatedMatch[3]);}else return alert('Use MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY. Example: 04152022, 04-15-2022, or 04/15/2022.');const birthCheck=new Date(birthYear,birthMonth-1,birthDay);if(birthCheck.getFullYear()!==birthYear||birthCheck.getMonth()!==birthMonth-1||birthCheck.getDate()!==birthDay)return alert('Enter a real calendar date as MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY.');birthText=birthYear+'-'+String(birthMonth).padStart(2,'0')+'-'+String(birthDay).padStart(2,'0');}const beginning=prompt('Beginning balance (positive = owed, negative = credit)::',Number(c.beginning_balance||0).toFixed(2));if(beginning===null)return;const beginningBalance=Number(beginning);if(beginning.trim()===''||!Number.isFinite(beginningBalance))return alert('Enter a valid beginning balance.');const rateType=prompt('Rate type: enter percentage or fixed',c.rate_type||'percentage');if(rateType===null)return;const rt=rateType.trim().toLowerCase();if(!['percentage','fixed'].includes(rt))return alert('Enter percentage or fixed.');let pct=0,fixedRate=null;if(rt==='percentage'){const discount=prompt('Employee discount percentage (0–100):',Number(c.employee_discount_percent||0));if(discount===null)return;pct=Number(discount);if(!Number.isFinite(pct)||pct<0||pct>100)return alert('Discount must be between 0 and 100.');}else{const fixed=prompt('Fixed weekly rate ($):',c.fixed_weekly_rate==null?'':Number(c.fixed_weekly_rate).toFixed(2));if(fixed===null)return;fixedRate=Number(fixed);if(fixed.trim()===''||!Number.isFinite(fixedRate)||fixedRate<0)return alert('Enter a valid fixed weekly rate.');}const {error}=await sb.from('daycare_children').update({name:name.trim(),rate_category:category,date_of_birth:birthText||null,beginning_balance:beginningBalance,rate_type:rt,fixed_weekly_rate:fixedRate,employee_discount:rt==='percentage'&&pct>0,employee_discount_percent:pct,school_calendar:schoolCalendar,school_id:schoolId}).eq('id',id).eq('user_id',user.id);if(error)return alert(error.message);await loadAll();alert('Child updated. Existing charges were not changed.')};
 
  window.editChildParents=async id=>{
   const c=children.find(x=>String(x.id)===String(id));
@@ -1445,8 +1469,16 @@ const ccapSchoolCalendars={
     children:['mira','noah']
   }
 };
+function getDynamicSchoolMonth(child,date){if(!child?.school_id||!date)return null;const [year,month]=date.split('-').map(Number);const label=month>=8?year+'-'+(year+1):(year-1)+'-'+year;const sy=schoolYears.find(y=>String(y.school_id)===String(child.school_id)&&String(y.school_year)===label);if(!sy)return null;return schoolMonths.find(m=>String(m.school_year_id)===String(sy.id)&&Number(m.month_number)===month)||null}
 function getCcapSchoolCalendar(child){
-  // Match first names and nicknames in parentheses, e.g. "Gianna (Gigi) Garrett".
+  // Prefer the school explicitly saved on the child's profile.
+  const assigned=String(child?.school_calendar||'');
+  if(assigned==='fargo')return ccapSchoolCalendars.fargo;
+  if(assigned==='westFargo')return ccapSchoolCalendars.westFargo;
+  if(assigned==='trinity')return ccapSchoolCalendars.trinity;
+  if(assigned==='other')return null;
+  // Backward compatibility for existing records until each school-age child's
+  // school is confirmed and saved in the Children section.
   const name=String(child?.name||'').trim().toLowerCase();
   const nameParts=name.match(/[a-z]+/g)||[];
   return Object.values(ccapSchoolCalendars).find(calendar=>
@@ -1480,12 +1512,20 @@ function updateCcapMonthlyCalculation(){
   if(!rate)return;
   if(isSchoolAge){
     const schoolField=$('ccapSchoolDays'),nonSchoolField=$('ccapNonSchoolDays');
+    const dynamicMonth=getDynamicSchoolMonth(child,date);
     const calendar=getCcapSchoolCalendar(child);
-    if(calendar){
+    if(dynamicMonth){
+      schoolField.value=dynamicMonth.school_days;
+      nonSchoolField.value=dynamicMonth.non_school_days;
+    }else if(calendar){
       const index=month>=7?month-7:month+5;
       schoolField.value=calendar.school[index];
       nonSchoolField.value=calendar.nonSchool[index];
-    }else if(Number(schoolField.value||0)===0&&Number(nonSchoolField.value||0)===0){
+    }else if(child.school_id){
+      // Do not carry another child's counts into a school with no saved calendar for this month.
+      schoolField.value=0;
+      nonSchoolField.value=0;
+    }else if(child.school_calendar!=='other'&&Number(schoolField.value||0)===0&&Number(nonSchoolField.value||0)===0){
       schoolField.value=weekdays;
       nonSchoolField.value=0;
     }
@@ -1791,7 +1831,7 @@ document.querySelector('[data-tab="deleted"]').onclick=()=>{
   loadDeletedTransactions();
 };
 
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const target=$('page-'+b.dataset.tab);if(!target)return;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x===b));document.querySelectorAll('.tabpage').forEach(x=>x.classList.add('hidden'));target.classList.remove('hidden');});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const target=$('page-'+b.dataset.tab);if(!target)return;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x===b));document.querySelectorAll('.tabpage').forEach(x=>x.classList.add('hidden'));target.classList.remove('hidden');if(b.dataset.tab==='schools')renderSchools();});
  
 $('generateInvoice').onclick=()=>{
   const child=children.find(c=>String(c.id)===$('invoiceChild').value);
