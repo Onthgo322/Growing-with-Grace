@@ -1636,7 +1636,7 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     if(!t.week_end)warnings.push('Missing week end date');
     if(!t.entry_date)warnings.push('Missing entry date');
     for(const [label,value] of [['Week start',t.week_start],['Week end',t.week_end],['Entry',t.entry_date]]){
-      if(value && (!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(value)) || Number.isNaN(Date.parse(String(value)+'T12:00:00Z'))))warnings.push(label+' date is invalid');
+      if(value && (!/^\d{4}-\d{2}-\d{2}$/.test(String(value)) || Number.isNaN(Date.parse(String(value)+'T12:00:00Z'))))warnings.push(label+' date is invalid');
     }
     if(t.week_start&&t.week_end&&t.week_start>t.week_end)warnings.push('Week ends before it starts');
     if(t.entry_type==='Charge'&&String(t.category||'').toUpperCase()!=='CCAP'&&t.entry_date&&t.week_end&&t.entry_date!==t.week_end)warnings.push('Entry date differs from week ending');
