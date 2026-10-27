@@ -1322,7 +1322,10 @@ function runParentLookup(){
   $('txAmount').focus();
  }));
 }
-$('searchParent').onclick=runParentLookup;
+window.runParentLookup=runParentLookup;
+$('searchParent').addEventListener('click',()=>{
+ try{runParentLookup()}catch(error){console.error('Parent lookup failed:',error);$('parentLookupStatus').textContent='Parent lookup could not complete. Please refresh the page and try again.';}
+});
 $('parentLookupName').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();runParentLookup()}});
  
 function renderSelects(){const recentChild=$('txRecentChild')?.value||'';let childOpts=children.filter(c=>c.active!==false).map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.rate_category)}</option>`).join('');$('txChild').innerHTML='<option value="">— Select a child —</option>'+childOpts;$('transferFrom').innerHTML='<option value="">Select child</option>'+childOpts;$('transferTo').innerHTML='<option value="">Select child</option>'+childOpts;$('txChild').value='';$('reportChild').innerHTML='<option value="">All children</option>'+childOpts;$('txRecentChild').innerHTML='<option value="">— Select a child —</option>'+childOpts;if(recentChild&&children.some(c=>String(c.id)===String(recentChild)&&c.active!==false))$('txRecentChild').value=recentChild;$('txRecentChild').onchange=renderTx;$('invoiceChild').innerHTML='<option value="">Select a child</option>'+childOpts;$('bulkChild').innerHTML='<option value="">Select a child</option>'+childOpts}
