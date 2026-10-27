@@ -1304,22 +1304,37 @@ function printChildLedger(){
 
   function renderTx(){const chosen=$('txRecentChild')?.value||'';const status=$('txRecentStatus');if(!chosen){if(status)status.textContent='';$('txRows').innerHTML='<tr><td colspan="6">Select a child above to view their recent entries.</td></tr>';return}const list=txs.filter(t=>String(t.child_id)===String(chosen)).sort((a,b)=>String(b.week_end||b.entry_date||'').localeCompare(String(a.week_end||a.entry_date||''))||String(b.week_start||'').localeCompare(String(a.week_start||''))||String(b.id||'').localeCompare(String(a.id||'')));if(status){const newest=list[0];const payments=list.filter(t=>String(t.entry_type||'').toLowerCase()==='payment');const newestPayment=payments.slice().sort((a,b)=>String(b.week_end||b.entry_date||'').localeCompare(String(a.week_end||a.entry_date||'')))[0];status.textContent='Loaded '+list.length+' entries for this child'+(newest?'. Most recent week ending: '+displayDate(newest.week_end||newest.entry_date)+'.':' No entries were found for this child.')+' Payments found: '+payments.length+(newestPayment?'; most recent payment week ending: '+displayDate(newestPayment.week_end||newestPayment.entry_date):'; no payment entries found')+'. Total transactions loaded: '+txs.length+'.'}$('txRows').innerHTML=list.map(t=>`<tr><td>Entry: ${displayDate(t.entry_date||t.week_end)}${t.week_start&&t.week_end&&t.week_start!==t.entry_date?'<br>Week: '+displayDate(t.week_start)+'–'+displayDate(t.week_end):''}</td><td>${esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Archived child')}</td><td>${esc(t.entry_type||'')}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')} ${esc(t.notes||'')}<br><button onclick="editTransaction('${t.id}')">Edit</button> <button class="danger" onclick="deleteTransaction('${t.id}')">Delete</button></td></tr>`).join('')||'<tr><td colspan="6">No entries recorded for this child.</td></tr>'}
  function renderDashboard(){const charges=txs.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),payments=txs.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('countChildren').textContent=children.filter(c=>c.active!==false).length;$('sumCharges').textContent=money(charges);$('sumPayments').textContent=money(payments);$('balance').textContent=money(charges-payments)}
+function parentLookupNormalize(value){return String(value||'').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()}
+function parentLookupDistance(a,b){const prev=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){let last=prev[0];prev[0]=i;for(let j=1;j<=b.length;j++){const old=prev[j];prev[j]=Math.min(prev[j]+1,prev[j-1]+1,last+(a[i-1]===b[j-1]?0:1));last=old}}return prev[b.length]}
 function runParentLookup(){
- const query=$('parentLookupName').value.trim().toLocaleLowerCase();
- const results=$('parentLookupResults'),status=$('parentLookupStatus');
- results.innerHTML='';
+ const query=parentLookupNormalize($('parentLookupName').value);
+ const results=$('parentLookupResults'),status=$('parentLookupStatus');results.innerHTML='';
  if(!query){status.textContent='Type a parent or guardian name first.';return}
- const matches=children.filter(c=>c.active!==false&&[c.parent1_name,c.parent2_name].some(n=>String(n||'').toLocaleLowerCase().includes(query)));
- if(!matches.length){status.textContent='No matching parent found. Check the spelling or use the Parents button under Children to save the parent name.';return}
- status.textContent=matches.length+' matching child account'+(matches.length===1?'':'s')+'. Select the correct child to use it for this payment.';
- results.innerHTML=matches.map(c=>'<button type="button" data-parent-child="'+esc(c.id)+'" style="text-align:left;min-height:48px"><strong>'+esc(c.name)+'</strong><br><span class="small">'+esc([c.parent1_name,c.parent2_name].filter(Boolean).join(' · '))+'</span></button>').join('');
+ const terms=query.split(' ').filter(Boolean);
+ const scored=children.filter(c=>c.active!==false).map(c=>{
+  let best=0;
+  for(const name of [c.parent1_name,c.parent2_name]){
+   const normalized=parentLookupNormalize(name);if(!normalized)continue;
+   const words=normalized.split(' ');
+   const exact=normalized.includes(query)||terms.every(term=>words.some(w=>w.includes(term)));
+   if(exact){best=Math.max(best,2);continue}
+   const close=terms.every(term=>words.some(w=>{
+    if(term.length<4)return w===term;
+    return parentLookupDistance(term,w)<=Math.min(3,Math.max(1,Math.floor(Math.max(term.length,w.length)*0.35)));
+   }));
+   if(close)best=Math.max(best,1);
+  }
+  return {c,score:best};
+ }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||String(a.c.name).localeCompare(String(b.c.name)));
+ if(!scored.length){status.textContent='No matching or similar parent found. Check Parents under Children to verify the saved name.';return}
+ const exactCount=scored.filter(x=>x.score===2).length;
+ status.textContent=scored.length+' possible child account'+(scored.length===1?'':'s')+' found. '+(exactCount?'Exact matches first; ':'')+'Similar spellings are suggestions only. Select the correct child.';
+ results.innerHTML=scored.slice(0,30).map(({c,score})=>'<button type="button" data-parent-child="'+esc(c.id)+'" style="text-align:left;min-height:48px"><strong>'+esc(c.name)+'</strong> — '+(score===2?'Name match':'Similar spelling')+'<br><span class="small">'+esc([c.parent1_name,c.parent2_name].filter(Boolean).join(' · '))+'</span></button>').join('');
  results.querySelectorAll('[data-parent-child]').forEach(button=>button.addEventListener('click',()=>{
-  const child=children.find(c=>String(c.id)===button.dataset.parentChild);
-  if(!child)return;
+  const child=children.find(c=>String(c.id)===button.dataset.parentChild);if(!child)return;
   $('txChild').value=String(child.id);
   status.textContent='Selected '+child.name+'. The Child field below is set to this account.';
-  results.innerHTML='';
-  $('txAmount').focus();
+  results.innerHTML='';$('txAmount').focus();
  }));
 }
 window.runParentLookup=runParentLookup;
