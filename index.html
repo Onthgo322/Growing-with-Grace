@@ -1853,7 +1853,7 @@ function renderCombinedFamilyInvoice(){
   const adjustments=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((a,t)=>a-impact(t),0);
   const balance=previous+list.reduce((a,t)=>a+impact(t),0);
   familyBalance+=balance;
-  return '<section style="margin:20px 0;break-inside:avoid-page"><h3>'+esc(c.name)+'</h3><p>Previous balance: '+money(previous)+'</p><table style="width:100%;border-collapse:collapse"><thead><tr><th>Date</th><th>Description</th><th>Type / Method</th><th>Notes</th><th>Amount</th></tr></thead><tbody>'+
+  return '<section class="family-invoice-child" style="margin:14px 0"><h3>'+esc(c.name)+'</h3><p>Previous balance: '+money(previous)+'</p><table style="width:100%;border-collapse:collapse"><thead><tr><th>Date</th><th>Description</th><th>Type / Method</th><th>Notes</th><th>Amount</th></tr></thead><tbody>'+
   (list.map(t=>'<tr><td>'+esc(displayDate(t.entry_date||''))+'</td><td>'+esc(t.category||'')+'</td><td>'+esc(t.entry_type||'')+(t.payment_method?' — '+esc(t.payment_method):'')+'</td><td>'+esc(t.notes||'')+'</td><td style="text-align:right">'+money(t.amount)+'</td></tr>').join('')||'<tr><td colspan="5">No transactions in this period.</td></tr>')+
   '</tbody></table><p>Charges: '+money(charges)+' | Payments: '+money(payments)+' | Credits / adjustments: '+money(adjustments)+'</p><strong>Child balance: '+money(balance)+'</strong></section>';
  }).join('');
@@ -1938,6 +1938,15 @@ th, td {
 }
 th:last-child, td:last-child {
   text-align: right;
+}
+@media print {
+  .family-invoice-child { break-inside: auto !important; page-break-inside: auto !important; }
+  .family-invoice-child h3 { break-after: avoid; page-break-after: avoid; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  h2, h3, p { orphans: 2; widows: 2; }
+  table { font-size: 11px; }
+  th, td { padding: 4px 5px; vertical-align: top; }
 }
 </style>
 </head>
