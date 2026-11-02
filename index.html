@@ -241,7 +241,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
  <div class="field" style="grid-column:1/-1"><label>Notes / check number / details</label><textarea id="txNotes"></textarea></div></div>
 <div id="saveFeedback" role="status" aria-live="polite" style="display:none;margin:10px 0 8px;padding:10px 12px;border:1px solid #cdbbdf;border-radius:8px;background:#f7f3fb;color:#342440;font-weight:600;white-space:pre-wrap"></div>
 <div class="entry-actions" style="display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important"><div class="entry-action-column" style="display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0"><button class="primary" id="saveTx" style="width:100%;min-height:44px">Save entry</button><button type="button" id="repeatLastEntry" style="width:100%;min-height:44px">Repeat Last Entry Next Week</button></div><div class="entry-action-column" style="display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0"><button id="fillRate" style="width:100%;min-height:44px">Fill weekly rate</button><button type="button" id="nextWeek" style="width:100%;min-height:44px">Next Week (Monday–Friday)</button></div></div><p class="muted small">Suggested weekly rates from your fee schedule: Infant $245, 2-Year $240, 3-Year $235, 4-Year $230, 5–12 Years $225, Before/After School Care $150. Enrollment $100; registration/insurance $40; activity fee $35 where applicable. Confirm the applicable schedule before saving. Late pickup: $5/minute; late payment: $15/day.</p>
-<h3>Billing Error Checker</h3><p class="muted small">Read-only review of saved entries. Possible issues require your review; no records are changed.</p><button type="button" id="checkBilling">Check saved billing</button><p id="billingCheckStatus" class="muted small" aria-live="polite"></p><div id="billingCheckResults" class="tablewrap"></div>
+<h3>Billing Error Checker</h3><p class="muted small">Read-only review of saved entries. Possible issues require your review; no records are changed.</p><button type="button" id="checkBilling">Check Billing</button><p id="billingCheckStatus" class="muted small" aria-live="polite"></p><div id="billingCheckResults" class="tablewrap"></div>
 <h3>Recent entries</h3><div class="field" style="max-width:420px"><label for="txRecentChild">Choose a child to view recent entries</label><select id="txRecentChild"><option value="">— Select a child —</option></select></div><div class="row"><button type="button" id="exportChildTransactions">Export selected child transactions (CSV)</button></div><p class="muted small">Exports the selected child’s existing transactions for review only. It does not change saved records.</p><p id="txRecentStatus" class="muted small" aria-live="polite"></p><div class="row"><button type="button" id="reviewDuplicateCcap">Review duplicate charges &amp; payments</button></div><p id="duplicateCcapStatus" class="muted small" aria-live="polite"></p><div class="tablewrap"><table id="duplicateCcapTable" class="hidden"><thead><tr><th>Date</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Payment method</th><th>Record ID</th><th>Action</th></tr></thead><tbody id="duplicateCcapRows"></tbody></table></div><div class="tablewrap"><table><thead><tr><th>Date / week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method / notes</th></tr></thead><tbody id="txRows"></tbody></table></div></section>
 
 
@@ -1669,6 +1669,99 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     output.innerHTML=findings.length?'<table><thead><tr><th>Child</th><th>Date</th><th>Amount</th><th>Possible issue</th></tr></thead><tbody>'+findings.slice(0,250).map(({t,issue})=>'<tr><td>'+esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Unknown child')+'</td><td>'+esc(t.entry_date||t.week_end||'')+'</td><td>'+money(t.amount)+'</td><td>'+esc(issue)+'</td></tr>').join('')+'</tbody></table>':'';
     if(findings.length>250)status.textContent+=' Showing first 250.';
   };
+  // Extended read-only billing review. Reuse the existing pre-save warnings.
+  function billingAuditDate(value){
+    const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!m)return false;
+    const d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3]));
+    return d.getUTCFullYear()===+m[1]&&d.getUTCMonth()===+m[2]-1&&d.getUTCDate()===+m[3];
+  }
+  function billingAuditPlus7(value){
+    const d=new Date(value+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+7);return d.toISOString().slice(0,10);
+  }
+  function billingAuditRate(category,date){
+    return rates.filter(r=>r.category===category&&r.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
+  }
+  function billingAuditExtras(t,all,draft=false){
+    const issues=[],add=s=>{if(!issues.includes(s))issues.push(s)};
+    const child=children.find(c=>String(c.id)===String(t.child_id));
+    const category=String(t.category||'').trim(),ccap=category.toUpperCase()==='CCAP';
+    const entry=t.entry_date,amount=Number(t.amount),isCharge=t.entry_type==='Charge';
+    for(const [name,date] of [['entry',t.entry_date],['week start',t.week_start],['week end',t.week_end]]){
+      if(date&&!billingAuditDate(date))add('Invalid '+name+' date');
+    }
+    if(t.entry_type==='Payment'&&!String(t.payment_method||'').trim())add('Payment method missing');
+    if(isCharge&&!ccap&&billingAuditDate(t.week_start)&&billingAuditDate(t.week_end)){
+      const start=new Date(t.week_start+'T12:00:00Z'),end=new Date(t.week_end+'T12:00:00Z');
+      if(start.getUTCDay()!==1||end.getUTCDay()!==5||(end-start)!==4*86400000)add('Weekly billing dates differ from Monday–Friday');
+    }
+    if(!child||!isCharge||!Number.isFinite(amount)||amount<=0)return issues;
+    const discount=1-Number(child.employee_discount_percent||0)/100;
+    if(ccap&&billingAuditDate(entry)){
+      const monthly=all.filter(x=>String(x.child_id)===String(t.child_id)&&String(x.id)!==String(t.id)&&x.entry_type==='Charge'&&String(x.category||'').trim().toUpperCase()==='CCAP'&&String(x.entry_date||'').slice(0,7)===entry.slice(0,7));
+      if(monthly.length)add('Other CCAP charge in same month; check whether this is a separate flat fee');
+      if(draft&&!$('ccapFlatCharge').checked){
+        const weekdays=countWeekdaysInMonth(entry);
+        if(isCcapSchoolAge(child)){
+          const school=Number($('ccapSchoolDays').value),non=Number($('ccapNonSchoolDays').value);
+          if(!Number.isInteger(school)||!Number.isInteger(non)||school<0||non<0||school+non>weekdays)add('CCAP school/non-school attendance days are invalid');
+          const calendar=getCcapSchoolCalendar(child),y=Number(entry.slice(0,4)),m=Number(entry.slice(5,7)),index=m>=7?m-7:m+5;
+          if(calendar&&((y===2026&&m>=7)||(y===2027&&m<=6))&&(school!==calendar.school[index]||non!==calendar.nonSchool[index]))add('Attendance days differ from saved school calendar; verify attendance');
+          const schoolRate=billingAuditRate('Before/After School Care',entry),nonRate=billingAuditRate('5–12 Years',entry);
+          if(schoolRate&&nonRate&&Number.isFinite(school)&&Number.isFinite(non)){
+            const expected=(Number(schoolRate.school_day||0)*school+Number(nonRate.summer||0)*non)/5*discount;
+            if(Math.abs(expected-amount)>0.02)add('CCAP amount differs from calculated '+money(expected)+' using attendance days and employee discount');
+          }
+        }else{
+          const days=Number($('ccapDaycareDays').value),rate=billingAuditRate(child.rate_category,entry);
+          if(!Number.isInteger(days)||days<0||days>weekdays)add('CCAP daycare attendance days must be 0–'+weekdays);
+          if(rate&&Number.isFinite(days)){
+            const weekly=child.rate_type==='fixed'?Number(child.fixed_weekly_rate||0):Number(rate.summer||0);
+            const expected=weekly/5*days*discount;
+            if(Math.abs(expected-amount)>0.02)add('CCAP amount differs from calculated '+money(expected)+' using attendance days and employee discount');
+          }
+        }
+      }
+      if(!draft)add('CCAP day counts not stored with this transaction; verify monthly amount against attendance records');
+    }else if(['Regular daycare','Non-school day','Summer'].includes(category)&&billingAuditDate(t.week_start)){
+      const r=billingAuditRate(child.rate_category,t.week_start);
+      if(r){
+        let expected=child.rate_type==='fixed'?Number(child.fixed_weekly_rate||0):Number(category==='Regular daycare'?r.school_day:r.summer||0)*discount;
+        if(child.rate_type==='fixed'&&category!=='Regular daycare')expected/=5;
+        if(Math.abs(expected-amount)>0.02)add('Amount differs from scheduled rate/employee discount ('+money(expected)+'); check partial attendance or historical rate');
+      }
+    }
+    const previous=all.filter(x=>String(x.child_id)===String(t.child_id)&&String(x.id)!==String(t.id)&&x.entry_type==='Charge'&&String(x.category||'')===category&&Number(x.amount)>0).map(x=>Number(x.amount)).sort((a,b)=>a-b);
+    if(previous.length>=3){
+      const typical=previous[Math.floor(previous.length/2)];
+      if(typical>0&&(amount>typical*2.5||amount<typical*0.3))add('Unusual charge relative to this child’s other charges');
+    }
+    return issues;
+  }
+  function billingAuditFindings(){
+    const issues=txs.flatMap(t=>[...billingWarnings(t,txs),...billingAuditExtras(t,txs)].map(issue=>({t,issue})));
+    for(const child of children.filter(c=>c.active!==false)){
+      const rows=txs.filter(t=>String(t.child_id)===String(child.id)&&t.entry_type==='Charge'&&['Regular daycare','Non-school day','Summer'].includes(t.category)&&billingAuditDate(t.week_start)).sort((a,b)=>a.week_start.localeCompare(b.week_start));
+      if(rows.length<2)continue;
+      const weeks=new Set(rows.map(t=>t.week_start));
+      for(let date=rows[0].week_start;date<rows[rows.length-1].week_start&&date<=today();date=billingAuditPlus7(date)){
+        if(!weeks.has(date))issues.push({t:{child_id:child.id,week_start:date,entry_date:date,amount:0},issue:'Possible missing weekly charge for '+displayDate(date)+'; check attendance and enrollment',missing:true});
+        if(issues.length>=1500)return issues;
+      }
+    }
+    return issues;
+  }
+  $('checkBilling').onclick=()=>{
+    const findings=billingAuditFindings(),status=$('billingCheckStatus'),output=$('billingCheckResults');
+    status.textContent=findings.length?findings.length+' potential issue(s) to review. No transactions changed.':'No issues flagged; this does not guarantee every charge is correct.';
+    if(findings.length>300)status.textContent+=' Showing first 300.';
+    output.innerHTML=findings.length?'<table><thead><tr><th>Child</th><th>Date / week</th><th>Amount</th><th>Review reason</th><th>Locate</th></tr></thead><tbody>'+findings.slice(0,300).map(({t,issue,missing})=>'<tr><td>'+esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Archived child')+'</td><td>'+esc(displayDate(t.entry_date||t.week_start||''))+'</td><td>'+(missing?'—':money(t.amount))+'</td><td>'+esc(issue)+'</td><td><button type="button" data-audit-child="'+esc(String(t.child_id))+'" data-audit-id="'+esc(String(t.id||''))+'">View entries</button></td></tr>').join('')+'</tbody></table>':'';
+    output.querySelectorAll('[data-audit-child]').forEach(button=>button.onclick=()=>{
+      $('txRecentChild').value=button.dataset.auditChild;renderTx();
+      $('txRecentStatus').scrollIntoView({behavior:'smooth',block:'start'});
+      if(button.dataset.auditId)$('txRecentStatus').textContent+=' Review record ID: '+button.dataset.auditId;
+    });
+  };
   $('saveTx').onclick=async()=>{
     const button=$('saveTx');
     if(button.disabled)return;
@@ -1685,7 +1778,7 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     const entryDate=$('txEntryDate').value||$('weekEnd').value;
     if(!entryDate)return alert('Please enter an entry date.');
     const obj={user_id:user.id,child_id:child.id,week_start:$('weekStart').value,week_end:$('weekEnd').value,entry_date:entryDate,entry_type:$('txType').value,category:$('txCategory').value,payment_method:$('txType').value==='Payment' ? $('payMethod').value:null,amount,notes:$('txNotes').value.trim()};
-    const draftWarnings=billingWarnings(obj,txs);
+    const draftWarnings=[...billingWarnings(obj,txs),...billingAuditExtras(obj,txs,true)];
     if(draftWarnings.length&&!confirm('Billing check found possible issue(s):\\n- '+draftWarnings.join('\\n- ')+'\\n\\nReview these before saving. Choose Cancel to correct the entry, or OK to continue.'))return;
     // CCAP is charged once per child per calendar month. Block a second
     // CCAP charge for that child and month before it can create another row.
