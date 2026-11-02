@@ -294,13 +294,16 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
   </div>
 
   <div class="field" style="margin:12px 0"><label for="invoiceMode">Invoice type</label><select id="invoiceMode"><option value="individual">Individual child invoice</option><option value="family">Combined family invoice</option></select></div>
+  <div class="row" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">
+    <button class="primary" id="generateInvoice">Generate Invoice</button>
+    <button id="printInvoice" onclick="printInvoice()">Print / Save as PDF</button>
+  </div>
   <div id="familyInvoiceControls" class="hidden" style="border:1px solid #ddd5e6;padding:12px;border-radius:8px;margin:12px 0">
     <strong>Select siblings for this invoice</strong>
     <p class="muted small">Select children manually. Parent names are suggestions only; no transactions are changed.</p>
     <div id="familyInvoiceChildren"></div>
   </div>
-  <button class="primary" id="generateInvoice">Generate Invoice</button>
-<button id="printInvoice" onclick="printInvoice()">Print / Save as PDF</button>
+
   
   <div id="invoiceOutput" style="margin-top:20px">
     <p class="muted">Choose a child and billing period, then select Generate Invoice.</p>
