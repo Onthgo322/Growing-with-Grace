@@ -293,6 +293,12 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
     </div>
   </div>
 
+  <div class="field" style="margin:12px 0"><label for="invoiceMode">Invoice type</label><select id="invoiceMode"><option value="individual">Individual child invoice</option><option value="family">Combined family invoice</option></select></div>
+  <div id="familyInvoiceControls" class="hidden" style="border:1px solid #ddd5e6;padding:12px;border-radius:8px;margin:12px 0">
+    <strong>Select siblings for this invoice</strong>
+    <p class="muted small">Select children manually. Parent names are suggestions only; no transactions are changed.</p>
+    <div id="familyInvoiceChildren"></div>
+  </div>
   <button class="primary" id="generateInvoice">Generate Invoice</button>
 <button id="printInvoice" onclick="printInvoice()">Print / Save as PDF</button>
   
@@ -1811,7 +1817,50 @@ document.querySelector('[data-tab="deleted"]').onclick=()=>{
 
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const target=$('page-'+b.dataset.tab);if(!target)return;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x===b));document.querySelectorAll('.tabpage').forEach(x=>x.classList.add('hidden'));target.classList.remove('hidden');});
  
+function refreshFamilyInvoiceChildren(){
+ const host=$('familyInvoiceChildren');
+ if(!host)return;
+ const selected=new Set([...host.querySelectorAll('input:checked')].map(x=>x.value));
+ const selectedChild=children.find(c=>String(c.id)===$('invoiceChild').value);
+ const parents=new Set([selectedChild?.parent1_name,selectedChild?.parent2_name].filter(Boolean).map(x=>String(x).trim().toLowerCase()));
+ const candidates=children.filter(c=>c.active!==false).slice().sort((a,b)=>{
+  const score=c=>[c.parent1_name,c.parent2_name].some(x=>parents.has(String(x||'').trim().toLowerCase()))?1:0;
+  return score(b)-score(a)||String(a.name).localeCompare(String(b.name));
+ });
+ host.innerHTML=candidates.map(c=>'<label style="display:block;padding:5px"><input type="checkbox" value="'+esc(c.id)+'" '+(selected.has(String(c.id))||(!selected.size&&String(c.id)===String(selectedChild?.id))?'checked':'')+'> '+esc(c.name)+' <small>'+esc([c.parent1_name,c.parent2_name].filter(Boolean).join(' / '))+'</small></label>').join('');
+}
+$('invoiceMode').addEventListener('change',()=>{
+ $('familyInvoiceControls').classList.toggle('hidden',$('invoiceMode').value!=='family');
+ if($('invoiceMode').value==='family')refreshFamilyInvoiceChildren();
+});
+$('invoiceChild').addEventListener('change',()=>{if($('invoiceMode').value==='family')refreshFamilyInvoiceChildren()});
+function renderCombinedFamilyInvoice(){
+ const from=$('invoiceFrom').value,to=$('invoiceTo').value;
+ if(!from||!to||from>to)return alert('Select a valid billing period.');
+ const ids=[...$('familyInvoiceChildren').querySelectorAll('input:checked')].map(x=>x.value);
+ const selected=children.filter(c=>ids.includes(String(c.id)));
+ if(!selected.length)return alert('Select at least one child.');
+ const billingDate=t=>t.week_start||t.entry_date||'';
+ const impact=t=>t.entry_type==='Charge'?Number(t.amount||0):t.entry_type==='Payment'?-Number(t.amount||0):t.entry_type==='Credit / Adjustment'?(String(t.category||'').trim()==='Transfer Debit'?1:-1)*Number(t.amount||0):0;
+ let familyBalance=0;
+ const sections=selected.map(c=>{
+  const all=txs.filter(t=>String(t.child_id)===String(c.id));
+  const prior=all.filter(t=>billingDate(t)<from);
+  const list=all.filter(t=>billingDate(t)>=from&&billingDate(t)<=to).sort((a,b)=>String(a.entry_date||'').localeCompare(String(b.entry_date||'')));
+  const previous=Number(c.beginning_balance||0)+prior.reduce((a,t)=>a+impact(t),0);
+  const charges=list.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount||0),0);
+  const payments=list.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount||0),0);
+  const adjustments=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((a,t)=>a-impact(t),0);
+  const balance=previous+list.reduce((a,t)=>a+impact(t),0);
+  familyBalance+=balance;
+  return '<section style="margin:20px 0;break-inside:avoid-page"><h3>'+esc(c.name)+'</h3><p>Previous balance: '+money(previous)+'</p><table style="width:100%;border-collapse:collapse"><thead><tr><th>Date</th><th>Description</th><th>Type / Method</th><th>Notes</th><th>Amount</th></tr></thead><tbody>'+
+  (list.map(t=>'<tr><td>'+esc(displayDate(t.entry_date||''))+'</td><td>'+esc(t.category||'')+'</td><td>'+esc(t.entry_type||'')+(t.payment_method?' — '+esc(t.payment_method):'')+'</td><td>'+esc(t.notes||'')+'</td><td style="text-align:right">'+money(t.amount)+'</td></tr>').join('')||'<tr><td colspan="5">No transactions in this period.</td></tr>')+
+  '</tbody></table><p>Charges: '+money(charges)+' | Payments: '+money(payments)+' | Credits / adjustments: '+money(adjustments)+'</p><strong>Child balance: '+money(balance)+'</strong></section>';
+ }).join('');
+ $('invoiceOutput').innerHTML='<div style="border:1px solid #ddd;padding:28px;background:white;color:#222;max-width:850px;margin:20px auto"><h2 style="text-align:center">Growing With Grace Christian Learning Center, LLC</h2><p style="text-align:center">Contact: Angela Mattson | Growingwithgracefargo@gmail.com | (701) 540-2432</p><h3 style="text-align:center">Combined Family Invoice</h3><p>Invoice date: '+esc(displayDate(today()))+'</p><p>Billing period: '+esc(displayDate(from))+' through '+esc(displayDate(to))+'</p><p style="color:#a33">Payment arrangements must be made within 10 days of the invoice date.</p>'+sections+'<hr><h2>Combined family balance: '+money(familyBalance)+'</h2><p>Positive balance = amount owed. Negative balance = credit.</p></div>';
+}
 $('generateInvoice').onclick=()=>{
+  if($('invoiceMode').value==='family')return renderCombinedFamilyInvoice();
   const child=children.find(c=>String(c.id)===$('invoiceChild').value);
   const from=$('invoiceFrom').value;
   const to=$('invoiceTo').value;
