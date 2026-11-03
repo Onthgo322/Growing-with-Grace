@@ -334,7 +334,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
   </div>
 </section>
 
-<section class="panel tabpage hidden" id="page-reports"><h2>Reports</h2><div class="grid"><div class="field"><label>Child</label><select id="reportChild"><option value="">All children</option></select></div><div class="field"><label>From date</label><input type="date" id="reportFrom"></div><div class="field"><label>Through date</label><input type="date" id="reportTo"></div><div class="field"><label>Entry type</label><select id="reportType"><option value="">All entries</option><option>Charge</option><option>Payment</option></select></div></div><button class="primary" id="runReport">Run report</button><button onclick="printTransactions()">Print Transactions</button><button onclick="printChildLedger()">Print Child Ledger</button><div id="reportSummary" class="status"></div><div class="tablewrap"><table><thead><tr><th>Date</th><th>Week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method</th><th>Notes</th></tr></thead><tbody id="reportRows"></tbody></table></div></section>
+<section class="panel tabpage hidden" id="page-reports"><h2>Reports</h2><div class="grid"><div class="field"><label>Child</label><select id="reportChild"><option value="">All children</option></select></div><div class="field"><label>From date</label><input type="date" id="reportFrom"></div><div class="field"><label>Through date</label><input type="date" id="reportTo"></div><div class="field"><label>Debit / Credit filter</label><select id="reportType"><option value="">Both debits and credits</option><option value="debits">Debits only (charges)</option><option value="credits">Credits only (payments and credits)</option></select></div></div><button class="primary" id="runReport">Run report</button><button onclick="printFilteredReport()">Print Filtered Report / Save PDF</button><button onclick="printTransactions()">Print Transactions</button><button onclick="printChildLedger()">Print Child Ledger</button><div id="reportSummary" class="status"></div><div class="tablewrap"><table><thead><tr><th>Date</th><th>Week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method</th><th>Notes</th></tr></thead><tbody id="reportRows"></tbody></table></div></section>
 </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1809,7 +1809,40 @@ $('saveBulk').onclick=async()=>{
 $('loadDeleted').onclick=loadDeletedTransactions;
  $('clearDeletedHistory').onclick=clearDeletedTransactionHistory;
 
- $('runReport').onclick=()=>{let list=txs.filter(t=>(!$('reportChild').value||t.child_id===$('reportChild').value)&&(!$('reportFrom').value||t.entry_date>=$('reportFrom').value)&&(!$('reportTo').value||t.entry_date<=$('reportTo').value)&&(!$('reportType').value||t.entry_type===$('reportType').value));$('reportRows').innerHTML=list.map(t=>`<tr><td>${displayDate(t.entry_date)}</td><td>${displayDate(t.week_start)}–${displayDate(t.week_end)}</td><td>${esc(children.find(c=>c.id===t.child_id)?.name||'Archived child')}</td><td>${t.entry_type}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')}</td><td>${esc(t.notes||'')}</td></tr>`).join('')||'<tr><td colspan="8">No matching entries.</td></tr>';const ch=list.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount),0),pa=list.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount),0);$('reportSummary').textContent=`${list.length} entries · Charges ${money(ch)} · Payments ${money(pa)} · Balance ${money(ch-pa)}`};
+ function getFilteredReportTransactions(){
+ const type=$('reportType').value;
+ return txs.filter(t=>
+  (!$('reportChild').value||String(t.child_id)===String($('reportChild').value))&&
+  (!$('reportFrom').value||String(t.entry_date||'')>=$('reportFrom').value)&&
+  (!$('reportTo').value||String(t.entry_date||'')<=$('reportTo').value)&&
+  (type===''||(type==='debits'&&t.entry_type==='Charge')||(type==='credits'&&(t.entry_type==='Payment'||t.entry_type==='Credit / Adjustment')))
+ ).sort((a,b)=>String(a.entry_date||'').localeCompare(String(b.entry_date||'')));
+}
+function runFilteredReport(){
+ const list=getFilteredReportTransactions();
+ $('reportRows').innerHTML=list.map(t=>`<tr><td>${esc(displayDate(t.entry_date))}</td><td>${esc(displayDate(t.week_start))}–${esc(displayDate(t.week_end))}</td><td>${esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Archived child')}</td><td>${esc(t.entry_type)}</td><td>${esc(t.category||'')}</td><td>${money(t.amount)}</td><td>${esc(t.payment_method||'')}</td><td>${esc(t.notes||'')}</td></tr>`).join('')||'<tr><td colspan="8">No matching entries.</td></tr>';
+ const charges=list.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount||0),0);
+ const payments=list.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount||0),0);
+ const adjustments=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((a,t)=>a+(String(t.category||'').trim()==='Transfer Debit'?-1:1)*Number(t.amount||0),0);
+ $('reportSummary').textContent=`${list.length} entries · Charges ${money(charges)} · Payments ${money(payments)} · Net credits / adjustments ${money(adjustments)} · Net change ${money(charges-payments-adjustments)}`;
+ return list;
+}
+$('runReport').onclick=runFilteredReport;
+function printFilteredReport(){
+ const list=runFilteredReport();
+ if(!list.length)return alert('There are no matching transactions to print.');
+ const child=children.find(c=>String(c.id)===String($('reportChild').value));
+ const mode=$('reportType').value;
+ const title=mode==='debits'?'Debits (Charges)':mode==='credits'?'Credits (Payments and Adjustments)':'Debits and Credits';
+ const heading='<h2>Growing With Grace Christian Learning Center, LLC</h2><h3>'+esc(title)+' Report</h3><p>Child: '+esc(child?.name||'All children')+' | From: '+esc(displayDate($('reportFrom').value)||'All dates')+' | Through: '+esc(displayDate($('reportTo').value)||'All dates')+'</p><p>'+esc($('reportSummary').textContent)+'</p>';
+ const table=$('page-reports').querySelector('.tablewrap').innerHTML;
+ const win=window.open('','_blank');
+ if(!win)return alert('Allow pop-ups for this site to print the report.');
+ win.document.open();
+ win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+' Report</title><style>@page{size:landscape;margin:10mm}body{font:11px Arial,sans-serif;color:#222}h2,h3{text-align:center;margin:8px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}thead{display:table-header-group}tr{break-inside:avoid}th:nth-child(6),td:nth-child(6){text-align:right}</style></head><body>'+heading+table+'</body></html>');
+ win.document.close();win.focus();win.print();
+}
+
 
 document.querySelector('[data-tab="deleted"]').onclick=()=>{
   document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('primary',b.dataset.tab==='deleted'));
