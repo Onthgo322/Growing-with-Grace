@@ -1874,10 +1874,9 @@ function invoiceServiceDate(t){
  // Charges follow their service week; payments and adjustments follow the actual transaction date.
  return t.entry_type==='Charge'?(t.week_start||t.entry_date||''):(t.entry_date||t.week_start||'');
 }
-function invoiceDateLabel(t){
- if(t.entry_type==='Charge'&&t.week_start&&t.week_end)return displayDate(t.week_start)+' – '+displayDate(t.week_end);
- return displayDate(t.entry_date||t.week_start||'');
-}
+function invoiceDateLabel(t){return displayDate(t.entry_date||'');}
+function invoiceWeekStart(t){return t.week_start?displayDate(t.week_start):'—';}
+function invoiceWeekEnd(t){return t.week_end?displayDate(t.week_end):'—';}
 function sortInvoiceTransactions(a,b){
  return invoiceServiceDate(a).localeCompare(invoiceServiceDate(b))||
  String(a.entry_date||'').localeCompare(String(b.entry_date||''));
@@ -1894,15 +1893,15 @@ function renderCombinedFamilyInvoice(){
  const sections=selected.map(c=>{
   const all=txs.filter(t=>String(t.child_id)===String(c.id));
   const prior=all.filter(t=>billingDate(t)<from);
-  const list=all.filter(t=>billingDate(t)>=from&&billingDate(t)<=to).sort((a,b)=>String(a.entry_date||'').localeCompare(String(b.entry_date||'')));
+  const list=all.filter(t=>billingDate(t)>=from&&billingDate(t)<=to).sort(sortInvoiceTransactions);
   const previous=Number(c.beginning_balance||0)+prior.reduce((a,t)=>a+impact(t),0);
   const charges=list.filter(t=>t.entry_type==='Charge').reduce((a,t)=>a+Number(t.amount||0),0);
   const payments=list.filter(t=>t.entry_type==='Payment').reduce((a,t)=>a+Number(t.amount||0),0);
   const adjustments=list.filter(t=>t.entry_type==='Credit / Adjustment').reduce((a,t)=>a-impact(t),0);
   const balance=previous+list.reduce((a,t)=>a+impact(t),0);
   familyBalance+=balance;
-  return '<section class="family-invoice-child" style="margin:14px 0"><h3>'+esc(c.name)+'</h3><p>Previous balance: '+money(previous)+'</p><table style="width:100%;border-collapse:collapse"><thead><tr><th>Week of / Date</th><th>Description</th><th>Type / Method</th><th>Notes</th><th>Amount</th></tr></thead><tbody>'+
-  (list.map(t=>'<tr><td>'+esc(invoiceDateLabel(t))+'</td><td>'+esc(t.category||'')+'</td><td>'+esc(t.entry_type||'')+(t.payment_method?' — '+esc(t.payment_method):'')+'</td><td>'+esc(t.notes||'')+'</td><td style="text-align:right">'+money(t.amount)+'</td></tr>').join('')||'<tr><td colspan="5">No transactions in this period.</td></tr>')+
+  return '<section class="family-invoice-child" style="margin:14px 0"><h3>'+esc(c.name)+'</h3><p>Previous balance: '+money(previous)+'</p><table style="width:100%;border-collapse:collapse"><thead><tr><th>Week Beginning</th><th>Week Ending</th><th>Entry Date</th><th>Description</th><th>Type / Method</th><th>Notes</th><th>Amount</th></tr></thead><tbody>'+
+  (list.map(t=>'<tr><td>'+esc(invoiceWeekStart(t))+'</td><td>'+esc(invoiceWeekEnd(t))+'</td><td>'+esc(invoiceDateLabel(t))+'</td><td>'+esc(t.category||'')+'</td><td>'+esc(t.entry_type||'')+(t.payment_method?' — '+esc(t.payment_method):'')+'</td><td>'+esc(t.notes||'')+'</td><td style="text-align:right">'+money(t.amount)+'</td></tr>').join('')||'<tr><td colspan="7">No transactions in this period.</td></tr>')+
   '</tbody></table><p>Charges: '+money(charges)+' | Payments: '+money(payments)+' | Credits / adjustments: '+money(adjustments)+'</p><strong>Child balance: '+money(balance)+'</strong></section>';
  }).join('');
  $('invoiceOutput').innerHTML='<div style="border:1px solid #ddd;padding:28px;background:white;color:#222;max-width:850px;margin:20px auto"><h2 style="text-align:center">Growing With Grace Christian Learning Center, LLC</h2><p style="text-align:center">Contact: Angela Mattson | Growingwithgracefargo@gmail.com | (701) 540-2432</p><h3 style="text-align:center">Combined Family Invoice</h3><p>Invoice date: '+esc(displayDate(today()))+'</p><p>Billing period: '+esc(displayDate(from))+' through '+esc(displayDate(to))+'</p><p style="color:#a33">Payment arrangements must be made within 10 days of the invoice date.</p>'+sections+'<hr><h2>Combined family balance: '+money(familyBalance)+'</h2><p>Positive balance = amount owed. Negative balance = credit.</p></div>';
@@ -1938,7 +1937,7 @@ $('invoiceOutput').innerHTML=`
     <p style="margin:8px 0"><strong>Child:</strong> ${esc(child.name)}</p>
         <p style="margin:8px 0"><strong>Billing period:</strong> ${esc(displayDate(from))} through ${esc(displayDate(to))}</p>    
                 <p style="margin:8px 0 18px"><strong>Previous balance:</strong> ${money(balanceBefore)}</p>
-    <table style="width:100%;border-collapse:collapse;margin:12px 0"><thead><tr><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Week of / Date</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Description</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Type / Method</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Notes</th><th style="text-align:right;border-bottom:1px solid #999;padding:9px 6px">Amount</th></tr></thead><tbody>${list.map(t=>`<tr><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(invoiceDateLabel(t))}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.category||'')}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.entry_type||'')}${t.payment_method?' — '+esc(t.payment_method):''}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px;white-space:pre-wrap">${esc(t.notes||'')}</td><td style="text-align:right;border-bottom:1px solid #ddd;padding:8px 6px">${money(t.amount)}</td></tr>`).join('')||'<tr><td colspan="4" style="padding:8px">No transactions in this billing period.</td></tr>'}</tbody></table>
+    <table style="width:100%;border-collapse:collapse;margin:12px 0"><thead><tr><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Week Beginning</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Week Ending</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Entry Date</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Description</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Type / Method</th><th style="text-align:left;border-bottom:1px solid #999;padding:9px 6px">Notes</th><th style="text-align:right;border-bottom:1px solid #999;padding:9px 6px">Amount</th></tr></thead><tbody>${list.map(t=>`<tr><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(invoiceWeekStart(t))}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(invoiceWeekEnd(t))}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(invoiceDateLabel(t))}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.category||'')}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px">${esc(t.entry_type||'')}${t.payment_method?' — '+esc(t.payment_method):''}</td><td style="border-bottom:1px solid #ddd;padding:8px 6px;white-space:pre-wrap">${esc(t.notes||'')}</td><td style="text-align:right;border-bottom:1px solid #ddd;padding:8px 6px">${money(t.amount)}</td></tr>`).join('')||'<tr><td colspan="7" style="padding:8px">No transactions in this billing period.</td></tr>'}</tbody></table>
     <div style="margin-top:20px"><p style="margin:8px 0"><strong>New charges:</strong> ${money(charges)}</p><p style="margin:8px 0"><strong>Payments received:</strong> ${money(payments)}</p><p style="margin:8px 0"><strong>Credits / adjustments:</strong> ${money(credits)}</p></div>
     <hr style="margin:18px 0"><h3 style="margin:0 0 12px">Balance after this period: ${money(ending)}</h3>
     <div style="color:#c00000;font-weight:bold;border:1px solid #c00000;padding:10px;margin-top:12px">Positive balance = amount owed. Negative balance = credit.</div>
