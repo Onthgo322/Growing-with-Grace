@@ -1521,7 +1521,7 @@ window.changeChildStatus=async id=>{
    const raw=entered.trim();
    let value='';
    if(raw){
-     let match=raw.match(/^(\\d{2})(\\d{2})(\\d{4})$/)||raw.match(/^(\\d{1,2})[\\/-](\\d{1,2})[\\/-](\\d{4})$/);
+     let match=raw.match(/^(\d{2})(\d{2})(\d{4})$/)||raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
      if(!match)return alert('Use MMDDYYYY, MM/DD/YYYY, or MM-DD-YYYY. Nothing changed.');
      const month=Number(match[1]),day=Number(match[2]),year=Number(match[3]);
      const d=new Date(Date.UTC(year,month-1,day));
