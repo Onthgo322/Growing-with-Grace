@@ -1597,18 +1597,20 @@ function updateCcapMonthlyCalculation(){
   if(isSchoolAge){
     const schoolField=$('ccapSchoolDays'),nonSchoolField=$('ccapNonSchoolDays');
     const calendar=getCcapSchoolCalendar(child);
-    if(calendar){
+    if(calendar && schoolField.dataset.userEdited!=='1'){
       const index=month>=7?month-7:month+5;
       schoolField.value=calendar.school[index];
       nonSchoolField.value=calendar.nonSchool[index];
     }else if(Number(schoolField.value||0)===0&&Number(nonSchoolField.value||0)===0){
-      schoolField.value=weekdays;
-      nonSchoolField.value=0;
+      // July and August are summer break for school-age children without a configured calendar.
+      // These are suggested weekdays only; actual attendance can be edited before saving.
+      schoolField.value=(month===7||month===8)?0:weekdays;
+      nonSchoolField.value=(month===7||month===8)?weekdays:0;
     }
     const schoolRate=rates.filter(r=>r.category==='Before/After School Care'&&r.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
     const summerRate=rates.filter(r=>r.category==='5–12 Years'&&r.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
     const schoolDays=Number(schoolField.value||0),nonSchoolDays=Number(nonSchoolField.value||0);
-    const amount=(Number(schoolRate?.school_day||0)/5*schoolDays)+(Number(summerRate?.summer||0)/5*nonSchoolDays);
+    const amount=(Number(schoolRate?.school_day||0)/5*schoolDays)+(Number(summerRate?.non_school_day||summerRate?.summer||0)/5*nonSchoolDays);
     $('txAmount').value=(amount*(1-Number(child.employee_discount_percent||0)/100)).toFixed(2);
   }else{
     const field=$('ccapDaycareDays');
@@ -1619,7 +1621,7 @@ function updateCcapMonthlyCalculation(){
   }
 }
 $('ccapDaycareDays').addEventListener('input',()=>{$('ccapDaycareDays').dataset.userEdited='1';updateCcapMonthlyCalculation();});
-['ccapSchoolDays','ccapNonSchoolDays'].forEach(id=>$(id).addEventListener('input',updateCcapMonthlyCalculation));
+['ccapSchoolDays','ccapNonSchoolDays'].forEach(id=>$(id).addEventListener('input',()=>{ $('ccapSchoolDays').dataset.userEdited='1';updateCcapMonthlyCalculation();}));
 $('txEntryDate').addEventListener('input',updateCcapMonthlyCalculation);
 $('fillRate').onclick=()=>{
   const c=children.find(c=>c.id===$('txChild').value);
@@ -1644,7 +1646,7 @@ $('fillRate').onclick=()=>{
     const daycareDays=Number($('ccapDaycareDays').value||0);
     if(schoolDays+nonSchoolDays>0){
 const schoolRate=rates.filter(x=>x.category==='Before/After School Care'&&x.effective_date<=date).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
-amt=(Number(schoolRate?.school_day||0)/5*schoolDays)+(Number(ageRate?.summer||0)/5*nonSchoolDays);
+amt=(Number(schoolRate?.school_day||0)/5*schoolDays)+(Number(ageRate?.non_school_day||ageRate?.summer||0)/5*nonSchoolDays);
     }else{
       const weekly=c.rate_type==='fixed'?Number(c.fixed_weekly_rate||0):Number(r.summer||0);
       amt=weekly/5*daycareDays;
@@ -1728,7 +1730,7 @@ function handleCcapContextChange(event){
     updateCcapMonthlyCalculation();
   }
 }
-['txChild','txType','txCategory','weekEnd','weekStart'].forEach(id=>$(id).addEventListener('change',handleCcapContextChange));
+['txChild','txType','txCategory','weekEnd','weekStart'].forEach(id=>$(id).addEventListener('change',event=>{if(['txChild','weekEnd','weekStart'].includes(id)){delete $('ccapSchoolDays').dataset.userEdited;$('ccapSchoolDays').value='0';$('ccapNonSchoolDays').value='0';}handleCcapContextChange(event);}));
 $('txEntryDate').addEventListener('change',()=>{
   if($('txType').value==='Charge'&&$('txCategory').value==='CCAP'&&!$('ccapFlatCharge').checked){
     if($('ccapDaycareDays').dataset.userEdited!=='1')$('ccapDaycareDays').value=countWeekdaysInMonth($('txEntryDate').value);
