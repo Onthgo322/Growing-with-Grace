@@ -1515,11 +1515,19 @@ window.changeChildStatus=async id=>{
  if(!status)return alert('Choose 1, 2, or 3. Nothing changed.');
  let last=c.last_day_of_care||null;
  if(status==='Inactive'||status==='Archived'){
-   const entered=prompt('Last day of childcare (YYYY-MM-DD). Leave blank if unknown:',last||'');
+   const initial=last?last.slice(5,7)+'/'+last.slice(8,10)+'/'+last.slice(0,4):'';
+   const entered=prompt('Last day of childcare (MMDDYYYY, MM/DD/YYYY, or MM-DD-YYYY). Leave blank if unknown:',initial);
    if(entered===null)return;
-   const value=entered.trim();
-   if(value&&!/^\d{4}-\d{2}-\d{2}$/.test(value))return alert('Use YYYY-MM-DD. Nothing changed.');
-   if(value){const d=new Date(value+'T12:00:00');if(Number.isNaN(d.getTime())||d.toISOString().slice(0,10)!==value)return alert('Invalid date. Nothing changed.');}
+   const raw=entered.trim();
+   let value='';
+   if(raw){
+     let match=raw.match(/^(\\d{2})(\\d{2})(\\d{4})$/)||raw.match(/^(\\d{1,2})[\\/-](\\d{1,2})[\\/-](\\d{4})$/);
+     if(!match)return alert('Use MMDDYYYY, MM/DD/YYYY, or MM-DD-YYYY. Nothing changed.');
+     const month=Number(match[1]),day=Number(match[2]),year=Number(match[3]);
+     const d=new Date(Date.UTC(year,month-1,day));
+     if(d.getUTCFullYear()!==year||d.getUTCMonth()!==month-1||d.getUTCDate()!==day)return alert('Invalid date. Nothing changed.');
+     value=String(year).padStart(4,'0')+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+   }
    last=value||null;
  }
  if(status==='Archived'&&!confirm('Archive '+c.name+'? Their ledger and payments will remain available under Archived or All children. Only archive after reviewing the balance.'))return;
