@@ -1601,9 +1601,9 @@ function updateCcapMonthlyCalculation(){
       const index=month>=7?month-7:month+5;
       schoolField.value=calendar.school[index];
       nonSchoolField.value=calendar.nonSchool[index];
-    }else if(Number(schoolField.value||0)===0&&Number(nonSchoolField.value||0)===0){
-      // July and August are summer break for school-age children without a configured calendar.
-      // These are suggested weekdays only; actual attendance can be edited before saving.
+    }else if(!calendar && schoolField.dataset.userEdited!=='1'){
+      // Always replace stale automatic counts for children without a configured calendar.
+      // Manual attendance counts remain editable and are not overwritten.
       schoolField.value=(month===7||month===8)?0:weekdays;
       nonSchoolField.value=(month===7||month===8)?weekdays:0;
     }
