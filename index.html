@@ -2187,7 +2187,7 @@ function reportNote(t){
  const cat=String(t.category||'').toLowerCase();
  if(kind==='credit / adjustment'||cat.includes('adjustment')||cat.startsWith('transfer '))return note;
  // Hide temporary correction/deletion commentary, but retain normal billing/payment descriptions.
- return /\b(?:wrong amount|incorrect amount|deleted|delete this|duplicate charge|duplicate payment|test transaction|entered in error|mistaken entry|voided|should be deleted)\b/i.test(note)?'':note;
+ return /\b(?:wrong amount|incorrect amount|amount was missing|missing amount|wrong dates?|wrong week(?:s)? dates?|entered wrong week dates|wrong weeks dates entered|incorrect dates?|date(?:s)? entered (?:wrong|incorrectly)|deleted|delete this|duplicate charge|duplicate payment|test transaction|entered in error|mistaken entry|voided|should be deleted)\b/i.test(note)?'':note;
 }
 // Read-only identification before any irreversible deletion.
 $('reviewUnwantedChildren').onclick=()=>{
