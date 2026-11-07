@@ -1110,9 +1110,8 @@ Object.keys(monthPaymentMethods).forEach(method => {
      yearCredits += monthCredits;
 
       html += `
-        <div class="ledger-month-heading"><h3>${monthStart.toLocaleString('en-US', {month:'long'})} ${year}</h3></div>
-        <div class="ledger-month-print-label${month===6?' ledger-half-year-start':''}">${monthStart.toLocaleString('en-US', {month:'long'})} ${year}</div>
-        ${year===2026 && month===0 ? '<p class="ledger-opening-balance" style="font-weight:700;margin:8px 0">Beginning balance — January 1, 2026: '+money(Number(child.beginning_balance||0))+(Number(child.beginning_balance||0)<0?' (credit)':'')+'</p>' : ''}
+        <div class="ledger-month-heading" style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap"><h3 style="margin:0">${monthStart.toLocaleString('en-US', {month:'long'})} ${year}</h3>${year===2026 && month===0 ? '<span class="ledger-opening-balance" style="font-weight:700">Beginning balance: '+money(Number(child.beginning_balance||0))+(Number(child.beginning_balance||0)<0?' (credit)':'')+'</span>' : ''}</div>
+        <div class="ledger-month-print-label${month===6?' ledger-half-year-start':''}" style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">${monthStart.toLocaleString('en-US', {month:'long'})} ${year}${year===2026 && month===0 ? '<span class="ledger-opening-balance" style="font-weight:700">Beginning balance: '+money(Number(child.beginning_balance||0))+(Number(child.beginning_balance||0)<0?' (credit)':'')+'</span>' : ''}</div>
         <div class="tablewrap ledger-month-${month}">
           <table>
             <thead><tr>
