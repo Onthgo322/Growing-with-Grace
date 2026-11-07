@@ -1,6 +1,23 @@
 // Scheduled weekly billing. Runs in America/Chicago on Fridays via GitHub Actions.
 // Requires SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and BILLING_USER_ID secrets.
 // Deliberately refuses to charge unless billing is explicitly enabled for a child.
+// Safe self-tests: no database access or billing writes.
+if(process.env.BILLING_SELF_TEST==='true'){
+ const assert=(condition,label)=>{if(!condition)throw Error('Self-test failed: '+label);console.log('PASS '+label);};
+ const testAge=(birth,monday)=>ageOn(birth,shift(monday,-1));
+ assert(testAge('2024-11-09','2026-11-09')===2,'Saturday birthday applies next Monday');
+ assert(testAge('2024-11-08','2026-11-09')===2,'Sunday birthday applies next Monday');
+ assert(testAge('2024-11-09','2026-11-02')===1,'No early rate increase');
+ assert(testAge('2024-11-09','2026-11-16')===2,'New rate continues following week');
+ assert(testAge('2024-11-09','2026-11-09')===2,'Birthday before Monday is recognized');
+ assert(testAge('2024-11-10','2026-11-09')===1,'Tuesday birthday waits until next Monday');
+ assert(testAge('2024-11-09','2026-11-09')===2,'Monday week follows previous Sunday age');
+ assert(testAge('2024-11-16','2026-11-16')===1,'Monday birthday does not change current week');
+ assert(testAge('2024-11-16','2026-11-23')===2,'Monday birthday changes next week');
+ assert(alreadyCharged('a',[{child_id:'a',entry_type:'Charge',category:'Regular daycare'}]),'Existing weekly charge is skipped');
+ assert(!alreadyCharged('a',[{child_id:'a',entry_type:'Charge',category:'CCAP'}]),'CCAP-only charge is not treated as regular charge');
+ process.exit(0);
+}
 const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY,owner=process.env.BILLING_USER_ID;
 const dryRun=process.env.BILLING_DRY_RUN!=='false';
 if(!url||!key||!owner)throw Error('Missing required billing secrets; no charges created');
@@ -20,9 +37,10 @@ const [children,rates,existing]=await Promise.all([
 function ageOn(birth,date){let y=+date.slice(0,4)- +birth.slice(0,4);if(date.slice(5)<birth.slice(5))y--;return y;}
 function category(c){if(!c.date_of_birth||c.rate_category==='Before/After School Care')return c.rate_category;
 // Rate changes only after birthday week. Age as of Monday sets the rate for the whole week.
-const age=ageOn(c.date_of_birth,weekStart);
+const age=ageOn(c.date_of_birth,shift(weekStart,-1));
 return age<2?'Infant':age<3?'2-Year':age<4?'3-Year':age<5?'4-Year':'5–12 Years';
 }
+function alreadyCharged(childId,transactions){return transactions.some(t=>t.child_id===childId&&t.entry_type==='Charge'&&String(t.category||'').toUpperCase()!=='CCAP');}
 const candidates=[];
 const skipped=[];
 function childLabel(c){return c.name||[c.first_name,c.last_name].filter(Boolean).join(' ')||String(c.id);}
@@ -33,9 +51,9 @@ for(const c of children){
  if(c.child_status!=='Active'){skip(c,'Status: '+String(c.child_status));continue;}
  if(c.last_day_of_care&&c.last_day_of_care<weekStart){skip(c,'Last day of care before billing week: '+c.last_day_of_care);continue;}
  if(c.last_day_of_care&&c.last_day_of_care<weekEnd){skip(c,'Partial week ending '+c.last_day_of_care+' requires review');continue;}
- if(existing.some(t=>t.child_id===c.id&&t.entry_type==='Charge'&&String(t.category||'').toUpperCase()!=='CCAP')){skip(c,'Already has a charge for billing week');continue;}
+ if(alreadyCharged(c.id,existing)){skip(c,'Already has a charge for billing week');continue;}
  const cat=category(c);
- const rate=rates.filter(r=>r.category===cat&&r.effective_date<=weekEnd).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
+ const rate=rates.filter(r=>r.category===cat&&r.effective_date<=weekStart).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
  const amount=c.rate_type==='fixed'?Number(c.fixed_weekly_rate):rate?Number(rate.school_day)*(1-Number(c.employee_discount_percent||0)/100):NaN;
  if(!Number.isFinite(amount)||amount<=0){skip(c,'Missing or invalid rate for '+String(cat));continue;}
  candidates.push({user_id:owner,child_id:c.id,week_start:weekStart,week_end:weekEnd,entry_date:iso,entry_type:'Charge',category:'Regular daycare',payment_method:null,amount:Math.round(amount*100)/100,notes:''});
