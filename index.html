@@ -2175,5 +2175,11 @@ $('saveTransfer').onclick=async()=>{
  }catch(e){alert('Could not verify transfer: '+(e?.message||String(e))+'. Check both children before retrying.');}
  finally{btn.disabled=false;btn.textContent='Save transfer';}
 };
+// Prevent mouse-wheel scrolling from silently changing focused numeric values.
+// Blur only on wheel; normal typing and page scrolling remain available.
+document.addEventListener('wheel',event=>{
+ const el=document.activeElement;
+ if(el && el.matches && el.matches('input[type="number"]')) el.blur();
+},{capture:true,passive:true});
 </script>
 </body></html>
