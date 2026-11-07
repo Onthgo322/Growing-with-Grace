@@ -1792,8 +1792,11 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     const addDays=(d,n)=>{const x=new Date(d.getFullYear(),d.getMonth(),d.getDate(),12);x.setDate(x.getDate()+n);return x;};
     const first=new Date(2026,9,5,12),now=new Date();
     const currentMonday=addDays(now,-((now.getDay()+6)%7));
+    // On Friday, include the upcoming Monday–Friday billing week in the preview.
+    // Do not include future weeks earlier than Friday.
+    const previewThroughMonday=now.getDay()===5?addDays(currentMonday,7):currentMonday;
     const rows=[],unpriced=[];
-    for(let monday=first;monday<=currentMonday;monday=addDays(monday,7)){
+    for(let monday=first;monday<=previewThroughMonday;monday=addDays(monday,7)){
       const weekStart=asISO(monday),weekEnd=asISO(addDays(monday,4)),entryDate=asISO(addDays(monday,-3));
       for(const c of children){
         if(c.receives_ccap===true)continue;
