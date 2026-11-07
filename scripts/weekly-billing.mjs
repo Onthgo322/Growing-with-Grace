@@ -2,6 +2,7 @@
 // Requires SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and BILLING_USER_ID secrets.
 // Deliberately refuses to charge unless billing is explicitly enabled for a child.
 const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY,owner=process.env.BILLING_USER_ID;
+const dryRun=process.env.BILLING_DRY_RUN!=='false';
 if(!url||!key||!owner)throw Error('Missing required billing secrets; no charges created');
 const headers={apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'};
 async function query(table,params=''){const r=await fetch(url+'/rest/v1/'+table+'?'+params,{headers});if(!r.ok)throw Error(table+' read failed '+r.status+': '+await r.text());return r.json();}
@@ -35,6 +36,7 @@ for(const c of children){
  candidates.push({user_id:owner,child_id:c.id,week_start:weekStart,week_end:weekEnd,entry_date:iso,entry_type:'Charge',category:'Regular daycare',payment_method:null,amount:Math.round(amount*100)/100,notes:''});
 }
 console.log('Friday '+iso+': '+candidates.length+' eligible weekly charges');
+if(dryRun){console.log('DRY RUN ONLY: no charges will be saved. Eligible count: '+candidates.length);process.exit(0);}
 if(!candidates.length)process.exit(0);
 // Recheck each row immediately before insertion. A database uniqueness constraint is still recommended for concurrency safety.
 for(const row of candidates){
