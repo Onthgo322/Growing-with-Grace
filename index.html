@@ -2181,7 +2181,14 @@ $('saveTransfer').onclick=async()=>{
  }catch(e){alert('Could not verify transfer: '+(e?.message||String(e))+'. Check both children before retrying.');}
  finally{btn.disabled=false;btn.textContent='Save transfer';}
 };
-function reportNote(t){const kind=String(t.entry_type||'').toLowerCase();const cat=String(t.category||'').toLowerCase();return kind==='credit / adjustment'||cat.includes('adjustment')||cat.startsWith('transfer ')?String(t.notes||''):'';}
+function reportNote(t){
+ const note=String(t.notes||'');
+ const kind=String(t.entry_type||'').toLowerCase();
+ const cat=String(t.category||'').toLowerCase();
+ if(kind==='credit / adjustment'||cat.includes('adjustment')||cat.startsWith('transfer '))return note;
+ // Hide temporary correction/deletion commentary, but retain normal billing/payment descriptions.
+ return /\b(?:wrong amount|incorrect amount|deleted|delete this|duplicate charge|duplicate payment|test transaction|entered in error|mistaken entry|voided|should be deleted)\b/i.test(note)?'':note;
+}
 // Read-only identification before any irreversible deletion.
 $('reviewUnwantedChildren').onclick=()=>{
  const out=$('unwantedChildReview');
