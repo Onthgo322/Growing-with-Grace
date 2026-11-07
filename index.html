@@ -2198,10 +2198,39 @@ $('reviewUnwantedChildren').onclick=()=>{
   ...children.filter(c=>/^test child(?: \d+)?$/i.test(String(c.name||'').trim()))
  ];
  const unique=[...new Map(targets.map(c=>[String(c.id),c])).values()];
- out.innerHTML='<p><strong>'+unique.length+' candidate record(s).</strong> Review the exact entries below; no changes made.</p>'+
- '<p><strong>Adalynn Bucholz: both records are shown for comparison. Only the unused duplicate should be deleted; preserve the record with January CCAP charges and payments.</strong></p><table><thead><tr><th>Child name</th><th>Birthday</th><th>Beginning balance</th><th>Attached transactions</th><th>Record ID</th></tr></thead><tbody>'+
- unique.map(c=>'<tr><td>'+esc(c.name)+'</td><td>'+esc(c.date_of_birth||'Missing')+'</td><td>'+money(Number(c.beginning_balance||0))+'</td><td>'+txs.filter(t=>String(t.child_id)===String(c.id)).length+'</td><td style="font-size:11px;overflow-wrap:anywhere">'+esc(String(c.id))+'</td></tr>').join('')+
- '</tbody></table><p class="muted">No deletion button is enabled. We will verify these records and attached transactions before permanent removal.</p>';
+ out.innerHTML='<p><strong>'+unique.length+' candidate record(s). Only records with zero attached transactions are eligible for deletion.</strong></p>'+
+ '<p><strong>Adalynn:</strong> Keep the record with January CCAP transactions and the -$1,680 credit. Only the unused duplicate may be removed.</p><table><thead><tr><th>Child name</th><th>Birthday</th><th>Beginning balance</th><th>Transactions</th><th>Record ID</th><th>Action</th></tr></thead><tbody>'+
+ unique.map(c=>{
+  const count=txs.filter(t=>String(t.child_id)===String(c.id)).length;
+  const adalynn=normalized(c)==='adalynn bucholz';
+  const otherGood=children.some(other=>String(other.id)!==String(c.id)&&normalized(other)==='adalynn bucholz'&&Number(other.beginning_balance||0)===-1680&&txs.some(t=>String(t.child_id)===String(other.id)&&t.entry_type==='Payment'));
+  const eligible=count===0&&(!adalynn||otherGood);
+  return '<tr><td>'+esc(c.name)+'</td><td>'+esc(c.date_of_birth||'Missing')+'</td><td>'+money(Number(c.beginning_balance||0))+'</td><td>'+count+'</td><td style="font-size:11px;overflow-wrap:anywhere">'+esc(String(c.id))+'</td><td>'+(eligible?'<button type="button" class="danger" onclick="deleteReviewedChild(\\''+esc(String(c.id))+'\\')">Delete this record</button>':'Protected — verify ledger')+'</td></tr>';
+ }).join('')+'</tbody></table><p class="muted">Each deletion requires separate confirmation. Existing transactions are never deleted.</p>';
+};
+window.deleteReviewedChild=async function(id){
+ const child=children.find(c=>String(c.id)===String(id));
+ if(!child)return alert('Record not found. Refresh the review.');
+ const name=String(child.name||'').trim(),norm=name.toLowerCase().replace(/\s+/g,' ');
+ const permitted=norm==='child bdy rate'||norm==='duplicate 1'||norm==='ledger test'||norm==='ugh duplicate test'||name==='arlo Martinez'||(norm==='nash odle'&&!child.date_of_birth)||norm==='adalynn bucholz'||/^test child(?: \d+)?$/i.test(name);
+ if(!permitted)return alert('This record is not approved for deletion.');
+ if(txs.some(t=>String(t.child_id)===String(id)))return alert('Protected: this child has attached transactions.');
+ if(norm==='adalynn bucholz'){
+  const good=children.some(c=>String(c.id)!==String(id)&&String(c.name||'').trim().toLowerCase()==='adalynn bucholz'&&Number(c.beginning_balance||0)===-1680&&txs.some(t=>String(t.child_id)===String(c.id)&&t.entry_type==='Payment'));
+  if(!good)return alert('Adalynn deletion blocked until the correct record and payments are verified.');
+ }
+ const check=await sb.from('daycare_transactions').select('id',{count:'exact',head:true}).eq('child_id',id);
+ if(check.error)return alert('Unable to verify linked transactions: '+check.error.message);
+ if(check.count!==0)return alert('Deletion blocked: linked transactions exist.');
+ if(!confirm('PERMANENTLY DELETE child record: '+name+'?\\nDatabase ID: '+id+'\\nThis cannot be undone.'))return;
+ const typed=prompt('Type DELETE to confirm permanent removal of '+name+':');
+ if(typed!=='DELETE')return;
+ const result=await sb.from('daycare_children').delete().eq('id',id).select('id');
+ if(result.error)return alert('Deletion failed: '+result.error.message);
+ if(!result.data||result.data.length!==1)return alert('Deletion was not confirmed by the database. Refresh and check.');
+ await loadAll();
+ $('reviewUnwantedChildren').click();
+ alert(name+' was permanently deleted. Other children and transactions were unchanged.');
 };
 // Prevent mouse-wheel scrolling from silently changing focused numeric values.
 // Blur only on wheel; normal typing and page scrolling remain available.
