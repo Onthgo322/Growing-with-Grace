@@ -54,15 +54,3 @@ for(const row of candidates){
  if(!r.ok)throw Error('Charge save failed for '+row.child_id+': '+r.status+' '+await r.text());
  console.log('Saved weekly charge for '+row.child_id);
 }
-+row.amount.toFixed(2)+' | '+weekStart+' to '+weekEnd);}
-for(const item of skipped)console.log('SKIPPED: '+item.name+' | '+item.reason);
-if(dryRun){console.log('DRY RUN ONLY: no charges will be saved. Eligible count: '+candidates.length);process.exit(0);}
-if(!candidates.length)process.exit(0);
-// Recheck each row immediately before insertion. A database uniqueness constraint is still recommended for concurrency safety.
-for(const row of candidates){
- const found=await query('daycare_transactions','select=id&user_id=eq.'+encodeURIComponent(owner)+'&child_id=eq.'+row.child_id+'&entry_type=eq.Charge&week_start=eq.'+weekStart+'&week_end=eq.'+weekEnd);
- if(found.length){console.log('Skipped already charged '+row.child_id);continue;}
- const r=await fetch(url+'/rest/v1/daycare_transactions',{method:'POST',headers:{...headers,Prefer:'return=minimal'},body:JSON.stringify(row)});
- if(!r.ok)throw Error('Charge save failed for '+row.child_id+': '+r.status+' '+await r.text());
- console.log('Saved weekly charge for '+row.child_id);
-}
