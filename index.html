@@ -885,11 +885,11 @@ window.openChildLedger = function(childId){
 
   $('ledgerTitle').textContent = child.name + ' — Monthly Ledger';
   $('ledgerContent').innerHTML = `
-<div class="ledger-print-topline"><strong>${child.name} — Monthly Ledger</strong><span class="ledger-print-guide">Positive = Parent owes · Negative = Parent has a credit · $0.00 = Paid in full</span></div>
+<div class="ledger-print-topline" style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><strong>${child.name} — Monthly Ledger</strong><span class="ledger-print-guide" style="margin-left:0">Positive = Parent owes · Negative = Parent has a credit · $0.00 = Paid in full</span></div>
 
     <div class="field ledger-year-picker">
       <label for="ledgerYear">Choose year</label>
-      <select id="ledgerYear">
+      <select id="ledgerYear" style="width:130px;max-width:100%">
         ${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
     </div>
