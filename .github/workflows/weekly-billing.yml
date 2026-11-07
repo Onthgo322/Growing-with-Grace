@@ -29,4 +29,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           BILLING_USER_ID: ${{ secrets.BILLING_USER_ID }}
-          BILLING_DRY_RUN: 'true'
+          BILLING_DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || 'true' }}
+          BILLING_LIVE_APPROVED: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
