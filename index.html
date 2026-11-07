@@ -248,7 +248,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div id="saveFeedback" role="status" aria-live="polite" style="display:none;margin:10px 0 8px;padding:10px 12px;border:1px solid #cdbbdf;border-radius:8px;background:#f7f3fb;color:#342440;font-weight:600;white-space:pre-wrap"></div>
 <div class="entry-actions" style="display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important"><div class="entry-action-column" style="display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0"><button class="primary" id="saveTx" style="width:100%;min-height:44px">Save entry</button><button type="button" id="repeatLastEntry" style="width:100%;min-height:44px">Repeat Last Entry Next Week</button></div><div class="entry-action-column" style="display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0"><button id="fillRate" style="width:100%;min-height:44px">Fill weekly rate</button><button type="button" id="nextWeek" style="width:100%;min-height:44px">Next Week (Monday–Friday)</button></div></div><p class="muted small">Suggested weekly rates from your fee schedule: Infant $245, 2-Year $240, 3-Year $235, 4-Year $230, 5–12 Years $225, Before/After School Care $150. Enrollment $100; registration/insurance $40; activity fee $35 where applicable. Confirm the applicable schedule before saving. Late pickup: $5/minute; late payment: $15/day.</p>
 <h3>Billing Error Checker</h3><p class="muted small">Read-only review of saved charges and payments dated October 1, 2026 onward. Possible issues require your review; no records are changed.</p><button type="button" id="checkBilling">Check saved billing</button><p id="billingCheckStatus" class="muted small" aria-live="polite"></p><div id="billingCheckResults" class="tablewrap"></div>
-<h3>Review missing weekly charges</h3><p class="muted small">Preview only, starting with the week of October 5, 2026. Existing transactions are not changed. Verify each child's enrollment and attendance before approving any charges.</p><button type="button" id="previewMissingWeekly">Preview missing weekly charges</button><p id="missingWeeklyStatus" aria-live="polite"></p><div id="missingWeeklyResults" class="tablewrap"></div>
+<h3>Review missing weekly charges</h3><p class="muted small">Preview only, starting with the week of October 5, 2026. Existing transactions are not changed. Verify each child's enrollment and attendance before approving any charges.</p><button type="button" id="previewMissingWeekly">Preview missing weekly charges</button><p id="missingWeeklyStatus" aria-live="polite"></p><div id="missingWeeklyResults" class="tablewrap"></div><button type="button" id="saveMissingWeekly" class="hidden">Save reviewed missing weekly charges</button>
 <h3>Recent entries</h3><div class="field" style="max-width:420px"><label for="txRecentChild">Choose a child to view recent entries</label><select id="txRecentChild"><option value="">— Select a child —</option></select></div><div class="row"><button type="button" id="exportChildTransactions">Export selected child transactions (CSV)</button></div><p class="muted small">Exports the selected child’s existing transactions for review only. It does not change saved records.</p><p id="txRecentStatus" class="muted small" aria-live="polite"></p><div class="row"><button type="button" id="reviewDuplicateCcap">Review duplicate charges &amp; payments</button></div><p id="duplicateCcapStatus" class="muted small" aria-live="polite"></p><div class="tablewrap"><table id="duplicateCcapTable" class="hidden"><thead><tr><th>Date</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Payment method</th><th>Record ID</th><th>Action</th></tr></thead><tbody id="duplicateCcapRows"></tbody></table></div><div class="tablewrap"><table><thead><tr><th>Date / week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method / notes</th></tr></thead><tbody id="txRows"></tbody></table></div></section>
 
 
@@ -1778,6 +1778,7 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     return warnings;
   }
 
+  let reviewedWeeklyRows=[];
   $('previewMissingWeekly').onclick=()=>{
     const output=$('missingWeeklyResults'),status=$('missingWeeklyStatus');
     const asISO=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -1807,9 +1808,35 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
         rows.push({name:c.name,weekStart,weekEnd,entryDate,amount,partial:!!last&&last>=weekStart&&last<weekEnd});
       }
     }
+    reviewedWeeklyRows=rows.map(x=>({...x,childId:children.find(c=>c.name===x.name)?.id}));
+    $('saveMissingWeekly').classList.toggle('hidden',!rows.length||!!unpriced.length||rows.some(x=>x.partial));
     status.textContent=rows.length+' proposed missing weekly charge(s) for review. '+unpriced.length+' could not be priced. Nothing has been saved.';
     output.innerHTML=rows.length?'<table><thead><tr><th>Child</th><th>Week of care</th><th>Friday entry</th><th>Estimated charge</th><th>Review</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+esc(x.weekStart)+' – '+esc(x.weekEnd)+'</td><td>'+esc(x.entryDate)+'</td><td>'+money(x.amount)+'</td><td>'+ (x.partial?'Partial last week — verify':'Verify enrollment and attendance')+'</td></tr>').join('')+'</tbody></table>':'<p>No missing weekly charges found by this preliminary review.</p>';
     if(unpriced.length)output.innerHTML+='<p>Missing saved rate: '+esc(unpriced.slice(0,30).join(', '))+(unpriced.length>30?' and others':'')+'</p>';
+  };
+  $('saveMissingWeekly').onclick=async()=>{
+    const button=$('saveMissingWeekly');
+    if(button.disabled||!reviewedWeeklyRows.length)return;
+    if(reviewedWeeklyRows.some(r=>!r.childId||r.partial))return alert('Some entries require further review. Nothing saved.');
+    const total=reviewedWeeklyRows.reduce((sum,r)=>sum+r.amount,0);
+    if(!confirm('Save '+reviewedWeeklyRows.length+' reviewed weekly charges totaling '+money(total)+'?\\nExisting charges will not be changed.'))return;
+    button.disabled=true;
+    const status=$('missingWeeklyStatus');
+    try{
+      const ids=[...new Set(reviewedWeeklyRows.map(r=>r.childId))];
+      const fresh=await sb.from('daycare_transactions').select('child_id,entry_type,category,week_start,week_end').in('child_id',ids).eq('entry_type','Charge').gte('week_start','2026-10-05');
+      if(fresh.error)throw fresh.error;
+      const conflict=reviewedWeeklyRows.find(r=>fresh.data.some(t=>String(t.child_id)===String(r.childId)&&String(t.category||'').toUpperCase()!=='CCAP'&&t.week_start===r.weekStart&&t.week_end===r.weekEnd));
+      if(conflict)throw Error('A charge already exists for '+conflict.name+' during '+conflict.weekStart+'. Refresh the preview before saving.');
+      const records=reviewedWeeklyRows.map(r=>({user_id:user.id,child_id:r.childId,week_start:r.weekStart,week_end:r.weekEnd,entry_date:r.entryDate,entry_type:'Charge',category:'Regular daycare',payment_method:null,amount:r.amount,notes:''}));
+      const result=await sb.from('daycare_transactions').insert(records).select('id');
+      if(result.error)throw result.error;
+      status.textContent='Saved '+(result.data?.length||records.length)+' weekly charges. Refresh the preview to check for remaining gaps.';
+      reviewedWeeklyRows=[];
+      button.classList.add('hidden');
+      await loadAll();
+    }catch(e){status.textContent='No further save attempted: '+e.message+' Check saved transactions before retrying.';}
+    finally{button.disabled=false;}
   };
   $('checkBilling').onclick=()=>{
     const status=$('billingCheckStatus'),output=$('billingCheckResults');
