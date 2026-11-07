@@ -1,6 +1,17 @@
 // Scheduled weekly billing. Runs in America/Chicago on Fridays via GitHub Actions.
 // Requires SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and BILLING_USER_ID secrets.
 // Deliberately refuses to charge unless billing is explicitly enabled for a child.
+const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY,owner=process.env.BILLING_USER_ID;
+const dryRun=process.env.BILLING_DRY_RUN!=='false';
+
+const headers={apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'};
+async function query(table,params=''){const r=await fetch(url+'/rest/v1/'+table+'?'+params,{headers});if(!r.ok)throw Error(table+' read failed '+r.status+': '+await r.text());return r.json();}
+const chicago=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});
+const parts=Object.fromEntries(chicago.formatToParts(new Date()).map(x=>[x.type,x.value]));
+if(parts.weekday!=='Fri') {console.log('Not Friday in Chicago; skipped');process.exit(0);}
+const iso=[parts.year,parts.month,parts.day].join('-');
+const shift=(s,n)=>{const d=new Date(s+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);};
+const weekStart=shift(iso,3),weekEnd=shift(iso,7);
 // Safe self-tests: no database access or billing writes.
 if(process.env.BILLING_SELF_TEST==='true'){
  const assert=(condition,label)=>{if(!condition)throw Error('Self-test failed: '+label);console.log('PASS '+label);};
@@ -18,17 +29,8 @@ if(process.env.BILLING_SELF_TEST==='true'){
  assert(!alreadyCharged('a',[{child_id:'a',entry_type:'Charge',category:'CCAP'}]),'CCAP-only charge is not treated as regular charge');
  process.exit(0);
 }
-const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY,owner=process.env.BILLING_USER_ID;
-const dryRun=process.env.BILLING_DRY_RUN!=='false';
+
 if(!url||!key||!owner)throw Error('Missing required billing secrets; no charges created');
-const headers={apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'};
-async function query(table,params=''){const r=await fetch(url+'/rest/v1/'+table+'?'+params,{headers});if(!r.ok)throw Error(table+' read failed '+r.status+': '+await r.text());return r.json();}
-const chicago=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});
-const parts=Object.fromEntries(chicago.formatToParts(new Date()).map(x=>[x.type,x.value]));
-if(parts.weekday!=='Fri') {console.log('Not Friday in Chicago; skipped');process.exit(0);}
-const iso=[parts.year,parts.month,parts.day].join('-');
-const shift=(s,n)=>{const d=new Date(s+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);};
-const weekStart=shift(iso,3),weekEnd=shift(iso,7);
 const [children,rates,existing]=await Promise.all([
  query('daycare_children','select=*&user_id=eq.'+encodeURIComponent(owner)),
  query('daycare_rates','select=*&user_id=eq.'+encodeURIComponent(owner)),
