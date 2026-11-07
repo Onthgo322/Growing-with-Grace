@@ -2205,7 +2205,7 @@ $('reviewUnwantedChildren').onclick=()=>{
   const adalynn=normalized(c)==='adalynn bucholz';
   const otherGood=children.some(other=>String(other.id)!==String(c.id)&&normalized(other)==='adalynn bucholz'&&Number(other.beginning_balance||0)===-1680&&txs.some(t=>String(t.child_id)===String(other.id)&&t.entry_type==='Payment'));
   const eligible=count===0&&(!adalynn||otherGood);
-  return '<tr><td>'+esc(c.name)+'</td><td>'+esc(c.date_of_birth||'Missing')+'</td><td>'+money(Number(c.beginning_balance||0))+'</td><td>'+count+'</td><td style="font-size:11px;overflow-wrap:anywhere">'+esc(String(c.id))+'</td><td>'+(eligible?'<button type="button" class="danger" onclick="deleteReviewedChild(\\''+esc(String(c.id))+'\\')">Delete this record</button>':'Protected — verify ledger')+'</td></tr>';
+  return '<tr><td>'+esc(c.name)+'</td><td>'+esc(c.date_of_birth||'Missing')+'</td><td>'+money(Number(c.beginning_balance||0))+'</td><td>'+count+'</td><td style="font-size:11px;overflow-wrap:anywhere">'+esc(String(c.id))+'</td><td>'+(eligible?'<button type="button" class="danger" data-id="'+esc(String(c.id))+'" onclick="deleteReviewedChild(this.dataset.id)">Delete this record</button>':'Protected — verify ledger')+'</td></tr>';
  }).join('')+'</tbody></table><p class="muted">Each deletion requires separate confirmation. Existing transactions are never deleted.</p>';
 };
 window.deleteReviewedChild=async function(id){
