@@ -2193,8 +2193,6 @@ $('reviewUnwantedChildren').onclick=()=>{
   ...byName('ugh duplicate test'),
   ...children.filter(c=>String(c.name||'').trim()==='arlo Martinez'),
   ...byName('nash odle').filter(c=>!c.date_of_birth),
-  // Include Adalynn duplicates in the review, but protect both from deletion until ID verification.
-  ...byName('adalynn bucholz'),
   ...children.filter(c=>/^test child(?: \d+)?$/i.test(String(c.name||'').trim()))
  ];
  const unique=[...new Map(targets.map(c=>[String(c.id),c])).values()];
