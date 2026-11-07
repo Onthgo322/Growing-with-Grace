@@ -1774,7 +1774,11 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     const status=$('billingCheckStatus'),output=$('billingCheckResults');
     const reviewTxs=txs.filter(t=>['Charge','Payment'].includes(t.entry_type)&&String(t.entry_date||t.week_end||t.week_start||'')>='2026-10-01');
     const findings=reviewTxs.flatMap(t=>billingWarnings(t,reviewTxs).map(issue=>({t,issue})));
-    status.textContent=findings.length?findings.length+' possible billing issue(s) found. Review before making changes.':'No issues detected by the current checks. This does not guarantee every charge is correct.';
+    status.textContent=findings.length?findings.length+' possible billing issue(s) found. Review before making changes.':'✓ No issues detected by the current checks. This does not guarantee every charge is correct.';
+    status.style.fontSize='1.05rem';
+    status.style.fontWeight='700';
+    status.style.padding='10px 0';
+    status.style.color=findings.length?'#8a4a16':'#246b40';
     output.innerHTML=findings.length?'<table><thead><tr><th>Child</th><th>Date</th><th>Amount</th><th>Possible issue</th></tr></thead><tbody>'+findings.slice(0,250).map(({t,issue})=>'<tr><td>'+esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Unknown child')+'</td><td>'+esc(t.entry_date||t.week_end||'')+'</td><td>'+money(t.amount)+'</td><td>'+esc(issue)+'</td></tr>').join('')+'</tbody></table>':'';
     if(findings.length>250)status.textContent+=' Showing first 250.';
   };
