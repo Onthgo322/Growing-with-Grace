@@ -24,18 +24,37 @@ const age=ageOn(c.date_of_birth,weekStart);
 return age<2?'Infant':age<3?'2-Year':age<4?'3-Year':age<5?'4-Year':'5–12 Years';
 }
 const candidates=[];
+const skipped=[];
+function childLabel(c){return c.name||[c.first_name,c.last_name].filter(Boolean).join(' ')||String(c.id);}
+function skip(c,reason){skipped.push({name:childLabel(c),reason});}
 for(const c of children){
- if(c.auto_weekly_billing!==true||c.receives_ccap===true||c.child_status!=='Active')continue;
- if(c.last_day_of_care&&c.last_day_of_care<weekStart)continue;
- if(c.last_day_of_care&&c.last_day_of_care<weekEnd){console.log('Partial week needs review: '+c.name);continue;}
- if(existing.some(t=>t.child_id===c.id&&t.entry_type==='Charge'&&String(t.category||'').toUpperCase()!=='CCAP'))continue;
+ if(c.auto_weekly_billing!==true)continue;
+ if(c.receives_ccap===true){skip(c,'CCAP enabled');continue;}
+ if(c.child_status!=='Active'){skip(c,'Status: '+String(c.child_status));continue;}
+ if(c.last_day_of_care&&c.last_day_of_care<weekStart){skip(c,'Last day of care before billing week: '+c.last_day_of_care);continue;}
+ if(c.last_day_of_care&&c.last_day_of_care<weekEnd){skip(c,'Partial week ending '+c.last_day_of_care+' requires review');continue;}
+ if(existing.some(t=>t.child_id===c.id&&t.entry_type==='Charge'&&String(t.category||'').toUpperCase()!=='CCAP')){skip(c,'Already has a charge for billing week');continue;}
  const cat=category(c);
  const rate=rates.filter(r=>r.category===cat&&r.effective_date<=weekEnd).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
  const amount=c.rate_type==='fixed'?Number(c.fixed_weekly_rate):rate?Number(rate.school_day)*(1-Number(c.employee_discount_percent||0)/100):NaN;
- if(!Number.isFinite(amount)||amount<=0){console.log('Missing rate: '+c.name);continue;}
+ if(!Number.isFinite(amount)||amount<=0){skip(c,'Missing or invalid rate for '+String(cat));continue;}
  candidates.push({user_id:owner,child_id:c.id,week_start:weekStart,week_end:weekEnd,entry_date:iso,entry_type:'Charge',category:'Regular daycare',payment_method:null,amount:Math.round(amount*100)/100,notes:''});
 }
 console.log('Friday '+iso+': '+candidates.length+' eligible weekly charges');
+console.log('Auto billing checked: '+children.filter(c=>c.auto_weekly_billing===true).length);
+for(const row of candidates){const c=children.find(c=>c.id===row.child_id);console.log('ELIGIBLE: '+childLabel(c)+' | 
+if(dryRun){console.log('DRY RUN ONLY: no charges will be saved. Eligible count: '+candidates.length);process.exit(0);}
+if(!candidates.length)process.exit(0);
+// Recheck each row immediately before insertion. A database uniqueness constraint is still recommended for concurrency safety.
+for(const row of candidates){
+ const found=await query('daycare_transactions','select=id&user_id=eq.'+encodeURIComponent(owner)+'&child_id=eq.'+row.child_id+'&entry_type=eq.Charge&week_start=eq.'+weekStart+'&week_end=eq.'+weekEnd);
+ if(found.length){console.log('Skipped already charged '+row.child_id);continue;}
+ const r=await fetch(url+'/rest/v1/daycare_transactions',{method:'POST',headers:{...headers,Prefer:'return=minimal'},body:JSON.stringify(row)});
+ if(!r.ok)throw Error('Charge save failed for '+row.child_id+': '+r.status+' '+await r.text());
+ console.log('Saved weekly charge for '+row.child_id);
+}
++row.amount.toFixed(2)+' | '+weekStart+' to '+weekEnd);}
+for(const item of skipped)console.log('SKIPPED: '+item.name+' | '+item.reason);
 if(dryRun){console.log('DRY RUN ONLY: no charges will be saved. Eligible count: '+candidates.length);process.exit(0);}
 if(!candidates.length)process.exit(0);
 // Recheck each row immediately before insertion. A database uniqueness constraint is still recommended for concurrency safety.
