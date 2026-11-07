@@ -214,7 +214,13 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
  <div class="field"><label>Fixed weekly rate ($)</label><input type="number" id="childFixedRate" min="0" step="0.01" placeholder="Example: 200.00"></div>
  <button class="primary" id="addChild">Add child</button>
  </div>
-<h3>Current children</h3><p class="muted">Check CCAP for children receiving assistance. Automatic weekly billing remains inactive until the Friday scheduler is separately configured and tested. Both boxes start unchecked.</p><div class="tablewrap"><table><thead><tr><th>Name</th><th>Age</th><th>Category</th><th>Category check</th><th>Rate type</th><th>Employee discount</th><th>Weekly rate</th><th>Daily rate (÷ 5)</th><th>CCAP</th><th>Auto weekly billing</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div></section>
+<h3>Current children</h3><p class="muted">Check CCAP for children receiving assistance. Automatic weekly billing remains inactive until the Friday scheduler is separately configured and tested. Both boxes start unchecked.</p><div class="tablewrap"><table><thead><tr><th>Name</th><th>Age</th><th>Category</th><th>Category check</th><th>Rate type</th><th>Employee discount</th><th>Weekly rate</th><th>Daily rate (÷ 5)</th><th>CCAP</th><th>Auto weekly billing</th><th>Action</th></tr></thead><tbody id="childrenRows"></tbody></table></div>
+<div style="margin-top:18px;border-top:1px solid #ddd;padding-top:12px">
+<h3>Review unwanted child records</h3>
+<p class="muted">Read-only review. Shows database record IDs and attached transaction counts. Nothing is deleted.</p>
+<button type="button" id="reviewUnwantedChildren">Review records for deletion</button>
+<div id="unwantedChildReview" class="tablewrap" aria-live="polite"></div>
+</div></section>
 <section class="panel tabpage hidden" id="page-ledger">
   <button onclick="document.querySelector('[data-tab=&quot;children&quot;]').click()">← Back to Children</button>
   <h2 id="ledgerTitle">Child Ledger</h2>
@@ -2174,6 +2180,27 @@ $('saveTransfer').onclick=async()=>{
   alert('Transfer saved and verified for both children.');
  }catch(e){alert('Could not verify transfer: '+(e?.message||String(e))+'. Check both children before retrying.');}
  finally{btn.disabled=false;btn.textContent='Save transfer';}
+};
+// Read-only identification before any irreversible deletion.
+$('reviewUnwantedChildren').onclick=()=>{
+ const out=$('unwantedChildReview');
+ const normalized=c=>String(c.name||'').trim().toLowerCase().replace(/\\s+/g,' ');
+ const byName=name=>children.filter(c=>normalized(c)===name);
+ const targets=[
+  ...byName('child bdy rate'),
+  ...byName('duplicate 1'),
+  ...byName('ledger test'),
+  ...byName('ugh duplicate test'),
+  ...children.filter(c=>String(c.name||'').trim()==='arlo Martinez'),
+  ...byName('nash odle').filter(c=>!c.date_of_birth),
+  ...byName('adalynn bucholz').slice(1),
+  ...children.filter(c=>/^test child(?: \\d+)?$/i.test(String(c.name||'').trim()))
+ ];
+ const unique=[...new Map(targets.map(c=>[String(c.id),c])).values()];
+ out.innerHTML='<p><strong>'+unique.length+' candidate record(s).</strong> Review the exact entries below; no changes made.</p>'+
+ '<table><thead><tr><th>Child name</th><th>Birthday</th><th>Beginning balance</th><th>Attached transactions</th><th>Record ID</th></tr></thead><tbody>'+
+ unique.map(c=>'<tr><td>'+esc(c.name)+'</td><td>'+esc(c.date_of_birth||'Missing')+'</td><td>'+money(Number(c.beginning_balance||0))+'</td><td>'+txs.filter(t=>String(t.child_id)===String(c.id)).length+'</td><td style="font-size:11px;overflow-wrap:anywhere">'+esc(String(c.id))+'</td></tr>').join('')+
+ '</tbody></table><p class="muted">No deletion button is enabled. We will verify these records and attached transactions before permanent removal.</p>';
 };
 // Prevent mouse-wheel scrolling from silently changing focused numeric values.
 // Blur only on wheel; normal typing and page scrolling remain available.
