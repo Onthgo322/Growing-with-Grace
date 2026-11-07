@@ -2182,12 +2182,11 @@ $('saveTransfer').onclick=async()=>{
  finally{btn.disabled=false;btn.textContent='Save transfer';}
 };
 function reportNote(t){
- const note=String(t.notes||'');
- const kind=String(t.entry_type||'').toLowerCase();
- const cat=String(t.category||'').toLowerCase();
- if(kind==='credit / adjustment'||cat.includes('adjustment')||cat.startsWith('transfer '))return note;
- // Hide temporary correction/deletion commentary, but retain normal billing/payment descriptions.
- return /\b(?:wrong amount|incorrect amount|amount was missing|missing amount|wrong dates?|wrong week(?:s)? dates?|entered wrong week dates|wrong weeks dates entered|incorrect dates?|date(?:s)? entered (?:wrong|incorrectly)|deleted|delete this|duplicate charge|duplicate payment|test transaction|entered in error|mistaken entry|voided|should be deleted)\b/i.test(note)?'':note;
+ const kind=String(t.entry_type||'').trim().toLowerCase();
+ const category=String(t.category||'').trim().toLowerCase();
+ // Only debit/credit adjustments retain their notes on ledgers, reports, and exports.
+ const adjustment=kind==='credit / adjustment'||category.includes('adjustment')||category==='transfer credit'||category==='transfer debit';
+ return adjustment?String(t.notes||''):'';
 }
 // Read-only identification before any irreversible deletion.
 $('reviewUnwantedChildren').onclick=()=>{
