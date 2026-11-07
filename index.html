@@ -2199,7 +2199,7 @@ $('reviewUnwantedChildren').onclick=()=>{
  ];
  const unique=[...new Map(targets.map(c=>[String(c.id),c])).values()];
  out.innerHTML='<p><strong>'+unique.length+' candidate record(s). Only records with zero attached transactions are eligible for deletion.</strong></p>'+
- '<p><strong>Adalynn:</strong> Keep the record with January CCAP transactions and the -$1,680 credit. Only the unused duplicate may be removed.</p><table><thead><tr><th>Child name</th><th>Birthday</th><th>Beginning balance</th><th>Transactions</th><th>Record ID</th><th>Action</th></tr></thead><tbody>'+
+ '<table><thead><tr><th>Child name</th><th>Birthday</th><th>Beginning balance</th><th>Transactions</th><th>Record ID</th><th>Action</th></tr></thead><tbody>'+
  unique.map(c=>{
   const count=txs.filter(t=>String(t.child_id)===String(c.id)).length;
   const adalynn=normalized(c)==='adalynn bucholz';
