@@ -2193,12 +2193,13 @@ $('reviewUnwantedChildren').onclick=()=>{
   ...byName('ugh duplicate test'),
   ...children.filter(c=>String(c.name||'').trim()==='arlo Martinez'),
   ...byName('nash odle').filter(c=>!c.date_of_birth),
-  // Adalynn duplicates require separate verification of credit and CCAP history; do not auto-select either.
+  // Include Adalynn duplicates in the review, but protect both from deletion until ID verification.
+  ...byName('adalynn bucholz'),
   ...children.filter(c=>/^test child(?: \d+)?$/i.test(String(c.name||'').trim()))
  ];
  const unique=[...new Map(targets.map(c=>[String(c.id),c])).values()];
  out.innerHTML='<p><strong>'+unique.length+' candidate record(s).</strong> Review the exact entries below; no changes made.</p>'+
- '<p><strong>Adalynn Bucholz duplicates are excluded pending a separate credit/billing verification.</strong></p><table><thead><tr><th>Child name</th><th>Birthday</th><th>Beginning balance</th><th>Attached transactions</th><th>Record ID</th></tr></thead><tbody>'+
+ '<p><strong>Adalynn Bucholz: both records are shown for comparison. Only the unused duplicate should be deleted; preserve the record with January CCAP charges and payments.</strong></p><table><thead><tr><th>Child name</th><th>Birthday</th><th>Beginning balance</th><th>Attached transactions</th><th>Record ID</th></tr></thead><tbody>'+
  unique.map(c=>'<tr><td>'+esc(c.name)+'</td><td>'+esc(c.date_of_birth||'Missing')+'</td><td>'+money(Number(c.beginning_balance||0))+'</td><td>'+txs.filter(t=>String(t.child_id)===String(c.id)).length+'</td><td style="font-size:11px;overflow-wrap:anywhere">'+esc(String(c.id))+'</td></tr>').join('')+
  '</tbody></table><p class="muted">No deletion button is enabled. We will verify these records and attached transactions before permanent removal.</p>';
 };
