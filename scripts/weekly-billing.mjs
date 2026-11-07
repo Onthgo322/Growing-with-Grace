@@ -47,6 +47,7 @@ return age<2?'Infant':age<3?'2-Year':age<4?'3-Year':age<5?'4-Year':'5–12 Years
 function alreadyCharged(childId,transactions){return transactions.some(t=>t.child_id===childId&&t.entry_type==='Charge'&&String(t.category||'').toUpperCase()!=='CCAP');}
 const candidates=[];
 const skipped=[];
+const billingErrors=[];
 function childLabel(c){return c.name||[c.first_name,c.last_name].filter(Boolean).join(' ')||String(c.id);}
 function skip(c,reason){skipped.push({name:childLabel(c),reason});}
 for(const c of children){
@@ -59,7 +60,7 @@ for(const c of children){
  const cat=category(c);
  const rate=rates.filter(r=>r.category===cat&&r.effective_date<=weekStart).sort((a,b)=>b.effective_date.localeCompare(a.effective_date))[0];
  const amount=c.rate_type==='fixed'?Number(c.fixed_weekly_rate):rate?Number(rate.school_day)*(1-Number(c.employee_discount_percent||0)/100):NaN;
- if(!Number.isFinite(amount)||amount<=0){skip(c,'Missing or invalid rate for '+String(cat));continue;}
+ if(!Number.isFinite(amount)||amount<=0){skip(c,'Missing or invalid rate for '+String(cat));billingErrors.push(childLabel(c)+': missing or invalid rate for '+String(cat));continue;}
  candidates.push({user_id:owner,child_id:c.id,week_start:weekStart,week_end:weekEnd,entry_date:iso,entry_type:'Charge',category:'Regular daycare',payment_method:null,amount:Math.round(amount*100)/100,notes:''});
 }
 console.log('Friday '+iso+': '+candidates.length+' eligible weekly charges');
@@ -67,7 +68,7 @@ console.log('Auto billing checked: '+children.filter(c=>c.auto_weekly_billing===
 for(const row of candidates){const c=children.find(c=>c.id===row.child_id);console.log('ELIGIBLE: '+childLabel(c)+' | amount: '+row.amount.toFixed(2)+' | '+weekStart+' to '+weekEnd);}
 for(const item of skipped)console.log('SKIPPED: '+item.name+' | '+item.reason);
 if(dryRun){console.log('DRY RUN ONLY: no charges will be saved. Eligible count: '+candidates.length);process.exit(0);}
-if(!candidates.length)process.exit(0);
+if(!candidates.length){if(billingErrors.length)throw Error('Billing errors: '+billingErrors.join('; '));console.log('No new charges needed; all eligible children already billed or skipped.');process.exit(0);}
 if(process.env.BILLING_LIVE_APPROVED!=='true')throw Error('Live billing is locked pending final approval; no charges saved');
 // Recheck each row immediately before insertion. A database uniqueness constraint is still recommended for concurrency safety.
 for(const row of candidates){
@@ -77,3 +78,10 @@ for(const row of candidates){
  if(!r.ok)throw Error('Charge save failed for '+row.child_id+': '+r.status+' '+await r.text());
  console.log('Saved weekly charge for '+row.child_id);
 }
+// Verify persisted weekly charges after all writes; a failed verification makes the
+// scheduled GitHub Actions run fail, triggering the user's failure notification.
+const verified=await query('daycare_transactions','select=child_id,entry_type,category,week_start,week_end&user_id=eq.'+encodeURIComponent(owner)+'&week_start=eq.'+weekStart+'&week_end=eq.'+weekEnd);
+const missing=candidates.filter(row=>!verified.some(t=>String(t.child_id)===String(row.child_id)&&t.entry_type==='Charge'&&String(t.category||'').toUpperCase()!=='CCAP'));
+for(const row of missing){const c=children.find(c=>String(c.id)===String(row.child_id));billingErrors.push(childLabel(c||row)+': weekly charge was not found after saving');}
+if(billingErrors.length){console.error('BILLING VERIFICATION FAILED:\\n'+billingErrors.join('\\n'));process.exitCode=1;}
+else console.log('BILLING VERIFICATION PASSED: all '+candidates.length+' expected new weekly charges are present.');
