@@ -42,7 +42,8 @@ for(const c of children){
 }
 console.log('Friday '+iso+': '+candidates.length+' eligible weekly charges');
 console.log('Auto billing checked: '+children.filter(c=>c.auto_weekly_billing===true).length);
-for(const row of candidates){const c=children.find(c=>c.id===row.child_id);console.log('ELIGIBLE: '+childLabel(c)+' | 
+for(const row of candidates){const c=children.find(c=>c.id===row.child_id);console.log('ELIGIBLE: '+childLabel(c)+' | amount: '+row.amount.toFixed(2)+' | '+weekStart+' to '+weekEnd);}
+for(const item of skipped)console.log('SKIPPED: '+item.name+' | '+item.reason);
 if(dryRun){console.log('DRY RUN ONLY: no charges will be saved. Eligible count: '+candidates.length);process.exit(0);}
 if(!candidates.length)process.exit(0);
 // Recheck each row immediately before insertion. A database uniqueness constraint is still recommended for concurrency safety.
