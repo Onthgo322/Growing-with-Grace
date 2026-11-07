@@ -20,6 +20,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify birthday and duplicate rules (no database writes)
+        run: node scripts/weekly-billing.mjs
+        env:
+          BILLING_SELF_TEST: 'true'
       - run: node scripts/weekly-billing.mjs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
