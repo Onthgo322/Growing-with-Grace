@@ -1399,11 +1399,11 @@ const combinedEndingBalance=childBalanceData.reduce((sum,c)=>sum+c.net,0);$('bal
 let jeremiahDateCandidates=[];
 $('previewJeremiahDates').onclick=()=>{
  const status=$('jeremiahDateStatus'),output=$('jeremiahDateResults');
- const possible=children.filter(c=>/^jeremiah(?:\\s|$)/i.test(String(c.name||'').trim()));
+ const possible=children.filter(c=>/^jeremiah(?:\s|$)/i.test(String(c.name||'').trim()));
  jeremiahDateCandidates=[];$('applyJeremiahDates').classList.add('hidden');
  if(possible.length!==1){status.textContent='Could not uniquely identify Jeremiah. Found '+possible.length+' matching child accounts. No changes made.';output.innerHTML='';return}
  const child=possible[0];
- jeremiahDateCandidates=txs.filter(t=>String(t.child_id)===String(child.id)&&t.entry_type==='Charge'&&String(t.entry_date).slice(0,10)==='2026-04-10'&&/^2026-\\d{2}-\\d{2}$/.test(String(t.week_start||''))&&t.week_start>='2026-04-01'&&t.week_start!==t.entry_date);
+ jeremiahDateCandidates=txs.filter(t=>String(t.child_id)===String(child.id)&&t.entry_type==='Charge'&&String(t.entry_date).slice(0,10)==='2026-04-10'&&/^2026-\d{2}-\d{2}$/.test(String(t.week_start||''))&&t.week_start>='2026-04-01'&&t.week_start!==t.entry_date);
  status.textContent=jeremiahDateCandidates.length+' charge(s) for '+child.name+' eligible for review. Payments and other children are excluded.';
  output.innerHTML=jeremiahDateCandidates.length?'<table><thead><tr><th>Correct?</th><th>Week ending</th><th>Current entry date</th><th>Proposed entry date</th><th>Amount</th></tr></thead><tbody>'+jeremiahDateCandidates.map(t=>'<tr><td><input type="checkbox" data-jeremiah-id="'+esc(t.id)+'" checked></td><td>'+esc(t.week_end||'')+'</td><td>'+esc(t.entry_date)+'</td><td>'+esc(t.week_start)+'</td><td>'+money(t.amount)+'</td></tr>').join('')+'</tbody></table>':'';
  if(jeremiahDateCandidates.length)$('applyJeremiahDates').classList.remove('hidden');
