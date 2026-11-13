@@ -255,6 +255,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="entry-actions" style="display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important"><div class="entry-action-column" style="display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0"><button class="primary" id="saveTx" style="width:100%;min-height:44px">Save entry</button><button type="button" id="repeatLastEntry" style="width:100%;min-height:44px">Repeat Last Entry Next Week</button></div><div class="entry-action-column" style="display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0"><button id="fillRate" style="width:100%;min-height:44px">Fill weekly rate</button><button type="button" id="nextWeek" style="width:100%;min-height:44px">Next Week (Monday–Friday)</button></div></div><p class="muted small">Suggested weekly rates from your fee schedule: Infant $245, 2-Year $240, 3-Year $235, 4-Year $230, 5–12 Years $225, Before/After School Care $150. Enrollment $100; registration/insurance $40; activity fee $35 where applicable. Confirm the applicable schedule before saving. Late pickup: $5/minute; late payment: $15/day.</p>
 <h3>Check other children's charge dates</h3><p class="muted small">Read-only check of all children's saved charges. Finds charges whose entry date is different from the week-start date, including repeated entry dates. No records will be changed.</p><button type="button" id="checkOtherChargeDates">Check charge dates for all children</button><p id="otherChargeDateStatus" aria-live="polite"></p><div id="otherChargeDateResults" class="tablewrap"></div>
 <h3>Suspicious repeated payment dates — all children</h3><p class="muted small">Read-only report. Finds two or more payments for the same child with the same entry date but different assigned daycare weeks. A repeated date is not proof of an error. No payment dates or amounts will change.</p><button type="button" id="checkRepeatedPaymentDates">Check repeated payment dates</button><p id="repeatedPaymentDateStatus" aria-live="polite"></p><div id="repeatedPaymentDateResults" class="tablewrap"></div>
+<h3>Bulk correction — repeated cash payment dates</h3><p class="muted small">Preview cash payments whose entry date is repeated for the same child across different service weeks. The proposed date is Monday of the assigned week, not a verified receipt date. Select all or individual rows; nothing changes until you confirm. Checks and direct deposits are excluded.</p><button type="button" id="previewRepeatedCashCorrections">Preview repeated cash date corrections</button><p id="repeatedCashCorrectionStatus" aria-live="polite"></p><div id="repeatedCashCorrectionResults" class="tablewrap"></div><button type="button" id="applyRepeatedCashCorrections" class="hidden">Apply selected cash date corrections</button>
 <h3>Review payment entry dates</h3><p class="muted small">Review payments by child. Cash payments can use the week-start date if that is the correct week; checks and direct deposits must use their actual dates. Enter a new date only for payments you have verified. Previewing does not change records.</p><div class="row"><div class="field"><label for="paymentDateChild">Child</label><select id="paymentDateChild"><option value="">Select a child</option></select></div><button type="button" id="previewPaymentDates">Review payment dates</button></div><p id="paymentDateStatus" aria-live="polite"></p><div id="paymentDateResults" class="tablewrap"></div><button type="button" id="fillCashPaymentMondays" class="hidden">Fill Monday dates for cash payments</button> <button type="button" id="applyPaymentDates" class="hidden">Apply reviewed payment dates</button>
 <h3>Review weekly cash payment dates for all children</h3><p class="muted small">Only cash payments with a valid Monday–Friday service week and a blank entry date. Existing dates are preserved. This is a proposed service-week date, not proof of when cash was received. Preview and select before applying. Checks and direct deposits are excluded.</p><button type="button" id="previewAllCashDates">Preview blank cash payment dates</button><p id="allCashDateStatus" aria-live="polite"></p><div id="allCashDateResults" class="tablewrap"></div><button type="button" id="applyAllCashDates" class="hidden">Fill selected blank cash payment dates</button>
 <h3>Review weekly charge date corrections for all children</h3><p class="muted small">Regular daycare charges only. Preview dates by child, select rows to correct, then confirm. CCAP charges, payments and adjustments are excluded. Nothing changes during preview.</p><div class="row"><div class="field"><label for="bulkDateChild">Child to review</label><select id="bulkDateChild"><option value="">All children</option></select></div><button type="button" id="previewBulkChargeDates">Preview weekly charges</button></div><p id="bulkDateStatus" aria-live="polite"></p><div id="bulkDateResults" class="tablewrap"></div><button type="button" id="applyBulkChargeDates" class="hidden">Apply checked charge dates</button>
@@ -1434,6 +1435,55 @@ $('checkRepeatedPaymentDates').onclick=()=>{
  const count=flagged.reduce((n,g)=>n+g.rows.length,0);
  $('repeatedPaymentDateStatus').textContent=flagged.length+' repeated-date group(s) involving '+count+' payments across '+new Set(flagged.map(g=>g.child)).size+' child name(s). Read-only: nothing changed.';
  $('repeatedPaymentDateResults').innerHTML=flagged.length?'<table><thead><tr><th>Child</th><th>Repeated entry date</th><th>Payments</th><th>Different service weeks</th><th>Methods</th><th>Week starts</th><th>Amounts</th></tr></thead><tbody>'+flagged.map(g=>'<tr><td>'+esc(g.child)+'</td><td>'+esc(g.date)+'</td><td>'+g.rows.length+'</td><td>'+g.weekCount+'</td><td>'+esc(g.methods.join(', '))+'</td><td>'+esc(g.rows.map(t=>t.week_start).join(', '))+'</td><td>'+esc(g.rows.map(t=>money(t.amount)).join(', '))+'</td></tr>').join('')+'</tbody></table>':'<p>No repeated payment entry dates across different service weeks were found.</p>';
+};
+
+let repeatedCashCorrectionRows=[];
+$('previewRepeatedCashCorrections').onclick=()=>{
+ const names=new Map(children.map(c=>[String(c.id),String(c.name)])),groups=new Map();
+ for(const t of txs){
+  if(t.entry_type!=='Payment'||!String(t.entry_date||'').trim()||!String(t.week_start||'').trim())continue;
+  const key=JSON.stringify([String(t.child_id),String(t.entry_date).slice(0,10)]);
+  if(!groups.has(key))groups.set(key,[]);
+  groups.get(key).push(t);
+ }
+ const candidates=[];
+ for(const rows of groups.values()){
+  if(rows.length<2||new Set(rows.map(t=>String(t.week_start||'')+'|'+String(t.week_end||''))).size<2)continue;
+  for(const t of rows){
+   if(String(t.payment_method||'').trim().toLowerCase()!=='cash'||!isMondayFridayWeek(t)||String(t.entry_date).slice(0,10)===String(t.week_start))continue;
+   candidates.push(t);
+  }
+ }
+ repeatedCashCorrectionRows=candidates.sort((a,b)=>String(names.get(String(a.child_id))||'').localeCompare(String(names.get(String(b.child_id))||''))||String(a.week_start).localeCompare(String(b.week_start)));
+ const output=$('repeatedCashCorrectionResults');
+ $('repeatedCashCorrectionStatus').textContent=repeatedCashCorrectionRows.length+' candidate cash payment(s) across '+new Set(repeatedCashCorrectionRows.map(t=>String(t.child_id))).size+' children. No changes made. Repeated dates may still be legitimate receipt dates.';
+ output.innerHTML=repeatedCashCorrectionRows.length?'<table><thead><tr><th><label><input type="checkbox" id="selectAllRepeatedCashCorrections"> Select all</label></th><th>Child</th><th>Week starts</th><th>Week ends</th><th>Current entry date</th><th>Proposed Monday</th><th>Amount</th></tr></thead><tbody>'+repeatedCashCorrectionRows.map(t=>'<tr><td><input type="checkbox" data-repeated-cash-id="'+esc(t.id)+'"></td><td>'+esc(names.get(String(t.child_id))||'Unknown')+'</td><td>'+esc(t.week_start)+'</td><td>'+esc(t.week_end)+'</td><td>'+esc(t.entry_date)+'</td><td>'+esc(t.week_start)+'</td><td>'+money(t.amount)+'</td></tr>').join('')+'</tbody></table>':'<p>No qualifying repeated cash payment dates found.</p>';
+ $('applyRepeatedCashCorrections').classList.toggle('hidden',!repeatedCashCorrectionRows.length);
+ if(repeatedCashCorrectionRows.length){
+  const all=$('selectAllRepeatedCashCorrections');
+  all.onchange=()=>output.querySelectorAll('[data-repeated-cash-id]').forEach(box=>box.checked=all.checked);
+  output.querySelectorAll('[data-repeated-cash-id]').forEach(box=>box.onchange=()=>{const boxes=Array.from(output.querySelectorAll('[data-repeated-cash-id]'));all.checked=boxes.every(x=>x.checked);all.indeterminate=boxes.some(x=>x.checked)&&!all.checked});
+ }
+};
+$('applyRepeatedCashCorrections').onclick=async()=>{
+ const selected=new Set(Array.from(document.querySelectorAll('[data-repeated-cash-id]:checked')).map(el=>el.dataset.repeatedCashId));
+ const rows=repeatedCashCorrectionRows.filter(t=>selected.has(String(t.id)));
+ if(!rows.length)return alert('Select at least one cash payment date to correct.');
+ if(!confirm('Change '+rows.length+' selected CASH payment entry dates to their assigned Monday service-week dates? These are NOT verified cash receipt dates. Existing checks and direct deposits, amounts and service weeks remain unchanged.'))return;
+ const button=$('applyRepeatedCashCorrections'),status=$('repeatedCashCorrectionStatus');button.disabled=true;$('previewRepeatedCashCorrections').disabled=true;
+ let updated=0;const failed=[];
+ try{
+  for(const t of rows){
+   const {data:current,error:readError}=await sb.from('daycare_transactions').select('id,child_id,entry_type,entry_date,week_start,week_end,amount,payment_method').eq('id',t.id).eq('user_id',user.id).maybeSingle();
+   if(readError||!current||current.entry_type!=='Payment'||String(current.child_id)!==String(t.child_id)||String(current.payment_method||'').trim().toLowerCase()!=='cash'||String(current.entry_date)!==String(t.entry_date)||String(current.week_start)!==String(t.week_start)||String(current.week_end)!==String(t.week_end)||Number(current.amount)!==Number(t.amount)||!isMondayFridayWeek(current)){failed.push(String(t.id)+' failed verification');continue}
+   const {data,error}=await sb.from('daycare_transactions').update({entry_date:t.week_start}).eq('id',t.id).eq('user_id',user.id).eq('entry_date',t.entry_date).select('id,entry_date');
+   if(error||!data||data.length!==1||data[0].entry_date!==t.week_start)failed.push(String(t.id)+': '+(error?error.message:'not confirmed'));else updated++;
+   status.textContent='Verified '+(updated+failed.length)+' of '+rows.length+' selected payments.';
+  }
+  await loadAll();$('previewRepeatedCashCorrections').click();
+  status.textContent=updated+' cash payment date(s) updated and verified. '+(failed.length?failed.length+' not updated; investigate before retrying.':'All other fields unchanged.');
+ }catch(e){status.textContent='Interrupted after '+updated+' verified updates: '+String(e.message||e)}
+ finally{button.disabled=false;$('previewRepeatedCashCorrections').disabled=false}
 };
 
 let paymentDateReviewRows=[];
