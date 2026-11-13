@@ -1416,11 +1416,13 @@ $('applyJeremiahDates').onclick=async()=>{
  const btn=$('applyJeremiahDates');btn.disabled=true;let changed=0,failed=[];
  try{
   for(const t of rows){
-   const {data,error}=await sb.from('daycare_transactions').update({entry_date:t.week_start}).eq('id',t.id).eq('user_id',user.id).eq('child_id',t.child_id).eq('entry_type','Charge').eq('entry_date','2026-04-10').select('id');
-   if(error||!data||data.length!==1)failed.push(String(t.id));else changed++;
+   const {data:current,error:readError}=await sb.from('daycare_transactions').select('id,child_id,entry_type,entry_date,week_start').eq('id',t.id).eq('user_id',user.id).maybeSingle();
+   if(readError||!current||String(current.child_id)!==String(t.child_id)||current.entry_type!=='Charge'||current.entry_date!=='2026-04-10'||current.week_start!==t.week_start){failed.push('Could not verify charge '+String(t.id)+(readError?': '+readError.message:''));continue}
+   const {data,error}=await sb.from('daycare_transactions').update({entry_date:t.week_start}).eq('id',t.id).eq('user_id',user.id).select('id,entry_date');
+   if(error||!data||data.length!==1||data[0].entry_date!==t.week_start)failed.push('Charge '+String(t.id)+(error?': '+error.message:': update not confirmed'));else changed++;
   }
   await loadAll();$('previewJeremiahDates').click();
-  $('jeremiahDateStatus').textContent=changed+' charge date(s) updated. '+(failed.length?failed.length+' could not be verified; review these before retrying.':'No other records were changed.');
+  $('jeremiahDateStatus').textContent=changed+' charge date(s) updated. '+(failed.length?failed.length+' could not be verified: '+failed.slice(0,2).join('; ')+'. Review before retrying.':'No other records were changed.');
  }catch(e){$('jeremiahDateStatus').textContent='Update interrupted after '+changed+' verified change(s). Refresh and review remaining entries. '+String(e.message||e)}finally{btn.disabled=false}
 };
 function parentLookupNormalize(value){return String(value||'').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()}
