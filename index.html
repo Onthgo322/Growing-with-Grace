@@ -1426,8 +1426,13 @@ $('previewBulkChargeDates').onclick=()=>{
  bulkChargeDateRows=txs.filter(t=>t.entry_type==='Charge'&&String(t.category||'').trim().toLowerCase()==='regular daycare'&&isMondayFridayWeek(t)&&String(t.entry_date||'').slice(0,10)!==String(t.week_start||'')&&(!chosen||String(t.child_id)===chosen)).sort((a,b)=>String(childNames.get(String(a.child_id))||'').localeCompare(String(childNames.get(String(b.child_id))||''))||String(a.week_start).localeCompare(String(b.week_start)));
  $('applyBulkChargeDates').classList.add('hidden');
  status.textContent=bulkChargeDateRows.length+' regular weekly charge(s) to review across '+new Set(bulkChargeDateRows.map(t=>String(t.child_id))).size+' child account(s). No changes made. Check only rows you have verified.';
- output.innerHTML=bulkChargeDateRows.length?'<table><thead><tr><th>Correct?</th><th>Child</th><th>Week beginning</th><th>Week ending</th><th>Current entry date</th><th>Proposed entry date</th><th>Amount</th></tr></thead><tbody>'+bulkChargeDateRows.map(t=>'<tr><td><input type="checkbox" data-bulk-charge-id="'+esc(t.id)+'"></td><td>'+esc(childNames.get(String(t.child_id))||'Unknown')+'</td><td>'+esc(t.week_start)+'</td><td>'+esc(t.week_end)+'</td><td>'+esc(t.entry_date)+'</td><td>'+esc(t.week_start)+'</td><td>'+money(t.amount)+'</td></tr>').join('')+'</tbody></table>':'<p>No eligible mismatched regular weekly charges found for this selection.</p>';
- if(bulkChargeDateRows.length)$('applyBulkChargeDates').classList.remove('hidden');
+ output.innerHTML=bulkChargeDateRows.length?'<table><thead><tr><th><label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="selectAllBulkChargeDates" aria-label="Select all displayed charge dates"> Select all</label></th><th>Child</th><th>Week beginning</th><th>Week ending</th><th>Current entry date</th><th>Proposed entry date</th><th>Amount</th></tr></thead><tbody>'+bulkChargeDateRows.map(t=>'<tr><td><input type="checkbox" data-bulk-charge-id="'+esc(t.id)+'"></td><td>'+esc(childNames.get(String(t.child_id))||'Unknown')+'</td><td>'+esc(t.week_start)+'</td><td>'+esc(t.week_end)+'</td><td>'+esc(t.entry_date)+'</td><td>'+esc(t.week_start)+'</td><td>'+money(t.amount)+'</td></tr>').join('')+'</tbody></table>':'<p>No eligible mismatched regular weekly charges found for this selection.</p>';
+ if(bulkChargeDateRows.length){
+  $('applyBulkChargeDates').classList.remove('hidden');
+  const selectAll=$('selectAllBulkChargeDates');
+  selectAll.onchange=()=>document.querySelectorAll('[data-bulk-charge-id]').forEach(box=>{box.checked=selectAll.checked});
+  output.querySelectorAll('[data-bulk-charge-id]').forEach(box=>box.addEventListener('change',()=>{const boxes=Array.from(output.querySelectorAll('[data-bulk-charge-id]'));selectAll.checked=boxes.every(b=>b.checked);selectAll.indeterminate=boxes.some(b=>b.checked)&&!selectAll.checked}));
+ }
 };
 $('applyBulkChargeDates').onclick=async()=>{
  const selected=new Set(Array.from(document.querySelectorAll('[data-bulk-charge-id]:checked')).map(el=>el.dataset.bulkChargeId));
