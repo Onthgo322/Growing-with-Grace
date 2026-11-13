@@ -254,6 +254,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div id="saveFeedback" role="status" aria-live="polite" style="display:none;margin:10px 0 8px;padding:10px 12px;border:1px solid #cdbbdf;border-radius:8px;background:#f7f3fb;color:#342440;font-weight:600;white-space:pre-wrap"></div>
 <div class="entry-actions" style="display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important"><div class="entry-action-column" style="display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0"><button class="primary" id="saveTx" style="width:100%;min-height:44px">Save entry</button><button type="button" id="repeatLastEntry" style="width:100%;min-height:44px">Repeat Last Entry Next Week</button></div><div class="entry-action-column" style="display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0"><button id="fillRate" style="width:100%;min-height:44px">Fill weekly rate</button><button type="button" id="nextWeek" style="width:100%;min-height:44px">Next Week (Monday–Friday)</button></div></div><p class="muted small">Suggested weekly rates from your fee schedule: Infant $245, 2-Year $240, 3-Year $235, 4-Year $230, 5–12 Years $225, Before/After School Care $150. Enrollment $100; registration/insurance $40; activity fee $35 where applicable. Confirm the applicable schedule before saving. Late pickup: $5/minute; late payment: $15/day.</p>
 <h3>Check other children's charge dates</h3><p class="muted small">Read-only check of all children's saved charges. Finds charges whose entry date is different from the week-start date, including repeated entry dates. No records will be changed.</p><button type="button" id="checkOtherChargeDates">Check charge dates for all children</button><p id="otherChargeDateStatus" aria-live="polite"></p><div id="otherChargeDateResults" class="tablewrap"></div>
+<h3>Review payment entry dates</h3><p class="muted small">Review payments by child. Cash payments can use the week-start date if that is the correct week; checks and direct deposits must use their actual dates. Enter a new date only for payments you have verified. Previewing does not change records.</p><div class="row"><div class="field"><label for="paymentDateChild">Child</label><select id="paymentDateChild"><option value="">Select a child</option></select></div><button type="button" id="previewPaymentDates">Review payment dates</button></div><p id="paymentDateStatus" aria-live="polite"></p><div id="paymentDateResults" class="tablewrap"></div><button type="button" id="applyPaymentDates" class="hidden">Apply reviewed payment dates</button>
 <h3>Review weekly charge date corrections for all children</h3><p class="muted small">Regular daycare charges only. Preview dates by child, select rows to correct, then confirm. CCAP charges, payments and adjustments are excluded. Nothing changes during preview.</p><div class="row"><div class="field"><label for="bulkDateChild">Child to review</label><select id="bulkDateChild"><option value="">All children</option></select></div><button type="button" id="previewBulkChargeDates">Preview weekly charges</button></div><p id="bulkDateStatus" aria-live="polite"></p><div id="bulkDateResults" class="tablewrap"></div><button type="button" id="applyBulkChargeDates" class="hidden">Apply checked charge dates</button>
 <h3>Review Jeremiah's April date corrections</h3><p class="muted small">Preview charges only with entry date April 10, 2026 and a valid, different week-start date on or after April 1, 2026. Nothing changes until you approve selected rows.</p><button type="button" id="previewJeremiahDates">Preview Jeremiah's dates</button><p id="jeremiahDateStatus" aria-live="polite"></p><div id="jeremiahDateResults" class="tablewrap"></div><button type="button" id="applyJeremiahDates" class="hidden">Apply selected date corrections</button>
 <h3>Billing Error Checker</h3><p class="muted small">Read-only review of saved charges and payments dated October 1, 2026 onward. Possible issues require your review; no records are changed.</p><button type="button" id="checkBilling">Check saved billing</button><p id="billingCheckStatus" class="muted small" aria-live="polite"></p><div id="billingCheckResults" class="tablewrap"></div>
@@ -1409,6 +1410,43 @@ $('checkOtherChargeDates').onclick=()=>{
  status.textContent=charges.length+' saved charges checked. '+mismatches.length+' entry dates differ from their week-start dates across '+sorted.length+' child account(s). Differences are not necessarily errors; this check is read-only.';
  output.innerHTML=sorted.length?'<table><thead><tr><th>Child</th><th>Charges to review</th><th>Repeated entry dates</th><th>Example entry date</th><th>Example week start</th></tr></thead><tbody>'+sorted.map(g=>{const counts=new Map();g.rows.forEach(t=>{const d=String(t.entry_date).slice(0,10);counts.set(d,(counts.get(d)||0)+1)});const repeated=Array.from(counts.entries()).filter(x=>x[1]>1).sort((a,b)=>b[1]-a[1]);const example=repeated.length?g.rows.find(t=>String(t.entry_date).slice(0,10)===repeated[0][0]):g.rows[0];return '<tr><td>'+esc(g.name)+'</td><td>'+g.rows.length+'</td><td>'+esc(repeated.map(x=>x[0]+' ('+x[1]+')').slice(0,3).join(', ')||'None')+'</td><td>'+esc(example.entry_date)+'</td><td>'+esc(example.week_start)+'</td></tr>'}).join('')+'</tbody></table>':'<p>No differences found between saved charge entry dates and week-start dates.</p>';
 };
+let paymentDateReviewRows=[];
+function validPaymentDate(v){if(!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;const d=new Date(v+'T12:00:00Z');return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===v}
+$('previewPaymentDates').onclick=()=>{
+ const select=$('paymentDateChild'),chosen=select.value,status=$('paymentDateStatus'),output=$('paymentDateResults');
+ const opts=children.filter(c=>c.name).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+ select.innerHTML='<option value="">Select a child</option>'+opts.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('');
+ select.value=chosen;
+ paymentDateReviewRows=[];$('applyPaymentDates').classList.add('hidden');output.innerHTML='';
+ if(!chosen){status.textContent='Choose a child to review their payment dates.';return}
+ paymentDateReviewRows=txs.filter(t=>String(t.child_id)===chosen&&t.entry_type==='Payment').sort((a,b)=>String(a.week_start||'').localeCompare(String(b.week_start||''))||String(a.entry_date||'').localeCompare(String(b.entry_date||'')));
+ status.textContent=paymentDateReviewRows.length+' payment(s) shown. Enter a proposed date only where you know the correct date. Nothing has changed.';
+ output.innerHTML=paymentDateReviewRows.length?'<table><thead><tr><th>Week starts</th><th>Week ends</th><th>Current entry date</th><th>Method</th><th>Amount</th><th>Corrected entry date (optional)</th></tr></thead><tbody>'+paymentDateReviewRows.map(t=>'<tr><td>'+esc(t.week_start||'')+'</td><td>'+esc(t.week_end||'')+'</td><td>'+esc(t.entry_date||'')+'</td><td>'+esc(t.payment_method||'')+'</td><td>'+money(t.amount)+'</td><td><input type="date" data-payment-date-id="'+esc(t.id)+'" aria-label="Corrected date for payment" style="min-width:145px"></td></tr>').join('')+'</tbody></table>':'<p>No payments found for this child.</p>';
+ if(paymentDateReviewRows.length)$('applyPaymentDates').classList.remove('hidden');
+};
+$('applyPaymentDates').onclick=async()=>{
+ const proposals=Array.from(document.querySelectorAll('[data-payment-date-id]')).filter(el=>el.value).map(el=>({id:el.dataset.paymentDateId,date:el.value}));
+ if(!proposals.length)return alert('Enter at least one corrected payment date before applying.');
+ if(proposals.some(p=>!validPaymentDate(p.date)))return alert('One or more corrected dates are invalid.');
+ const changes=proposals.map(p=>({t:paymentDateReviewRows.find(t=>String(t.id)===p.id),date:p.date})).filter(x=>x.t&&String(x.t.entry_date).slice(0,10)!==x.date);
+ if(!changes.length)return alert('All entered dates already match the saved dates. Nothing to update.');
+ if(!confirm('Change entry dates for '+changes.length+' payment(s)? Confirm that checks use the check date, direct deposits use the deposit date, and cash is assigned to the intended week. Amounts and methods will not change.'))return;
+ const button=$('applyPaymentDates'),status=$('paymentDateStatus');button.disabled=true;$('previewPaymentDates').disabled=true;
+ let changed=0;const failed=[];
+ try{
+  for(const {t,date} of changes){
+   const {data:current,error:readError}=await sb.from('daycare_transactions').select('id,child_id,entry_type,entry_date,week_start,week_end,amount,payment_method').eq('id',t.id).eq('user_id',user.id).maybeSingle();
+   if(readError||!current||current.entry_type!=='Payment'||String(current.child_id)!==String(t.child_id)||String(current.entry_date)!==String(t.entry_date)||String(current.week_start)!==String(t.week_start)||String(current.week_end)!==String(t.week_end)||Number(current.amount)!==Number(t.amount)||String(current.payment_method)!==String(t.payment_method)){failed.push('Payment '+String(t.id)+' changed or could not be verified'+(readError?': '+readError.message:''));continue}
+   const {data,error}=await sb.from('daycare_transactions').update({entry_date:date}).eq('id',t.id).eq('user_id',user.id).eq('entry_date',t.entry_date).select('id,entry_date');
+   if(error||!data||data.length!==1||data[0].entry_date!==date)failed.push('Payment '+String(t.id)+(error?': '+error.message:': update not confirmed'));else changed++;
+   status.textContent='Verifying payment dates: '+(changed+failed.length)+' of '+changes.length;
+  }
+  await loadAll();$('previewPaymentDates').click();
+  status.textContent=changed+' payment date(s) updated and verified. '+(failed.length?failed.length+' not updated; '+failed[0]:'Amounts, methods, and other records were not changed.');
+ }catch(e){status.textContent='Update interrupted after '+changed+' verified correction(s). '+String(e.message||e)}
+ finally{button.disabled=false;$('previewPaymentDates').disabled=false}
+};
+
 let bulkChargeDateRows=[];
 function isMondayFridayWeek(t){
  const a=String(t.week_start||''),b=String(t.week_end||'');
