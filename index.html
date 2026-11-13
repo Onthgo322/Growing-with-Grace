@@ -678,7 +678,8 @@ async function clearDeletedTransactionHistory(){
 }
  
 async function loadAll(){const base=await Promise.all([sb.from('daycare_children').select('*').order('name'),sb.from('daycare_rates').select('*').order('effective_date',{ascending:false})]);for(let i=0;i<base.length;i++){if(base[i].error){alert('Database error: '+base[i].error.message);return}}children=base[0].data||[];rates=base[1].data||[];let allTransactions=[];const pageSize=1000;for(let start=0;;start+=pageSize){const page=await sb.from('daycare_transactions').select('*').order('entry_date',{ascending:false}).range(start,start+pageSize-1);if(page.error){alert('Database error loading transactions: '+page.error.message);return}const rows=page.data||[];allTransactions=allTransactions.concat(rows);if(rows.length<pageSize)break;}txs=allTransactions;renderAll()}
-function renderAll(){renderChildren();renderRates();renderDashboard();renderSelects();renderTx();updateChildRatePreview()}
+function populatePaymentDateChildren(){const el=$('paymentDateChild');if(!el)return;const previous=el.value;el.innerHTML='<option value="">Select a child</option>'+children.filter(c=>c.name).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('');el.value=previous;}
+function renderAll(){renderChildren();renderRates();renderDashboard();renderSelects();populatePaymentDateChildren();renderTx();updateChildRatePreview()}
 
 
 
