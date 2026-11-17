@@ -1455,7 +1455,7 @@ $('splitPreview').onclick=()=>{
  splitReset();
  const ids=[$('splitChild1').value,$('splitChild2').value],month=$('splitMonth').value,date=$('splitDate').value,number=$('splitNumber').value.trim(),rawTotal=Number($('splitTotal').value);
  if(!ids[0]||!ids[1]||ids[0]===ids[1])return $('splitStatus').textContent='Select two different children.';
- if(!/^\\d{4}-\\d{2}$/.test(month)||!date||!number)return $('splitStatus').textContent='Enter the month covered, check date, and check number.';
+ if(!/^\d{4}-\d{2}$/.test(month)||!date||!number)return $('splitStatus').textContent='Enter the month covered, check date, and check number.';
  const totalCents=Math.round(rawTotal*100);if(!Number.isFinite(rawTotal)||rawTotal<=0||Math.abs(rawTotal*100-totalCents)>0.0001)return $('splitStatus').textContent='Enter a valid check total to two decimal places.';
  const charges=ids.map(id=>txs.filter(t=>String(t.child_id)===String(id)&&t.entry_type==='Charge'&&String(t.category||'').trim().toLowerCase()==='regular daycare'&&String(t.week_start||'').slice(0,7)===month));
  if(charges.some(rows=>!rows.length))return $('splitStatus').textContent='One or both children have no saved regular daycare charges for this month. Review their charges first; no split calculated.';
