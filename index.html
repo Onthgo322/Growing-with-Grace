@@ -254,16 +254,13 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div id="saveFeedback" role="status" aria-live="polite" style="display:none;margin:10px 0 8px;padding:10px 12px;border:1px solid #cdbbdf;border-radius:8px;background:#f7f3fb;color:#342440;font-weight:600;white-space:pre-wrap"></div>
 <div class="entry-actions" style="display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important"><div class="entry-action-column" style="display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0"><button class="primary" id="saveTx" style="width:100%;min-height:44px">Save entry</button><button type="button" id="repeatLastEntry" style="width:100%;min-height:44px">Repeat Last Entry Next Week</button></div><div class="entry-action-column" style="display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0"><button id="fillRate" style="width:100%;min-height:44px">Fill weekly rate</button><button type="button" id="nextWeek" style="width:100%;min-height:44px">Next Week (Monday–Friday)</button></div></div><p class="muted small">Suggested weekly rates from your fee schedule: Infant $245, 2-Year $240, 3-Year $235, 4-Year $230, 5–12 Years $225, Before/After School Care $150. Enrollment $100; registration/insurance $40; activity fee $35 where applicable. Confirm the applicable schedule before saving. Late pickup: $5/minute; late payment: $15/day.</p>
 <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start">
-<div style="min-width:0"><details id="familySplitPanel" style="margin:12px 0;padding:12px;border:1px solid #d9cbe7;border-radius:9px"><summary style="cursor:pointer;font-weight:700">Split Family Check Payment</summary>
-<p class="muted small">Divide one check between two children using each child's scheduled daycare days and weekly charge rate. Preview before saving. No charge amounts are changed.</p>
-<div class="grid">
-<div class="field"><label>First child</label><select id="splitChild1"></select></div><div class="field"><label>Scheduled days — first child (0–5)</label><input type="number" id="splitDays1" min="0" max="5" step="1" value="5"></div>
-<div class="field"><label>Second child</label><select id="splitChild2"></select></div><div class="field"><label>Scheduled days — second child (0–5)</label><input type="number" id="splitDays2" min="0" max="5" step="1" value="5"></div>
-<div class="field"><label>Week starting Monday</label><input type="date" id="splitWeek"></div><div class="field"><label>Check date</label><input type="date" id="splitDate"></div>
-<div class="field"><label>Check number</label><input id="splitNumber" autocomplete="off"></div><div class="field"><label>Total check ($)</label><input type="number" id="splitTotal" min=".01" step=".01"></div>
-<div class="field"><label>First child's weekly charge ($)</label><input type="number" id="splitRate1" min=".01" step=".01" placeholder="From selected week's charge"></div><div class="field"><label>Second child's weekly charge ($)</label><input type="number" id="splitRate2" min=".01" step=".01" placeholder="From selected week's charge"></div>
-</div><p class="muted small">Weekly charge amounts are pulled from each child's saved regular daycare charge for the selected week when available. You can enter or correct them before previewing. Scheduled days are entered by you.</p>
-<button type="button" id="splitPreview">Preview check split</button><p id="splitStatus" aria-live="polite"></p><div id="splitResults" class="tablewrap"></div><button type="button" class="primary hidden" id="splitSave">Save both payments</button></details>
+<div style="min-width:0"><details id="familySplitPanel" style="margin:12px 0;padding:12px;border:1px solid #d9cbe7;border-radius:9px"><summary style="cursor:pointer;font-weight:700">Split Family Check Payment — Monthly</summary>
+<p class="muted small">Split a check for an entire month between two children based on their saved regular daycare charges for that month. Review the calculated shares before saving. No charges are changed.</p>
+<div class="grid"><div class="field"><label>First child</label><select id="splitChild1"></select></div><div class="field"><label>Second child</label><select id="splitChild2"></select></div>
+<div class="field"><label>Month covered</label><input type="month" id="splitMonth"></div><div class="field"><label>Check date</label><input type="date" id="splitDate"></div>
+<div class="field"><label>Check number</label><input id="splitNumber" autocomplete="off"></div><div class="field"><label>Total check ($)</label><input type="number" id="splitTotal" min=".01" step=".01"></div></div>
+<p class="muted small">Uses each child's recorded regular daycare charges for weeks starting in the selected month, which reflect their scheduled daycare and applicable rates. Review any weeks crossing month boundaries before saving. If either child's monthly charges are missing, the split will not proceed.</p>
+<button type="button" id="splitPreview">Preview monthly check split</button><p id="splitStatus" aria-live="polite"></p><div id="splitResults" class="tablewrap"></div><button type="button" class="primary hidden" id="splitSave">Save both payments</button></details>
 <h3>Billing Error Checker</h3><p class="muted small">Read-only review of saved charges and payments dated October 1, 2026 onward. Possible issues require your review; no records are changed.</p><button type="button" id="checkBilling">Check saved billing</button><p id="billingCheckStatus" class="muted small" aria-live="polite"></p><div id="billingCheckResults" class="tablewrap"></div></div>
 <div style="min-width:0"><h3>Review missing weekly charges</h3><p class="muted small">Preview only, starting with the week of October 5, 2026. Existing transactions are not changed. Verify each child's enrollment and attendance before approving any charges.</p><button type="button" id="previewMissingWeekly">Preview missing weekly charges</button><p id="missingWeeklyStatus" aria-live="polite"></p><div id="missingWeeklyResults" class="tablewrap"></div><button type="button" id="saveMissingWeekly" class="hidden">Save reviewed missing weekly charges</button></div>
 </div>
@@ -1452,49 +1449,44 @@ function splitChildrenOptions(){
  for(const id of ['splitChild1','splitChild2']){const el=$(id),v=el.value;el.innerHTML=opts;el.value=v}
 }
 function splitReset(){splitDraft=null;$('splitSave').classList.add('hidden');$('splitResults').innerHTML='';$('splitStatus').textContent=''}
-function splitFindCharge(childId,week){
- const rows=txs.filter(t=>String(t.child_id)===String(childId)&&t.entry_type==='Charge'&&String(t.category||'').toLowerCase()==='regular daycare'&&t.week_start===week);
- return rows.length===1?Number(rows[0].amount):null;
-}
-function splitLoadRates(){
- splitReset();
- const week=$('splitWeek').value;
- for(let n=1;n<=2;n++){const id=$('splitChild'+n).value;const rate=id&&week?splitFindCharge(id,week):null;$('splitRate'+n).value=rate!==null?rate:''}
-}
-for(const id of ['splitChild1','splitChild2','splitWeek'])$(id).addEventListener('change',splitLoadRates);
-for(const id of ['splitDays1','splitDays2','splitDate','splitNumber','splitTotal','splitRate1','splitRate2'])$(id).addEventListener('input',splitReset);
+for(const id of ['splitChild1','splitChild2','splitMonth','splitDate','splitNumber','splitTotal'])$(id).addEventListener('change',splitReset);
+for(const id of ['splitNumber','splitTotal'])$(id).addEventListener('input',splitReset);
 $('splitPreview').onclick=()=>{
  splitReset();
- const ids=[$('splitChild1').value,$('splitChild2').value],week=$('splitWeek').value,date=$('splitDate').value,number=$('splitNumber').value.trim();
- const days=[Number($('splitDays1').value),Number($('splitDays2').value)],rates=[Number($('splitRate1').value),Number($('splitRate2').value)],rawTotal=Number($('splitTotal').value);
- const monday=week&&new Date(week+'T12:00:00').getDay()===1;
+ const ids=[$('splitChild1').value,$('splitChild2').value],month=$('splitMonth').value,date=$('splitDate').value,number=$('splitNumber').value.trim(),rawTotal=Number($('splitTotal').value);
  if(!ids[0]||!ids[1]||ids[0]===ids[1])return $('splitStatus').textContent='Select two different children.';
- if(!monday||!date||!number)return $('splitStatus').textContent='Enter a Monday week start, check date, and check number.';
- if(days.some(d=>!Number.isInteger(d)||d<0||d>5)||days.every(d=>d===0))return $('splitStatus').textContent='Enter scheduled days from 0 to 5, with at least one scheduled day.';
- if(rates.some(r=>!Number.isFinite(r)||r<=0)||!Number.isFinite(rawTotal)||rawTotal<=0)return $('splitStatus').textContent='Enter both positive weekly charge amounts and the check total.';
- const totalCents=Math.round(rawTotal*100);if(Math.abs(rawTotal*100-totalCents)>0.0001)return $('splitStatus').textContent='Enter the check total to two decimal places.';
- const weights=days.map((d,i)=>d*rates[i]/5),sum=weights[0]+weights[1];
- const first=Math.round(totalCents*weights[0]/sum),amounts=[first,totalCents-first];
- const existing=txs.filter(t=>t.entry_type==='Payment'&&t.payment_method==='Check'&&String(t.notes||'').includes('Family check #'+number));
- if(existing.length)return $('splitStatus').textContent='This check number already appears in saved family-check payments. Review existing entries before saving.';
- splitDraft={ids,week,date,number,totalCents,days,rates,amounts};
- $('splitResults').innerHTML='<table><thead><tr><th>Child</th><th>Scheduled days</th><th>Weekly charge</th><th>Payment share</th></tr></thead><tbody>'+ids.map((id,i)=>'<tr><td>'+esc(children.find(c=>String(c.id)===id)?.name||'')+'</td><td>'+days[i]+'</td><td>'+money(rates[i])+'</td><td>'+money(amounts[i]/100)+'</td></tr>').join('')+'</tbody><tfoot><tr><th colspan="3">Check total</th><th>'+money(totalCents/100)+'</th></tr></tfoot></table>';
- $('splitStatus').textContent='Review both allocations. Saving creates two payment records for one check.';
+ if(!/^\\d{4}-\\d{2}$/.test(month)||!date||!number)return $('splitStatus').textContent='Enter the month covered, check date, and check number.';
+ const totalCents=Math.round(rawTotal*100);if(!Number.isFinite(rawTotal)||rawTotal<=0||Math.abs(rawTotal*100-totalCents)>0.0001)return $('splitStatus').textContent='Enter a valid check total to two decimal places.';
+ const charges=ids.map(id=>txs.filter(t=>String(t.child_id)===String(id)&&t.entry_type==='Charge'&&String(t.category||'').trim().toLowerCase()==='regular daycare'&&String(t.week_start||'').slice(0,7)===month));
+ if(charges.some(rows=>!rows.length))return $('splitStatus').textContent='One or both children have no saved regular daycare charges for this month. Review their charges first; no split calculated.';
+ const cents=charges.map(rows=>rows.reduce((sum,t)=>sum+Math.round(Number(t.amount||0)*100),0));
+ if(cents.some(n=>n<=0))return $('splitStatus').textContent='Monthly charge totals must be positive.';
+ const first=Math.round(totalCents*cents[0]/(cents[0]+cents[1])),amounts=[first,totalCents-first];
+ if(amounts.some(n=>n<=0))return $('splitStatus').textContent='One child would receive no payment. Review the amounts before continuing.';
+ const existing=txs.some(t=>t.entry_type==='Payment'&&t.payment_method==='Check'&&String(t.notes||'').includes('Family check #'+number));
+ if(existing)return $('splitStatus').textContent='This check number already appears in saved family-check payments. Review existing entries before saving.';
+ splitDraft={ids,month,date,number,totalCents,cents,amounts};
+ $('splitResults').innerHTML='<table><thead><tr><th>Child</th><th>Weeks charged</th><th>Monthly daycare charges</th><th>Payment share</th></tr></thead><tbody>'+ids.map((id,i)=>'<tr><td>'+esc(children.find(c=>String(c.id)===id)?.name||'')+'</td><td>'+charges[i].length+'</td><td>'+money(cents[i]/100)+'</td><td>'+money(amounts[i]/100)+'</td></tr>').join('')+'</tbody><tfoot><tr><th colspan="3">Check total</th><th>'+money(totalCents/100)+'</th></tr></tfoot></table>';
+ $('splitStatus').textContent='Check the monthly charges and payment shares. Nothing has been saved.';
  $('splitSave').classList.remove('hidden');
 };
 $('splitSave').onclick=async()=>{
  const d=splitDraft;if(!d)return;
- if(!confirm('Save check #'+d.number+' as two payments totaling '+money(d.totalCents/100)+'?'))return;
+ if(!confirm('Save check #'+d.number+' for '+d.month+' as two payments totaling '+money(d.totalCents/100)+'?'))return;
  const btn=$('splitSave');btn.disabled=true;
  try{
  const {data:existing,error:readError}=await sb.from('daycare_transactions').select('id,notes,entry_type,payment_method').eq('user_id',user.id).eq('entry_type','Payment').eq('payment_method','Check');
  if(readError)throw readError;
  if((existing||[]).some(t=>String(t.notes||'').includes('Family check #'+d.number)))throw Error('Check number already recorded. Nothing saved.');
- const friday=new Date(d.week+'T12:00:00');friday.setDate(friday.getDate()+4);const weekEnd=friday.getFullYear()+'-'+String(friday.getMonth()+1).padStart(2,'0')+'-'+String(friday.getDate()).padStart(2,'0');
- const records=d.ids.map((id,i)=>({user_id:user.id,child_id:id,week_start:d.week,week_end:weekEnd,entry_date:d.date,entry_type:'Payment',category:'Regular daycare',payment_method:'Check',amount:d.amounts[i]/100,notes:'Family check #'+d.number+'; total '+(d.totalCents/100).toFixed(2)+'; scheduled '+d.days[i]+' day(s); split with sibling'})).filter(r=>r.amount>0);
+ const {data:latest,error:chargeError}=await sb.from('daycare_transactions').select('child_id,entry_type,category,week_start,amount').eq('user_id',user.id).in('child_id',d.ids).eq('entry_type','Charge').gte('week_start',d.month+'-01').lte('week_start',d.month+'-31');
+ if(chargeError)throw chargeError;
+ const freshCents=d.ids.map(id=>(latest||[]).filter(t=>String(t.child_id)===String(id)&&String(t.category||'').trim().toLowerCase()==='regular daycare').reduce((sum,t)=>sum+Math.round(Number(t.amount||0)*100),0));
+ if(freshCents.some((n,i)=>n!==d.cents[i]))throw Error('Monthly charges have changed. Preview the split again; nothing saved.');
+ const monthStart=d.month+'-01',monthEnd=d.month+'-'+new Date(Number(d.month.slice(0,4)),Number(d.month.slice(5,7)),0).getDate();
+ const records=d.ids.map((id,i)=>({user_id:user.id,child_id:id,week_start:monthStart,week_end:monthEnd,entry_date:d.date,entry_type:'Payment',category:'Regular daycare',payment_method:'Check',amount:d.amounts[i]/100,notes:'Family check #'+d.number+'; month '+d.month+'; total '+(d.totalCents/100).toFixed(2)+'; allocated by monthly daycare charges; split with sibling'}));
  const {data,error}=await sb.from('daycare_transactions').insert(records).select('id');if(error)throw error;
- splitReset();$('splitStatus').textContent='Saved '+(data?.length||records.length)+' check payment entries. Total '+money(d.totalCents/100)+'.';await loadAll();
- }catch(e){$('splitStatus').textContent='Save could not be completed: '+String(e.message||e)+'. Check recent entries before trying again.'}finally{btn.disabled=false}
+ splitReset();$('splitStatus').textContent='Saved '+(data?.length||records.length)+' payment entries totaling '+money(d.totalCents/100)+'.';await loadAll();
+ }catch(e){$('splitStatus').textContent='Could not confirm save: '+String(e.message||e)+'. Check recent entries before retrying.'}finally{btn.disabled=false}
 };
 function renderSelects(){splitChildrenOptions();const recentChild=$('txRecentChild')?.value||'';let childOpts=children.map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.rate_category)}</option>`).join('');$('txChild').innerHTML='<option value="">— Select a child —</option>'+childOpts;$('transferFrom').innerHTML='<option value="">Select child</option>'+childOpts;$('transferTo').innerHTML='<option value="">Select child</option>'+childOpts;$('txChild').value='';$('reportChild').innerHTML='<option value="">All children</option>'+childOpts;$('txRecentChild').innerHTML='<option value="">— Select a child —</option>'+childOpts;if(recentChild&&children.some(c=>String(c.id)===String(recentChild)))$('txRecentChild').value=recentChild;$('txRecentChild').onchange=renderTx;$('invoiceChild').innerHTML='<option value="">Select a child</option>'+childOpts;$('bulkChild').innerHTML='<option value="">Select a child</option>'+childOpts}
 
