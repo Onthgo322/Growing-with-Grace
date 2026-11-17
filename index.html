@@ -1522,7 +1522,7 @@ $('splitSave').onclick=async()=>{
  const current=d.ids.map(id=>splitPeriodCharges(id,d.period,latest||[]));
  const freshCents=current.map(rows=>rows.reduce((sum,t)=>sum+Math.round(Number(t.amount||0)*100),0));
  if(freshCents.some((n,i)=>n!==d.cents[i]||current[i].length!==d.counts[i]))throw Error('Daycare charges have changed. Preview the split again; nothing saved.');
- const records=d.ids.map((id,i)=>({user_id:user.id,child_id:id,week_start:d.period.start,week_end:d.period.end,entry_date:d.date,entry_type:'Payment',category:'Regular daycare',payment_method:d.method,amount:d.amounts[i]/100,notes:(d.method==='Check'?'Family check #'+d.number:'Family '+d.method+' payment')+'; period +d.period.label+'; total '+(d.totalCents/100).toFixed(2)+'; allocated by daycare charges; split with sibling'}));
+ const records=d.ids.map((id,i)=>({user_id:user.id,child_id:id,week_start:d.period.start,week_end:d.period.end,entry_date:d.date,entry_type:'Payment',category:'Regular daycare',payment_method:d.method,amount:d.amounts[i]/100,notes:(d.method==='Check'?'Family check #'+d.number:'Family '+d.method+' payment')+'; period '+d.period.label+'; total '+(d.totalCents/100).toFixed(2)+'; allocated by daycare charges; split with sibling'}));
  const {data,error}=await sb.from('daycare_transactions').insert(records).select('id');if(error)throw error;
  splitReset();$('splitStatus').textContent='Saved '+(data?.length||records.length)+' payment entries totaling '+money(d.totalCents/100)+'.';await loadAll();
  }catch(e){$('splitStatus').textContent='Could not confirm save: '+String(e.message||e)+'. Check recent entries before retrying.'}finally{btn.disabled=false}
