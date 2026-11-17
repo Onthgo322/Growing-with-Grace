@@ -1486,11 +1486,12 @@ $('splitSave').onclick=async()=>{
  const {data:existing,error:readError}=await sb.from('daycare_transactions').select('id,notes,entry_type,payment_method').eq('user_id',user.id).eq('entry_type','Payment').eq('payment_method','Check');
  if(readError)throw readError;
  if((existing||[]).some(t=>String(t.notes||'').includes('Family check #'+d.number)))throw Error('Check number already recorded. Nothing saved.');
- const {data:latest,error:chargeError}=await sb.from('daycare_transactions').select('child_id,entry_type,category,week_start,amount').eq('user_id',user.id).in('child_id',d.ids).eq('entry_type','Charge').gte('week_start',d.month+'-01').lte('week_start',d.month+'-31');
+ const monthLastDay=String(new Date(Number(d.month.slice(0,4)),Number(d.month.slice(5,7)),0).getDate()).padStart(2,'0');
+ const monthStart=d.month+'-01',monthEnd=d.month+'-'+monthLastDay;
+ const {data:latest,error:chargeError}=await sb.from('daycare_transactions').select('child_id,entry_type,category,week_start,amount').eq('user_id',user.id).in('child_id',d.ids).eq('entry_type','Charge').gte('week_start',monthStart).lte('week_start',monthEnd);
  if(chargeError)throw chargeError;
  const freshCents=d.ids.map(id=>(latest||[]).filter(t=>String(t.child_id)===String(id)&&String(t.category||'').trim().toLowerCase()==='regular daycare').reduce((sum,t)=>sum+Math.round(Number(t.amount||0)*100),0));
  if(freshCents.some((n,i)=>n!==d.cents[i]))throw Error('Monthly charges have changed. Preview the split again; nothing saved.');
- const monthStart=d.month+'-01',monthEnd=d.month+'-'+new Date(Number(d.month.slice(0,4)),Number(d.month.slice(5,7)),0).getDate();
  const records=d.ids.map((id,i)=>({user_id:user.id,child_id:id,week_start:monthStart,week_end:monthEnd,entry_date:d.date,entry_type:'Payment',category:'Regular daycare',payment_method:'Check',amount:d.amounts[i]/100,notes:'Family check #'+d.number+'; month '+d.month+'; total '+(d.totalCents/100).toFixed(2)+'; allocated by monthly daycare charges; split with sibling'}));
  const {data,error}=await sb.from('daycare_transactions').insert(records).select('id');if(error)throw error;
  splitReset();$('splitStatus').textContent='Saved '+(data?.length||records.length)+' payment entries totaling '+money(d.totalCents/100)+'.';await loadAll();
