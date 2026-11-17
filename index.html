@@ -248,7 +248,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="field"><label>Week starts</label><input type="date" id="weekStart" lang="en-US"></div>
 <div class="field"><label>Week ends</label><input type="date" id="weekEnd" lang="en-US"></div><div class="field"><label>Entry date (monthly CCAP)</label><input type="date" id="txEntryDate" lang="en-US"></div><div class="field"><label>Category</label><select id="txCategory"><option>Regular daycare</option><option>CCAP</option><option>Non-school day</option><option>Summer</option><option>Enrollment fee</option><option>Registration/insurance</option><option>Activity fee</option><option>Late pickup</option><option>Late payment fee</option><option>Other</option></select></div>
 <div class="field"><label>Payment method (payments only)</label><select id="payMethod"><option>Cash</option><option>Check</option><option>Cash App</option><option>Direct deposit</option><option>CCAP</option><option>Other</option></select></div><div class="field"><label>Amount ($)</label><input type="number" min="0" step=".01" id="txAmount"></div>
-<div class="field" id="ccapFlatField" style="grid-column:1/-1;display:none"><label><input type="checkbox" id="ccapFlatCharge" style="width:auto;margin-right:8px">One-time flat CCAP charge (enter amount manually, such as $150)</label></div><div class="field" id="ccapDayFields" style="display:grid"><label>School attendance days this month</label><input type="number" id="ccapSchoolDays" min="0" max="31" step="1" value="0"></div><div class="field" id="ccapNonSchoolField" style="display:none"><label>Non-school attandance days this month </label><input type="number" id="ccapNonSchoolDays" min="0" max="31" step="1" value="0"></div>
+<div class="field" id="checkNumberField" style="display:none"><label for="txCheckNumber">Check number (required for check payments)</label><input id="txCheckNumber" type="text" autocomplete="off" placeholder="e.g. 1085"></div><div class="field" id="ccapFlatField" style="grid-column:1/-1;display:none"><label><input type="checkbox" id="ccapFlatCharge" style="width:auto;margin-right:8px">One-time flat CCAP charge (enter amount manually, such as $150)</label></div><div class="field" id="ccapDayFields" style="display:grid"><label>School attendance days this month</label><input type="number" id="ccapSchoolDays" min="0" max="31" step="1" value="0"></div><div class="field" id="ccapNonSchoolField" style="display:none"><label>Non-school attandance days this month </label><input type="number" id="ccapNonSchoolDays" min="0" max="31" step="1" value="0"></div>
  <div class="field" id="ccapDaycareField" style="display:none"><label>Not school-aged attendance days this month (not in school)</label><input type="number" id="ccapDaycareDays" min="0" max="31" step="1" value="5"></div>
  <div class="field" style="grid-column:1/-1"><label>Notes / check number / details</label><textarea id="txNotes"></textarea></div></div>
 <div id="saveFeedback" role="status" aria-live="polite" style="display:none;margin:10px 0 8px;padding:10px 12px;border:1px solid #cdbbdf;border-radius:8px;background:#f7f3fb;color:#342440;font-weight:600;white-space:pre-wrap"></div>
@@ -1775,6 +1775,14 @@ const autoFillSavedRate=()=>{
   $('txAmount').value=Number(amount||0).toFixed(2);
 };
 ['txChild','txType','weekEnd','weekStart','txCategory'].forEach(id=>$(id).addEventListener('change',autoFillSavedRate));
+function toggleCheckNumberField(){
+ const show=$('txType').value==='Payment'&&$('payMethod').value==='Check';
+ $('checkNumberField').style.display=show?'':'none';
+ $('txCheckNumber').required=show;
+}
+$('txType').addEventListener('change',toggleCheckNumberField);
+$('payMethod').addEventListener('change',toggleCheckNumberField);
+toggleCheckNumberField();
 function toggleCcapDayFields(){
  const child=children.find(c=>c.id===$('txChild').value);
  const isCcapCharge=$('txType').value==='Charge'&&$('txCategory').value==='CCAP';
@@ -1946,7 +1954,12 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     if($('weekEnd').value < $('weekStart').value)return alert('The week end date cannot be earlier than the week start date. Choose the correct Friday for this week before saving.');
     const entryDate=$('txEntryDate').value||$('weekEnd').value;
     if(!entryDate)return alert('Please enter an entry date.');
-    const obj={user_id:user.id,child_id:child.id,week_start:$('weekStart').value,week_end:$('weekEnd').value,entry_date:entryDate,entry_type:$('txType').value,category:$('txCategory').value,payment_method:$('txType').value==='Payment' ? $('payMethod').value:null,amount,notes:$('txNotes').value.trim()};
+    const isCheckPayment=$('txType').value==='Payment'&&$('payMethod').value==='Check';
+    const checkNumber=$('txCheckNumber').value.trim();
+    if(isCheckPayment&&!checkNumber)return alert('Enter the check number before saving this check payment.');
+    if(isCheckPayment&&!/^[A-Za-z0-9-]{1,30}$/.test(checkNumber))return alert('Check number may contain letters, numbers, or hyphens only.');
+    const paymentNotes=isCheckPayment?('Check #'+checkNumber+($('txNotes').value.trim()?'; '+$('txNotes').value.trim():'')):$('txNotes').value.trim();
+    const obj={user_id:user.id,child_id:child.id,week_start:$('weekStart').value,week_end:$('weekEnd').value,entry_date:entryDate,entry_type:$('txType').value,category:$('txCategory').value,payment_method:$('txType').value==='Payment' ? $('payMethod').value:null,amount,notes:paymentNotes};
     const draftWarnings=billingWarnings(obj,txs);
     if(draftWarnings.length&&!confirm('Billing check found possible issue(s):\\n- '+draftWarnings.join('\\n- ')+'\\n\\nReview these before saving. Choose Cancel to correct the entry, or OK to continue.'))return;
     // CCAP is charged once per child per calendar month. Block a second
@@ -1994,6 +2007,7 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
       }
       $('txAmount').value='';
       $('txNotes').value='';
+      $('txCheckNumber').value='';
       keepChildSelectedAfterTransaction(child.id);
       const feedback=$('saveFeedback');feedback.textContent='Saved and verified: '+child.name+' — '+obj.category+' '+obj.entry_type+'.';
     }catch(error){
