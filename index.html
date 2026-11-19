@@ -203,7 +203,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <nav class="noprint">
 <button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="transfers">Transfers</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
  
-<button class="tab" data-tab="deleted">Deleted Transactions</button>
+<button class="tab" data-tab="deleted">Deleted Transactions</button><button class="tab" data-tab="allaudit">All-Children Audit</button>
 
 </nav>
 <section class="panel tabpage" id="page-dashboard"><h2>Dashboard</h2><div class="grid dashboard-metrics"><div class="metric"><span class="muted">Active children</span><strong id="countChildren">0</strong></div><div class="metric"><span class="muted">Combined ending ledger balances</span><strong id="balance">$0.00</strong></div></div><p class="muted">All-time totals from saved transactions plus each child's saved beginning balance. Combined ending ledger balances add each child's ending balance, including negative credit balances. CCAP charges and payments are included.</p><h3>Balance breakdown by child</h3><p class="muted small">Read-only, all-time balances including each child’s beginning balance. A positive balance is not necessarily overdue. CCAP payments may be included in individual child totals. Transfer debits increase balances; credits reduce balances.</p><div class="tablewrap"><table><thead><tr><th>Child</th><th>Beginning balance</th><th>Charges</th><th>Payments</th><th>Credits / adjustments</th><th>Net balance</th></tr></thead><tbody id="childBalanceRows"></tbody></table></div></section>
@@ -336,7 +336,8 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
   </div>
 </section>
 
- <section class="panel tabpage hidden" id="page-deleted">
+ <section class="panel tabpage hidden" id="page-allaudit"><h2>All-Children Ledger Audit</h2><p class="muted">Read-only review of saved Supabase transactions for every child, including families with balances owed and credits. Potential duplicates are flags for investigation, not proof of errors. No records are changed.</p><div class="row"><button type="button" id="runAllAudit" class="primary">Run all-children audit</button><button type="button" id="exportAllAudit">Export audit CSV</button></div><p id="allAuditSummary"></p><div id="allAuditTable" style="overflow-x:auto"></div><h3>Possible duplicate payments and charges</h3><div id="allAuditFlags" style="overflow-x:auto"></div></section>
+<section class="panel tabpage hidden" id="page-deleted">
   <h2>Deleted Transactions</h2>
   <p class="muted">Deleted entries are kept here for your records and do not count toward current balances.</p>
   <button class="primary" id="loadDeleted">Refresh Deleted Transactions</button>
@@ -2427,5 +2428,52 @@ document.addEventListener('wheel',event=>{
  if(el && el.matches && el.matches('input[type="number"]')) el.blur();
 },{capture:true,passive:true});
 
+
+(function(){
+const run=document.getElementById('runAllAudit'),exportButton=document.getElementById('exportAllAudit');
+if(!run)return;
+let auditRows=[],flagRows=[];
+function build(){
+if(!user||!sb)throw Error('Sign in to your connected ledger first.');
+const all=children.map(c=>{
+ const entries=txs.filter(t=>String(t.child_id)===String(c.id));
+ const charges=entries.filter(t=>t.entry_type==='Charge').reduce((v,t)=>v+Number(t.amount||0),0);
+ const payments=entries.filter(t=>t.entry_type==='Payment').reduce((v,t)=>v+Number(t.amount||0),0);
+ const adjustments=entries.filter(t=>t.entry_type==='Credit / Adjustment').reduce((v,t)=>v+(String(t.category||'').trim()==='Transfer Debit'?-1:1)*Number(t.amount||0),0);
+ const opening=Number(c.beginning_balance||0),balance=opening+charges-payments-adjustments;
+ return {name:c.name||'Unnamed',id:c.id,opening,charges,payments,adjustments,balance,entries:entries.length};
+}).sort((a,b)=>b.balance-a.balance||a.name.localeCompare(b.name));
+const flags=[];
+for(const c of all){
+ const entries=txs.filter(t=>String(t.child_id)===String(c.id));
+ const groups=new Map();
+ for(const t of entries){
+  if(t.entry_type!=='Payment'&&t.entry_type!=='Charge')continue;
+  const key=[t.entry_type,t.entry_date,Math.round(Number(t.amount||0)*100)].join('|');
+  if(!groups.has(key))groups.set(key,[]);
+  groups.get(key).push(t);
+ }
+ for(const [key,group] of groups)if(group.length>1)flags.push({name:c.name,type:group[0].entry_type,date:group[0].entry_date,amount:Number(group[0].amount),count:group.length,ids:group.map(t=>t.id).join('; ')});
+}
+return {all,flags};
+}
+run.addEventListener('click',()=>{
+try{
+const data=build();auditRows=data.all;flagRows=data.flags;
+const owed=auditRows.filter(x=>x.balance>0.005),credits=auditRows.filter(x=>x.balance<-.005);
+document.getElementById('allAuditSummary').textContent=auditRows.length+' children reviewed. '+owed.length+' with amounts owed ('+money(owed.reduce((v,x)=>v+x.balance,0))+'), '+credits.length+' with credits ('+money(-credits.reduce((v,x)=>v+x.balance,0))+'). '+flagRows.length+' possible same-day, same-amount duplicates to investigate.';
+document.getElementById('allAuditTable').innerHTML='<table><thead><tr><th>Child</th><th>Beginning</th><th>Charges</th><th>Payments</th><th>Adjustments</th><th>Ending balance</th><th>Entries</th></tr></thead><tbody>'+auditRows.map(c=>'<tr><td>'+esc(c.name)+'</td><td>'+money(c.opening)+'</td><td>'+money(c.charges)+'</td><td>'+money(c.payments)+'</td><td>'+money(c.adjustments)+'</td><td><b>'+money(c.balance)+'</b> '+(c.balance>0.005?'owed':c.balance<-.005?'credit':'paid')+'</td><td>'+c.entries+'</td></tr>').join('')+'</tbody></table>';
+document.getElementById('allAuditFlags').innerHTML=flagRows.length?'<table><thead><tr><th>Child</th><th>Type</th><th>Date</th><th>Amount</th><th>Count</th></tr></thead><tbody>'+flagRows.map(f=>'<tr><td>'+esc(f.name)+'</td><td>'+esc(f.type)+'</td><td>'+esc(displayDate(f.date))+'</td><td>'+money(f.amount)+'</td><td>'+f.count+'</td></tr>').join('')+'</tbody></table>':'<p>No exact same-day, same-amount payment or charge matches detected. Other errors may still exist.</p>';
+}catch(e){document.getElementById('allAuditSummary').textContent='Audit could not run: '+e.message;}
+});
+exportButton.addEventListener('click',()=>{
+if(!auditRows.length){alert('Run the audit first.');return;}
+const csv=(v)=>'"'+String(v??'').replace(/"/g,'""')+'"';
+const lines=[['Child','Beginning','Charges','Payments','Adjustments','Ending balance','Entries'],...auditRows.map(x=>[x.name,x.opening,x.charges,x.payments,x.adjustments,x.balance,x.entries])];
+lines.push([],['Possible duplicate entries'],['Child','Type','Date','Amount','Count','Transaction IDs'],...flagRows.map(x=>[x.name,x.type,x.date,x.amount,x.count,x.ids]));
+const blob=new Blob([lines.map(x=>x.map(csv).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='GWG-all-children-ledger-audit.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+})();
 </script>
 </body></html>
