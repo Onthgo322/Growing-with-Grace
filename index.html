@@ -336,7 +336,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
   </div>
 </section>
 
- <section class="panel tabpage hidden" id="page-allaudit"><h2>All-Children Ledger Audit</h2><p class="muted">Read-only review of saved Supabase transactions for every child, including families with balances owed and credits. Potential duplicates are flags for investigation, not proof of errors. No records are changed.</p><div class="row"><button type="button" id="runAllAudit" class="primary">Run all-children audit</button><button type="button" id="exportAllAudit">Export audit CSV</button><button type="button" id="previewThreeDuplicates">Review 3 duplicates for removal</button></div><p id="allAuditSummary"></p><div id="threeDuplicatesPreview"></div><div id="allAuditTable" style="overflow-x:auto"></div><h3>Identical entries requiring review</h3><div id="allAuditFlags" style="overflow-x:auto"></div></section>
+ <section class="panel tabpage hidden" id="page-allaudit"><h2>All-Children Ledger Audit</h2><p class="muted">Read-only review of saved Supabase transactions for every child, including families with balances owed and credits. Potential duplicates are flags for investigation, not proof of errors. No records are changed.</p><div class="row"><button type="button" id="runAllAudit" class="primary">Run all-children audit</button><button type="button" id="exportAllAudit">Export audit CSV</button><button type="button" id="previewThreeDuplicates" onclick="document.getElementById('threeDuplicatesPreview').textContent='Checking the three duplicate groups…';">Review 3 duplicates for removal</button></div><p id="allAuditSummary"></p><div id="threeDuplicatesPreview"></div><div id="allAuditTable" style="overflow-x:auto"></div><h3>Identical entries requiring review</h3><div id="allAuditFlags" style="overflow-x:auto"></div></section>
 <section class="panel tabpage hidden" id="page-deleted">
   <h2>Deleted Transactions</h2>
   <p class="muted">Deleted entries are kept here for your records and do not count toward current balances.</p>
@@ -2479,6 +2479,7 @@ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.d
 (function(){
 const b=document.getElementById('previewThreeDuplicates'),out=document.getElementById('threeDuplicatesPreview');
 if(!b||!out)return;
+out.textContent='Ready to review. Tap the Review 3 duplicates button above.';
 const targets=[['Josephine Stark','2026-08-31','Payment',144],['Josephine Stark','2026-08-31','Payment',513],['Yazarri Bellanger','2026-10-09','Charge',245]];
 let selected=null;
 function matches(){
