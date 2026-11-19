@@ -336,7 +336,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
   </div>
 </section>
 
- <section class="panel tabpage hidden" id="page-allaudit"><h2>All-Children Ledger Audit</h2><p class="muted">Read-only review of saved Supabase transactions for every child, including families with balances owed and credits. Potential duplicates are flags for investigation, not proof of errors. No records are changed.</p><div class="row"><button type="button" id="runAllAudit" class="primary">Run all-children audit</button><button type="button" id="exportAllAudit">Export audit CSV</button><button type="button" id="previewThreeDuplicates" onclick="document.getElementById('threeDuplicatesPreview').textContent='Checking the three duplicate groups…';">Review matching duplicates for removal</button></div><p id="allAuditSummary"></p><div id="threeDuplicatesPreview"></div><div id="allAuditTable" style="overflow-x:auto"></div><h3>Identical entries requiring review</h3><div id="allAuditFlags" style="overflow-x:auto"></div></section>
+ <section class="panel tabpage hidden" id="page-allaudit"><h2>All-Children Ledger Audit</h2><p class="muted">Read-only review of saved Supabase transactions for every child, including families with balances owed and credits. Potential duplicates are flags for investigation, not proof of errors. No records are changed.</p><div class="row"><button type="button" id="runAllAudit" class="primary">Run all-children audit</button><button type="button" id="exportAllAudit">Export audit CSV</button><button type="button" id="previewThreeDuplicates" onclick="document.getElementById('threeDuplicatesPreview').textContent='Checking the three duplicate groups…';">Review Josephine payment duplicates</button></div><p id="allAuditSummary"></p><div id="threeDuplicatesPreview"></div><div id="allAuditTable" style="overflow-x:auto"></div><h3>Identical entries requiring review</h3><div id="allAuditFlags" style="overflow-x:auto"></div></section>
 <section class="panel tabpage hidden" id="page-deleted">
   <h2>Deleted Transactions</h2>
   <p class="muted">Deleted entries are kept here for your records and do not count toward current balances.</p>
@@ -2479,7 +2479,7 @@ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.d
 (function(){
 const b=document.getElementById('previewThreeDuplicates'),out=document.getElementById('threeDuplicatesPreview');
 if(!b||!out)return;
-const targets=[['Josephine Stark','2026-08-31','Payment',144],['Josephine Stark','2026-08-31','Payment',513],['Yazarri Bellanger','2026-10-09','Charge',245]];
+const targets=[['Josephine Stark','2026-08-31','Payment',144],['Josephine Stark','2026-08-31','Payment',513]];
 let selected=null;
 function matches(){
 if(!user||!sb)throw Error('Sign in first.');
@@ -2495,7 +2495,7 @@ b.addEventListener('click',()=>{
 try{
 selected=matches();
 const count=selected.reduce((n,x)=>n+x.remove.length,0);
-out.innerHTML='<p><b>Review '+count+' proposed duplicate removals.</b> One original entry per matching child, date, type and amount will remain. The others will be saved in Deleted Transactions history before removal.</p><table><thead><tr><th>Child</th><th>Date</th><th>Type</th><th>Amount</th><th>Found</th><th>Keep</th><th>Remove</th></tr></thead><tbody>'+selected.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+esc(displayDate(x.date))+'</td><td>'+esc(x.type)+'</td><td>'+money(x.amount)+'</td><td>'+x.allIds.length+'</td><td>1</td><td>'+x.remove.length+'</td></tr>').join('')+'</tbody></table><button type="button" class="primary" id="applyThreeDuplicates">Approve removal of '+count+' duplicates</button><p id="threeDuplicateStatus" aria-live="polite"></p>';
+out.innerHTML='<p><b>Yazarri Bellanger\'s six $245 charges are excluded from deletion because their service weeks need verification. Do not delete them.</b></p><p><b>Review '+count+' proposed duplicate removals.</b> One original entry per matching child, date, type and amount will remain. The others will be saved in Deleted Transactions history before removal.</p><table><thead><tr><th>Child</th><th>Date</th><th>Type</th><th>Amount</th><th>Found</th><th>Keep</th><th>Remove</th></tr></thead><tbody>'+selected.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+esc(displayDate(x.date))+'</td><td>'+esc(x.type)+'</td><td>'+money(x.amount)+'</td><td>'+x.allIds.length+'</td><td>1</td><td>'+x.remove.length+'</td></tr>').join('')+'</tbody></table><button type="button" class="primary" id="applyThreeDuplicates">Approve removal of '+count+' duplicates</button><p id="threeDuplicateStatus" aria-live="polite"></p>';
 document.getElementById('applyThreeDuplicates').addEventListener('click',apply);
 }catch(e){selected=null;out.textContent='Cannot prepare: '+e.message;}
 });
