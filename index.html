@@ -203,7 +203,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <nav class="noprint">
 <button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="transfers">Transfers</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
  
-<button class="tab" data-tab="deleted">Deleted Transactions</button><button class="tab" data-tab="berryaudit">Berry Corrections</button>
+<button class="tab" data-tab="deleted">Deleted Transactions</button>
 
 </nav>
 <section class="panel tabpage" id="page-dashboard"><h2>Dashboard</h2><div class="grid dashboard-metrics"><div class="metric"><span class="muted">Active children</span><strong id="countChildren">0</strong></div><div class="metric"><span class="muted">Combined ending ledger balances</span><strong id="balance">$0.00</strong></div></div><p class="muted">All-time totals from saved transactions plus each child's saved beginning balance. Combined ending ledger balances add each child's ending balance, including negative credit balances. CCAP charges and payments are included.</p><h3>Balance breakdown by child</h3><p class="muted small">Read-only, all-time balances including each child’s beginning balance. A positive balance is not necessarily overdue. CCAP payments may be included in individual child totals. Transfer debits increase balances; credits reduce balances.</p><div class="tablewrap"><table><thead><tr><th>Child</th><th>Beginning balance</th><th>Charges</th><th>Payments</th><th>Credits / adjustments</th><th>Net balance</th></tr></thead><tbody id="childBalanceRows"></tbody></table></div></section>
@@ -336,8 +336,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
   </div>
 </section>
 
- <section class="panel tabpage hidden" id="page-berryaudit"><h2>Berry Family Payment Corrections</h2><p class="muted">Review the actual saved Everett and Piper payments before making changes. This screen never changes records automatically.</p><button type="button" id="berryReview">Review saved payments</button> <button type="button" id="berryBatchPreview">Preview batch corrections</button><div id="berryBatchOutput"></div><div id="berryAuditOutput" style="margin-top:12px"></div></section>
-<section class="panel tabpage hidden" id="page-deleted">
+ <section class="panel tabpage hidden" id="page-deleted">
   <h2>Deleted Transactions</h2>
   <p class="muted">Deleted entries are kept here for your records and do not count toward current balances.</p>
   <button class="primary" id="loadDeleted">Refresh Deleted Transactions</button>
@@ -2428,101 +2427,5 @@ document.addEventListener('wheel',event=>{
  if(el && el.matches && el.matches('input[type="number"]')) el.blur();
 },{capture:true,passive:true});
 
-(function(){
-const review=document.getElementById('berryReview');
-if(!review)return;
-review.addEventListener('click',()=>{
- const out=document.getElementById('berryAuditOutput');
- if(!user||!sb){out.textContent='Please sign in and connect to Supabase first.';return;}
- const berryChildren=children.filter(c=>/^(everett|piper)\b/i.test(String(c.name||''))&&/berry/i.test(String(c.name||'')));
- if(berryChildren.length!==2){out.textContent='Expected exactly Everett Berry and Piper Berry. Found '+berryChildren.length+'. No changes made.';return;}
- const rows=txs.filter(t=>berryChildren.some(c=>String(c.id)===String(t.child_id))&&String(t.entry_type||'').toLowerCase()==='payment'&&String(t.entry_date||'').startsWith('2026-')).sort((a,b)=>String(a.entry_date).localeCompare(String(b.entry_date)));
- const proposed={'Everett':{'01':999.22,'02':940.44,'03':826.47,'04':987.47,'05':940.44,'06':1015.83,'07':980.43,'08':1005.94,'09':1008},'Piper':{'01':955.78,'02':899.56,'03':790.53,'04':944.53,'05':899.56,'06':964.17,'07':939.57,'08':968.06,'09':966}};
- const duplicates=new Set(['2026-04-10','2026-05-08','2026-09-18']);
- let html='<p><b>Review only.</b> Proposed amounts are family-check allocations. March requires special verification before any deletion. October has two valid checks.</p><div style="overflow-x:auto"><table><thead><tr><th>Child</th><th>Date</th><th>Saved amount</th><th>Method</th><th>Review note</th><th>Action</th></tr></thead><tbody>';
- for(const t of rows){
-  const c=berryChildren.find(c=>String(c.id)===String(t.child_id));const name=String(c.name).split(' ')[0];const month=String(t.entry_date).slice(5,7);let note='';
-  if(duplicates.has(String(t.entry_date)))note='Potential duplicate — verify before moving to history';
-  else if(month==='03')note='March: verify all entries against one $1,617 family check';
-  else if(month==='10')note='Keep both October checks';
-  else if(proposed[name]&&proposed[name][month]!==undefined)note='Expected allocation '+money(proposed[name][month]);
-  if(String(t.payment_method||'').toLowerCase()==='cash')note+='; change Cash to Check if retained';
-  html+='<tr><td>'+esc(c.name)+'</td><td>'+esc(displayDate(t.entry_date))+'</td><td>'+esc(money(t.amount))+'</td><td>'+esc(t.payment_method||'')+'</td><td>'+esc(note)+'</td><td><button type="button" data-berry-edit="'+esc(String(t.id))+'">Edit</button> <button type="button" data-berry-delete="'+esc(String(t.id))+'">Move to history</button></td></tr>';
- }
- html+='</tbody></table></div><p class="muted">Edit and Move to history use the ledger’s existing confirmation and saved-history safeguards. No automatic batch changes occur.</p>';
- out.innerHTML=html;
- out.querySelectorAll('[data-berry-edit]').forEach(b=>b.addEventListener('click',()=>window.editTransaction(b.dataset.berryEdit)));
- out.querySelectorAll('[data-berry-delete]').forEach(b=>b.addEventListener('click',()=>window.deleteTransaction(b.dataset.berryDelete)));
-});
-})();
-
-(function(){
-const button=document.getElementById('berryBatchPreview'),out=document.getElementById('berryBatchOutput');
-if(!button||!out)return;
-const spec=[
-['Everett','2026-01-09',987,'update',999.22],['Piper','2026-01-09',968,'update',955.78],
-['Everett','2026-02-06',920,'update',940.44],['Piper','2026-02-06',920,'update',899.56],
-['Everett','2026-03-08',1034.49,'update',826.47],['Piper','2026-03-06',877,'update',790.53],
-['Piper','2026-03-08',1012,'delete',0],['Piper','2026-03-08',989.51,'delete',0],
-['Everett','2026-04-10',920,'delete',0],['Piper','2026-04-10',1012,'delete',0],
-['Everett','2026-05-08',920,'delete',0],['Piper','2026-05-08',920,'delete',0],
-['Everett','2026-07-07',1056,'update',980.43],['Piper','2026-07-07',1012,'update',939.57],
-['Everett','2026-09-18',987,'delete',0],['Piper','2026-09-18',987,'delete',0]
-];
-let pending=null;
-const cents=v=>Math.round(Number(v)*100);
-function plan(){
-if(!user||!sb)throw Error('Please sign in to Supabase.');
-const family=children.filter(c=>/^(Everett|Piper) Berry$/i.test(String(c.name||'').trim()));
-if(family.length!==2)throw Error('Both exact Berry child records were not found; no changes made.');
-const steps=[];
-for(const [first,date,oldAmount,action,newAmount] of spec){
- const c=family.find(c=>String(c.name).toLowerCase().startsWith(first.toLowerCase()+' '));
- const found=txs.filter(t=>String(t.child_id)===String(c.id)&&String(t.entry_type).toLowerCase()==='payment'&&String(t.entry_date)===date&&cents(t.amount)===cents(oldAmount));
- if(found.length!==1)throw Error(first+' '+date+' '+money(oldAmount)+': expected exactly one matching payment, found '+found.length+'. No changes made.');
- steps.push({t:found[0],first,date,action,newAmount});
-}
-const allMarch=txs.filter(t=>family.some(c=>String(c.id)===String(t.child_id))&&String(t.entry_type).toLowerCase()==='payment'&&String(t.entry_date||'').startsWith('2026-03'));
-if(allMarch.length!==4)throw Error('March has '+allMarch.length+' payments, expected 4. Review March manually; no changes made.');
-return steps;
-}
-button.addEventListener('click',()=>{
-try{
- pending=plan();
- const totalUpdates=pending.filter(x=>x.action==='update').length,totalDeletes=pending.length-totalUpdates;
- out.innerHTML='<p><b>Ready for review:</b> '+totalUpdates+' payment updates and '+totalDeletes+' duplicate removals. March is included. Beginning balances, charges, and October checks will not change.</p><div style="overflow-x:auto"><table><thead><tr><th>Child</th><th>Date</th><th>Existing</th><th>Proposed action</th></tr></thead><tbody>'+pending.map(x=>'<tr><td>'+esc(x.first)+'</td><td>'+esc(displayDate(x.date))+'</td><td>'+esc(money(x.t.amount))+' '+esc(x.t.payment_method||'')+'</td><td>'+esc(x.action==='delete'?'Move to deleted history':'Change to '+money(x.newAmount)+' Check')+'</td></tr>').join('')+'</tbody></table></div><p><b>Warning:</b> The confirmed family checks total $20,980 for January–October. This operation cannot be undone in one click. If any entry is unexpected, stop.</p><button type="button" id="berryBatchApply" class="primary">Approve and apply these corrections</button><p id="berryBatchStatus" aria-live="polite"></p>';
- document.getElementById('berryBatchApply').addEventListener('click',apply);
-}catch(e){pending=null;out.textContent='Cannot prepare batch: '+e.message;}
-});
-async function apply(){
-const status=document.getElementById('berryBatchStatus'),applyButton=document.getElementById('berryBatchApply');
-if(!pending)return;
-if(!confirm('Apply '+pending.length+' reviewed Everett and Piper payment corrections to LIVE Supabase records? This will move duplicates to deleted history.'))return;
-applyButton.disabled=true;
-let completed=0;
-try{
-const fresh=plan();
-if(fresh.length!==pending.length||fresh.some((x,i)=>String(x.t.id)!==String(pending[i].t.id)))throw Error('Transactions changed since preview. Refresh and review again.');
-for(const step of fresh){
- const id=step.t.id;
- if(step.action==='update'){
-  const {data,error}=await sb.from('daycare_transactions').update({amount:step.newAmount,payment_method:'Check'}).eq('id',id).eq('user_id',user.id).eq('amount',step.t.amount).select('id,amount,payment_method');
-  if(error||!data||data.length!==1||cents(data[0].amount)!==cents(step.newAmount))throw Error('Could not verify update for '+step.first+' '+step.date+': '+(error?.message||'no matching row'));
- }else{
-  const history={transaction_id:String(id),user_id:user.id,transaction_data:step.t,deletion_reason:'Berry family 2026 duplicate payment reconciliation — approved batch',deleted_by:user.id};
-  const {error:historyError}=await sb.from('daycare_transaction_history').insert(history);
-  if(historyError)throw Error('History save failed: '+historyError.message);
-  const {data,error}=await sb.from('daycare_transactions').delete().eq('id',id).eq('user_id',user.id).select('id');
-  if(error||!data||data.length!==1)throw Error('Deletion not verified for '+step.first+' '+step.date+': '+(error?.message||'no matching row'));
- }
- completed++;
- status.textContent='Completed '+completed+' of '+fresh.length+' corrections…';
-}
-pending=null;
-await loadAll();
-status.textContent='All '+completed+' corrections saved and verified. Refresh the Berry review and run new ledgers.';
-}catch(e){pending=null;status.textContent='STOPPED after '+completed+' successful corrections: '+e.message+'. Do not rerun until you review the ledger.';try{await loadAll()}catch(_){}}
-}
-})();
 </script>
 </body></html>
