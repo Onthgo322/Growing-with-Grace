@@ -2441,7 +2441,7 @@ const all=children.map(c=>{
  const payments=entries.filter(t=>t.entry_type==='Payment').reduce((v,t)=>v+Number(t.amount||0),0);
  const adjustments=entries.filter(t=>t.entry_type==='Credit / Adjustment').reduce((v,t)=>v+(String(t.category||'').trim()==='Transfer Debit'?-1:1)*Number(t.amount||0),0);
  const opening=Number(c.beginning_balance||0),balance=opening+charges-payments-adjustments;
- return {name:c.name||'Unnamed',id:c.id,opening,charges,payments,adjustments,balance,entries:entries.length,berryCreditMismatch:/^(Everett|Piper) Berry$/i.test(String(c.name||'').trim())&&opening>0};
+ return {name:c.name||'Unnamed',id:c.id,opening,charges,payments,adjustments,balance,entries:entries.length};
 }).sort((a,b)=>b.balance-a.balance||a.name.localeCompare(b.name));
 const flags=[];
 for(const c of all){
@@ -2462,7 +2462,7 @@ try{
 const data=build();auditRows=data.all;flagRows=data.flags;
 const owed=auditRows.filter(x=>x.balance>0.005),credits=auditRows.filter(x=>x.balance<-.005);
 document.getElementById('allAuditSummary').textContent=auditRows.length+' children reviewed. '+owed.length+' with amounts owed ('+money(owed.reduce((v,x)=>v+x.balance,0))+'), '+credits.length+' with credits ('+money(-credits.reduce((v,x)=>v+x.balance,0))+'). '+flagRows.length+' groups with identical date, amount, service week, method, category and notes to review. These are not confirmed duplicates.';
-document.getElementById('allAuditTable').innerHTML='<p><b>Beginning balance warning:</b> Everett and Piper were reported as having beginning credits, but their saved beginning balances are positive. The audit displays the saved values, not corrected estimates. Review those records before relying on total amounts owed.</p><table><thead><tr><th>Child</th><th>Beginning</th><th>Charges</th><th>Payments</th><th>Adjustments</th><th>Ending balance</th><th>Entries</th></tr></thead><tbody>'+auditRows.map(c=>'<tr><td>'+esc(c.name)+'</td><td>'+money(c.opening)+'</td><td>'+money(c.charges)+'</td><td>'+money(c.payments)+'</td><td>'+money(c.adjustments)+'</td><td><b>'+money(c.balance)+'</b> '+(c.balance>0.005?'owed':c.balance<-.005?'credit':'paid')+(c.berryCreditMismatch?' — VERIFY OPENING CREDIT':'')+'</td><td>'+c.entries+'</td></tr>').join('')+'</tbody></table>';
+document.getElementById('allAuditTable').innerHTML='<table><thead><tr><th>Child</th><th>Beginning</th><th>Charges</th><th>Payments</th><th>Adjustments</th><th>Ending balance</th><th>Entries</th></tr></thead><tbody>'+auditRows.map(c=>'<tr><td>'+esc(c.name)+'</td><td>'+money(c.opening)+'</td><td>'+money(c.charges)+'</td><td>'+money(c.payments)+'</td><td>'+money(c.adjustments)+'</td><td><b>'+money(c.balance)+'</b> '+(c.balance>0.005?'owed':c.balance<-.005?'credit':'paid')+'</td><td>'+c.entries+'</td></tr>').join('')+'</tbody></table>';
 document.getElementById('allAuditFlags').innerHTML=flagRows.length?'<table><thead><tr><th>Child</th><th>Type</th><th>Date</th><th>Amount</th><th>Count</th></tr></thead><tbody>'+flagRows.map(f=>'<tr><td>'+esc(f.name)+'</td><td>'+esc(f.type)+'</td><td>'+esc(displayDate(f.date))+'</td><td>'+money(f.amount)+'</td><td>'+f.count+'</td></tr>').join('')+'</tbody></table>':'<p>No identical entries found under the detailed matching criteria. Other errors may still exist.</p>';
 }catch(e){document.getElementById('allAuditSummary').textContent='Audit could not run: '+e.message;}
 });
