@@ -336,7 +336,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
   </div>
 </section>
 
- <section class="panel tabpage hidden" id="page-allaudit"><h2>All-Children Ledger Audit</h2><p class="muted">Read-only review of saved Supabase transactions for every child, including families with balances owed and credits. Potential duplicates are flags for investigation, not proof of errors. No records are changed.</p><div class="row"><button type="button" id="runAllAudit" class="primary">Run all-children audit</button><button type="button" id="exportAllAudit">Export audit CSV</button></div><p id="allAuditSummary"></p><div id="allAuditTable" style="overflow-x:auto"></div><h3>Identical entries requiring review</h3><div id="allAuditFlags" style="overflow-x:auto"></div></section>
+ <section class="panel tabpage hidden" id="page-allaudit"><h2>All-Children Ledger Audit</h2><p class="muted">Read-only review of saved Supabase transactions for every child, including families with balances owed and credits. Potential duplicates are flags for investigation, not proof of errors. No records are changed.</p><div class="row"><button type="button" id="runAllAudit" class="primary">Run all-children audit</button><button type="button" id="exportAllAudit">Export audit CSV</button><button type="button" id="previewThreeDuplicates">Review 3 duplicates for removal</button></div><p id="allAuditSummary"></p><div id="threeDuplicatesPreview"></div><div id="allAuditTable" style="overflow-x:auto"></div><h3>Identical entries requiring review</h3><div id="allAuditFlags" style="overflow-x:auto"></div></section>
 <section class="panel tabpage hidden" id="page-deleted">
   <h2>Deleted Transactions</h2>
   <p class="muted">Deleted entries are kept here for your records and do not count toward current balances.</p>
@@ -2474,6 +2474,51 @@ lines.push([],['Possible duplicate entries'],['Child','Type','Date','Amount','Co
 const blob=new Blob([lines.map(x=>x.map(csv).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
 const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='GWG-all-children-ledger-audit.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
+})();
+
+(function(){
+const b=document.getElementById('previewThreeDuplicates'),out=document.getElementById('threeDuplicatesPreview');
+if(!b||!out)return;
+const targets=[['Josephine Stark','2026-08-31','Payment',144],['Josephine Stark','2026-08-31','Payment',513],['Yazarri Bellanger','2026-10-09','Charge',245]];
+let selected=null;
+function matches(){
+if(!user||!sb)throw Error('Sign in first.');
+const groups=[];
+for(const [name,date,type,amount] of targets){
+const c=children.find(x=>String(x.name||'').trim().toLowerCase()===name.toLowerCase());
+if(!c)throw Error(name+' not found.');
+const found=txs.filter(t=>String(t.child_id)===String(c.id)&&String(t.entry_type||'').toLowerCase()===type.toLowerCase()&&String(t.entry_date||'')===date&&Math.round(Number(t.amount||0)*100)===Math.round(amount*100)).sort((x,y)=>String(x.id).localeCompare(String(y.id)));
+if(found.length!==2)throw Error(name+' '+date+' '+money(amount)+' has '+found.length+' matches, expected exactly 2. No changes made.');
+groups.push({name,date,type,amount,keep:found[0],remove:found[1]});
+}
+return groups;
+}
+b.addEventListener('click',()=>{
+try{
+selected=matches();
+out.innerHTML='<p><b>Review these three removals.</b> One matching entry for each child/date/amount will remain. The others will be copied to Deleted Transactions history before removal.</p><table><thead><tr><th>Child</th><th>Date</th><th>Type</th><th>Amount</th><th>Action</th></tr></thead><tbody>'+selected.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+esc(displayDate(x.date))+'</td><td>'+esc(x.type)+'</td><td>'+money(x.amount)+'</td><td>Keep one; move one to history</td></tr>').join('')+'</tbody></table><button type="button" class="primary" id="applyThreeDuplicates">Approve removal of these 3 duplicates</button><p id="threeDuplicateStatus" aria-live="polite"></p>';
+document.getElementById('applyThreeDuplicates').addEventListener('click',apply);
+}catch(e){selected=null;out.textContent='Cannot prepare: '+e.message;}
+});
+async function apply(){
+if(!selected)return;
+if(!confirm('Remove exactly 3 duplicate transactions from LIVE ledger, retaining one of each and saving removed records to Deleted Transactions history?'))return;
+const btn=document.getElementById('applyThreeDuplicates'),status=document.getElementById('threeDuplicateStatus');btn.disabled=true;
+let done=0;
+try{
+const current=matches();
+if(current.some((x,i)=>String(x.remove.id)!==String(selected[i].remove.id)))throw Error('Records changed. Review again.');
+for(const x of current){
+const history={transaction_id:String(x.remove.id),user_id:user.id,transaction_data:x.remove,deletion_reason:'Confirmed duplicate: same child, date, transaction type and amount',deleted_by:user.id};
+const {error:he}=await sb.from('daycare_transaction_history').insert(history);
+if(he)throw Error('History save failed for '+x.name+': '+he.message);
+const {data,error}=await sb.from('daycare_transactions').delete().eq('id',x.remove.id).eq('user_id',user.id).select('id');
+if(error||!data||data.length!==1)throw Error('Deletion not verified for '+x.name+': '+(error?.message||'no row removed'));
+done++;status.textContent=done+' of 3 removed and saved in history.';
+}
+selected=null;await loadAll();status.textContent='All 3 duplicate removals saved and verified. Rerun All-Children Audit.';
+}catch(e){selected=null;status.textContent='Stopped after '+done+' successful removals: '+e.message+'. Review records before retrying.';try{await loadAll()}catch(_){}}
+}
 })();
 </script>
 </body></html>
