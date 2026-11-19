@@ -267,6 +267,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <h3>Billing Error Checker</h3><p class="muted small">Read-only review of saved charges and payments dated October 1, 2026 onward. Possible issues require your review; no records are changed.</p><button type="button" id="checkBilling">Check saved billing</button><p id="billingCheckStatus" class="muted small" aria-live="polite"></p><div id="billingCheckResults" class="tablewrap"></div></div>
 <div style="min-width:0"><h3>Review missing weekly charges</h3><p class="muted small">Preview only, starting with the week of October 5, 2026. Existing transactions are not changed. Verify each child's enrollment and attendance before approving any charges.</p><button type="button" id="previewMissingWeekly">Preview missing weekly charges</button><p id="missingWeeklyStatus" aria-live="polite"></p><div id="missingWeeklyResults" class="tablewrap"></div><button type="button" id="saveMissingWeekly" class="hidden">Save reviewed missing weekly charges</button></div>
 </div>
+<details id="monthlyChargeAudit" style="margin:14px 0;padding:12px;border:1px solid #d9cbe7;border-radius:9px"><summary style="cursor:pointer;font-weight:700">Monthly Charge Checker — Non-CCAP Children</summary><p class="muted small">Select a month to review saved regular daycare charges for each non-CCAP child. Weeks are grouped by their Monday start date. Read-only: nothing is added or changed.</p><div class="field" style="max-width:260px"><label for="monthlyAuditMonth">Month to check</label><input id="monthlyAuditMonth" type="month"></div><button type="button" id="runMonthlyAudit">Check monthly charges</button><p id="monthlyAuditStatus" aria-live="polite"></p><div id="monthlyAuditResults" class="tablewrap"></div></details>
 <h3>Recent entries</h3><div class="field" style="max-width:420px"><label for="txRecentChild">Choose a child to view recent entries</label><select id="txRecentChild"><option value="">— Select a child —</option></select></div><div class="row"><button type="button" id="exportChildTransactions">Export selected child transactions (CSV)</button></div><p class="muted small">Exports the selected child’s existing transactions for review only. It does not change saved records.</p><p id="txRecentStatus" class="muted small" aria-live="polite"></p><div class="row"><button type="button" id="reviewDuplicateCcap">Review duplicate charges &amp; payments</button></div><p id="duplicateCcapStatus" class="muted small" aria-live="polite"></p><div class="tablewrap"><table id="duplicateCcapTable" class="hidden"><thead><tr><th>Date</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Payment method</th><th>Record ID</th><th>Action</th></tr></thead><tbody id="duplicateCcapRows"></tbody></table></div><div class="tablewrap"><table><thead><tr><th>Date / week</th><th>Child</th><th>Type</th><th>Category</th><th>Amount</th><th>Method / notes</th></tr></thead><tbody id="txRows"></tbody></table></div></section>
 
 
@@ -1895,7 +1896,30 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
   }
 
   let reviewedWeeklyRows=[];
-  $('previewMissingWeekly').onclick=()=>{
+  
+$('runMonthlyAudit').onclick=()=>{
+ const month=$('monthlyAuditMonth').value,status=$('monthlyAuditStatus'),output=$('monthlyAuditResults');
+ if(!/^\d{4}-\d{2}$/.test(month)){status.textContent='Select a month first.';return;}
+ const [year,mon]=month.split('-').map(Number);
+ const first=new Date(year,mon-1,1,12),last=new Date(year,mon,0,12);
+ const todayDate=new Date();todayDate.setHours(12,0,0,0);
+ const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+ const mondays=[];
+ for(let d=new Date(first);d<=last;d.setDate(d.getDate()+1)){if(d.getDay()===1&&d<=todayDate)mondays.push(iso(d));}
+ if(!mondays.length){status.textContent='No daycare weeks have started in this month yet.';output.innerHTML='';return;}
+ const rows=children.filter(c=>c.receives_ccap!==true&&c.child_status!=='Archived').map(c=>{
+  const weeks=mondays.filter(w=>!c.last_day_of_care||c.last_day_of_care>=w);
+  const found=weeks.filter(w=>txs.some(t=>String(t.child_id)===String(c.id)&&t.entry_type==='Charge'&&String(t.category||'').trim().toLowerCase()==='regular daycare'&&String(t.week_start||'')===w));
+  const missing=weeks.filter(w=>!found.includes(w));
+  const total=txs.filter(t=>String(t.child_id)===String(c.id)&&t.entry_type==='Charge'&&String(t.category||'').trim().toLowerCase()==='regular daycare'&&weeks.includes(String(t.week_start||''))).reduce((sum,t)=>sum+Number(t.amount||0),0);
+  return {name:c.name,expected:weeks.length,found:found.length,missing,total};
+ }).filter(x=>x.expected>0);
+ rows.sort((a,b)=>b.missing.length-a.missing.length||a.name.localeCompare(b.name));
+ const issues=rows.filter(x=>x.missing.length).length;
+ status.textContent=rows.length+' non-CCAP children checked; '+issues+' with possible missing weekly charges. Verify enrollment, holidays and attendance before making corrections. No transactions changed.';
+ output.innerHTML=rows.length?'<table><thead><tr><th>Child</th><th>Weeks expected</th><th>Weeks recorded</th><th>Saved charges</th><th>Review</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+x.expected+'</td><td>'+x.found+'</td><td>'+money(x.total)+'</td><td>'+(x.missing.length?'Check: '+x.missing.map(esc).join(', '):'✓ All weeks recorded')+'</td></tr>').join('')+'</tbody></table>':'<p>No eligible non-CCAP children to check for this month.</p>';
+};
+$('previewMissingWeekly').onclick=()=>{
     const output=$('missingWeeklyResults'),status=$('missingWeeklyStatus');
     const asISO=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     const addDays=(d,n)=>{const x=new Date(d.getFullYear(),d.getMonth(),d.getDate(),12);x.setDate(x.getDate()+n);return x;};
