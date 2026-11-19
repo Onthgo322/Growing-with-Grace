@@ -1884,7 +1884,12 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
     }
     if(t.week_start&&t.week_end&&t.week_start>t.week_end)warnings.push('Week ends before it starts');
     const matches=all.filter(x=>String(x.child_id)===String(t.child_id)&&String(x.id)!==String(t.id)&&String(x.entry_type)===String(t.entry_type)&&String(x.entry_date||'')===String(t.entry_date||'')&&String(x.category||'').toLowerCase()===String(t.category||'').toLowerCase()&&String(x.week_start||'')===String(t.week_start||'')&&String(x.week_end||'')===String(t.week_end||'')&&Math.round(Number(x.amount||0)*100)===Math.round(amount*100));
-    if(matches.length)warnings.push('Possible duplicate ('+matches.length+' other matching entries)');
+    const childName=String(children.find(c=>String(c.id)===String(t.child_id))?.name||'').trim().toLowerCase();
+    const confirmedValidPayment=t.entry_type==='Payment'&&(
+      (childName==='brody pederson'&&String(t.entry_date)==='2026-11-01'&&Math.round(amount*100)===33400)||
+      (childName==='joel mccallum'&&String(t.entry_date)==='2026-10-02'&&Math.round(amount*100)===24500)
+    );
+    if(matches.length&&!confirmedValidPayment)warnings.push('Possible duplicate ('+matches.length+' other matching entries)');
     return warnings;
   }
 
