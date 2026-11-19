@@ -1889,9 +1889,10 @@ window.deleteTransaction=async id=>{const t=txs.find(x=>String(x.id)===String(id
       fridayBefore.setDate(fridayBefore.getDate()-3);
       const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
       const scheduledFriday=monday.getDay()===1&&t.entry_date===iso(fridayBefore);
-      if(!scheduledFriday&&(t.entry_date<t.week_start||t.entry_date>t.week_end))warnings.push('Entry date is outside the week of care');
+      const weekEndingEntry=t.entry_date===t.week_end;
+      if(!scheduledFriday&&!weekEndingEntry)warnings.push('Entry date differs from the service-week Friday or prior Friday; verify billing date');
     }
-    const matches=all.filter(x=>String(x.child_id)===String(t.child_id)&&String(x.id)!==String(t.id)&&String(x.entry_type)===String(t.entry_type)&&String(x.category||'').toLowerCase()===String(t.category||'').toLowerCase()&&String(x.week_start||'')===String(t.week_start||'')&&String(x.week_end||'')===String(t.week_end||'')&&Math.round(Number(x.amount||0)*100)===Math.round(amount*100));
+    const matches=all.filter(x=>String(x.child_id)===String(t.child_id)&&String(x.id)!==String(t.id)&&String(x.entry_type)===String(t.entry_type)&&String(x.entry_date||'')===String(t.entry_date||'')&&String(x.category||'').toLowerCase()===String(t.category||'').toLowerCase()&&String(x.week_start||'')===String(t.week_start||'')&&String(x.week_end||'')===String(t.week_end||'')&&Math.round(Number(x.amount||0)*100)===Math.round(amount*100));
     if(matches.length)warnings.push('Possible duplicate ('+matches.length+' other matching entries)');
     return warnings;
   }
@@ -1997,7 +1998,7 @@ $('previewMissingWeekly').onclick=()=>{
     status.style.fontWeight='700';
     status.style.padding='10px 0';
     status.style.color=findings.length?'#8a4a16':'#246b40';
-    output.innerHTML=findings.length?'<table><thead><tr><th>Child</th><th>Date</th><th>Amount</th><th>Possible issue</th></tr></thead><tbody>'+findings.slice(0,250).map(({t,issue})=>'<tr><td>'+esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Unknown child')+'</td><td>'+esc(t.entry_date||t.week_end||'')+'</td><td>'+money(t.amount)+'</td><td>'+esc(issue)+'</td></tr>').join('')+'</tbody></table>':'';
+    output.innerHTML=findings.length?'<table><thead><tr><th>Child</th><th>Entry date</th><th>Service week</th><th>Type</th><th>Amount</th><th>Possible issue</th></tr></thead><tbody>'+findings.slice(0,250).map(({t,issue})=>'<tr><td>'+esc(children.find(c=>String(c.id)===String(t.child_id))?.name||'Unknown child')+'</td><td>'+esc(t.entry_date||t.week_end||'')+'</td><td>'+esc((t.week_start||'Not set')+' to '+(t.week_end||'Not set'))+'</td><td>'+esc(t.entry_type)+'</td><td>'+money(t.amount)+'</td><td>'+esc(issue)+'</td></tr>').join('')+'</tbody></table>':'';
     if(findings.length>250)status.textContent+=' Showing first 250.';
   };
   $('saveTx').onclick=async()=>{
