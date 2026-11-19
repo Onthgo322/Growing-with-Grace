@@ -336,7 +336,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
   </div>
 </section>
 
- <section class="panel tabpage hidden" id="page-allaudit"><h2>All-Children Ledger Audit</h2><p class="muted">Read-only review of saved Supabase transactions for every child, including families with balances owed and credits. Potential duplicates are flags for investigation, not proof of errors. No records are changed.</p><div class="row"><button type="button" id="runAllAudit" class="primary">Run all-children audit</button><button type="button" id="exportAllAudit">Export audit CSV</button></div><p id="allAuditSummary"></p><div id="allAuditTable" style="overflow-x:auto"></div><h3>Possible duplicate payments and charges</h3><div id="allAuditFlags" style="overflow-x:auto"></div></section>
+ <section class="panel tabpage hidden" id="page-allaudit"><h2>All-Children Ledger Audit</h2><p class="muted">Read-only review of saved Supabase transactions for every child, including families with balances owed and credits. Potential duplicates are flags for investigation, not proof of errors. No records are changed.</p><div class="row"><button type="button" id="runAllAudit" class="primary">Run all-children audit</button><button type="button" id="exportAllAudit">Export audit CSV</button></div><p id="allAuditSummary"></p><div id="allAuditTable" style="overflow-x:auto"></div><h3>Identical entries requiring review</h3><div id="allAuditFlags" style="overflow-x:auto"></div></section>
 <section class="panel tabpage hidden" id="page-deleted">
   <h2>Deleted Transactions</h2>
   <p class="muted">Deleted entries are kept here for your records and do not count toward current balances.</p>
@@ -2449,7 +2449,7 @@ for(const c of all){
  const groups=new Map();
  for(const t of entries){
   if(t.entry_type!=='Payment'&&t.entry_type!=='Charge')continue;
-  const key=[t.entry_type,t.entry_date,Math.round(Number(t.amount||0)*100)].join('|');
+  const key=[t.entry_type,t.entry_date,Math.round(Number(t.amount||0)*100),t.week_start||'',t.week_end||'',String(t.category||'').trim().toLowerCase(),String(t.payment_method||'').trim().toLowerCase(),String(t.notes||'').trim().toLowerCase()].join('|');
   if(!groups.has(key))groups.set(key,[]);
   groups.get(key).push(t);
  }
@@ -2461,9 +2461,9 @@ run.addEventListener('click',()=>{
 try{
 const data=build();auditRows=data.all;flagRows=data.flags;
 const owed=auditRows.filter(x=>x.balance>0.005),credits=auditRows.filter(x=>x.balance<-.005);
-document.getElementById('allAuditSummary').textContent=auditRows.length+' children reviewed. '+owed.length+' with amounts owed ('+money(owed.reduce((v,x)=>v+x.balance,0))+'), '+credits.length+' with credits ('+money(-credits.reduce((v,x)=>v+x.balance,0))+'). '+flagRows.length+' possible same-day, same-amount duplicates to investigate.';
+document.getElementById('allAuditSummary').textContent=auditRows.length+' children reviewed. '+owed.length+' with amounts owed ('+money(owed.reduce((v,x)=>v+x.balance,0))+'), '+credits.length+' with credits ('+money(-credits.reduce((v,x)=>v+x.balance,0))+'). '+flagRows.length+' groups with identical date, amount, service week, method, category and notes to review. These are not confirmed duplicates.';
 document.getElementById('allAuditTable').innerHTML='<table><thead><tr><th>Child</th><th>Beginning</th><th>Charges</th><th>Payments</th><th>Adjustments</th><th>Ending balance</th><th>Entries</th></tr></thead><tbody>'+auditRows.map(c=>'<tr><td>'+esc(c.name)+'</td><td>'+money(c.opening)+'</td><td>'+money(c.charges)+'</td><td>'+money(c.payments)+'</td><td>'+money(c.adjustments)+'</td><td><b>'+money(c.balance)+'</b> '+(c.balance>0.005?'owed':c.balance<-.005?'credit':'paid')+'</td><td>'+c.entries+'</td></tr>').join('')+'</tbody></table>';
-document.getElementById('allAuditFlags').innerHTML=flagRows.length?'<table><thead><tr><th>Child</th><th>Type</th><th>Date</th><th>Amount</th><th>Count</th></tr></thead><tbody>'+flagRows.map(f=>'<tr><td>'+esc(f.name)+'</td><td>'+esc(f.type)+'</td><td>'+esc(displayDate(f.date))+'</td><td>'+money(f.amount)+'</td><td>'+f.count+'</td></tr>').join('')+'</tbody></table>':'<p>No exact same-day, same-amount payment or charge matches detected. Other errors may still exist.</p>';
+document.getElementById('allAuditFlags').innerHTML=flagRows.length?'<table><thead><tr><th>Child</th><th>Type</th><th>Date</th><th>Amount</th><th>Count</th></tr></thead><tbody>'+flagRows.map(f=>'<tr><td>'+esc(f.name)+'</td><td>'+esc(f.type)+'</td><td>'+esc(displayDate(f.date))+'</td><td>'+money(f.amount)+'</td><td>'+f.count+'</td></tr>').join('')+'</tbody></table>':'<p>No identical entries found under the detailed matching criteria. Other errors may still exist.</p>';
 }catch(e){document.getElementById('allAuditSummary').textContent='Audit could not run: '+e.message;}
 });
 exportButton.addEventListener('click',()=>{
