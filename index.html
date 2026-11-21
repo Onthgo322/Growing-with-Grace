@@ -224,7 +224,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <h3>Employee list and reminders</h3><p id="empReminderSummary" style="font-weight:700;padding:16px;background:#fff;border:2px solid #222;color:#25212a;border-radius:10px;text-align:center">Loading CPR reminders…</p><p class="muted">Click Edit on an employee row to change their information. The selected row is highlighted while editing.</p><div class="tablewrap"><table><thead><tr><th>Name</th><th>Hire date</th><th>CPR expiration</th><th>Next hire anniversary (not training deadline)</th><th>Required new-hire courses</th><th>Training setup</th><th>Action</th></tr></thead><tbody id="empRows"><tr><td colspan="7">No employee records loaded.</td></tr></tbody></table></div>
 <p class="muted small">CPR reminders appear within two calendar months of expiration. The date above is the next hire anniversary, not an annual education compliance deadline. Training deadlines depend on role and applicable North Dakota rules; verify before relying on them for compliance.</p>
 <div style="border-top:1px solid #ddd5e6;margin-top:18px;padding-top:16px" id="trainingManager">
-<h3>Employee training and annual hours</h3>
+<h3>Employee training and annual hours</h3><div style="background:#fff;border:2px solid #29252c;border-radius:10px;padding:14px;margin:14px 0"><h3 style="text-align:center;margin:0 0 8px">Employee Training Overview</h3><p class="muted" style="text-align:center">Calendar-year totals for all employees. Targets are estimates until confirmed with your licensor.</p><p id="trainOverviewStatus" class="status" aria-live="polite">Loading training overview…</p><div class="tablewrap"><table><thead><tr><th>Employee</th><th>Completed</th><th>Required</th><th>Remaining</th><th>Status</th></tr></thead><tbody id="trainOverviewRows"><tr><td colspan="5">Loading…</td></tr></tbody></table></div></div>
 <p class="muted">Select an employee to manage their classification and individual course history. Annual totals use the completion calendar year. Confirm required hours and course eligibility with your licensor.</p>
 <div class="grid">
 <div class="field"><label for="trainEmployee">Employee</label><select id="trainEmployee"><option value="">Select employee</option></select></div>
@@ -2674,6 +2674,15 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    const h=Number(e.weekly_hours);
    return h>=30?8:h>=20?6:h>=10?4:2;
  }
+ async function loadOverview(){
+   if(!sb||!user)return;
+   const year=String(E('trainYear').value);
+   const {data,error}=await sb.from('daycare_employee_training_history').select('employee_id,completed_on,clock_hours,counts_toward_annual').eq('user_id',user.id).gte('completed_on',year+'-01-01').lte('completed_on',year+'-12-31');
+   if(error){E('trainOverviewStatus').textContent='Could not load overview: '+error.message;return;}
+   const sums=new Map();for(const t of data||[]){if(t.counts_toward_annual)sums.set(String(t.employee_id),(sums.get(String(t.employee_id))||0)+Number(t.clock_hours||0));}
+   E('trainOverviewRows').innerHTML=staff.map(e=>{const completed=sums.get(String(e.id))||0,required=requirement(e),remaining=required===null?null:Math.max(0,required-completed);const status=required===null?'Set required hours':remaining>0?'Hours remaining':'Target met';const bg=required===null?'#e7ddf5':remaining>0?'#fff0c5':'#e5f4e8';const fg=required===null?'#624184':remaining>0?'#805700':'#225a32';return `<tr><td>${safe(e.name)}</td><td>${completed.toFixed(2)}</td><td>${required===null?'Not set':required.toFixed(2)}</td><td>${remaining===null?'—':remaining.toFixed(2)}</td><td><span style="display:inline-block;padding:5px 9px;border-radius:7px;background:${bg};color:${fg};font-weight:700">${status}</span></td></tr>`;}).join('')||'<tr><td colspan="5">No employees added yet.</td></tr>';
+   E('trainOverviewStatus').textContent=staff.length+' employee(s) shown for '+year+'. Hours remaining does not necessarily mean overdue.';
+ }
  function show(){
    const e=staff.find(x=>String(x.id)===selected), year=String(E('trainYear').value);
    if(!e){E('trainReminderSummary').textContent='Select an employee to view training reminders.';E('trainHistory').innerHTML='<tr><td colspan="6">Select an employee.</td></tr>';['trainCompleted','trainRequired','trainRemaining'].forEach(id=>E(id).textContent='—');return;}
@@ -2705,6 +2714,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    const {data,error}=await sb.from('daycare_employees').select('*').order('name');
    if(error){E('trainStatus').textContent='Could not load employees: '+error.message;return;}
    staff=data||[];
+   await loadOverview();
    const chosen=selected;
    E('trainEmployee').innerHTML='<option value="">Select employee</option>'+staff.map(e=>`<option value="${safe(e.id)}">${safe(e.name)}</option>`).join('');
    if(staff.some(e=>String(e.id)===chosen)){E('trainEmployee').value=chosen;await loadHistory();}
@@ -2720,7 +2730,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    history=data||[];E('trainStatus').textContent=history.length+' training record(s) loaded.';show();
  }
  E('trainEmployee').addEventListener('change',loadHistory);
- E('trainYear').addEventListener('change',show);
+ E('trainYear').addEventListener('change',()=>{show();loadOverview();});
  E('trainRefresh').addEventListener('click',loadStaff);
  document.addEventListener('gwg:employees-changed',loadStaff);
  // Load independently of the tab-click event so newly added staff appear immediately.
@@ -2748,7 +2758,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
     if(error)throw error;
     if(!data?.length)throw new Error('No record was changed. Please refresh and try again.');
     resetEdit();
-    await loadHistory();E('trainStatus').textContent=wasEditing?'Training record updated.':'Training record saved.';
+    await loadHistory();await loadOverview();E('trainStatus').textContent=wasEditing?'Training record updated.':'Training record saved.';
    }catch(err){E('trainStatus').textContent='Could not save training: '+err.message;}finally{btn.disabled=false;}
  });
  E('trainHistory').addEventListener('click',async event=>{
@@ -2764,7 +2774,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    btn.disabled=true;
    const {error}=await sb.from('daycare_employee_training_history').delete().eq('id',id).eq('employee_id',selected).eq('user_id',user.id);
    if(error){E('trainStatus').textContent='Could not delete: '+error.message;btn.disabled=false;return;}
-   if(editingId===id)resetEdit();await loadHistory();E('trainStatus').textContent='Training record deleted.';
+   if(editingId===id)resetEdit();await loadHistory();await loadOverview();E('trainStatus').textContent='Training record deleted.';
  });
  document.querySelector('#mainNavigation [data-tab="employees"]').addEventListener('click',()=>setTimeout(loadStaff,0));
 })();
