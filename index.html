@@ -1646,25 +1646,27 @@ updateChildRatePreview();
 window.editChild=async id=>{const c=children.find(x=>x.id===id);if(!c)return;const name=prompt('Child name:',c.name);if(name===null)return;if(!name.trim())return alert('Name cannot be blank.');const categoryOptions=['Infant','2-Year','3-Year','4-Year','5–12 Years','Before/After School Care'];const currentCategoryIndex=Math.max(0,categoryOptions.findIndex(option=>option===String(c.rate_category||'').trim().replace(/5\s*[-–—]\s*12\s*Years/i,'5–12 Years')));const categoryChoice=prompt('Choose the child’s rate category by number:\n1. Infant\n2. 2-Year\n3. 3-Year\n4. 4-Year\n5. 5–12 Years\n6. Before/After School Care',String(currentCategoryIndex+1));if(categoryChoice===null)return;const categoryNumber=Number(categoryChoice.trim());if(!Number.isInteger(categoryNumber)||categoryNumber<1||categoryNumber>categoryOptions.length)return alert('Please enter a number from 1 to 6. No changes were saved.');const category=categoryOptions[categoryNumber-1];const storedBirthdate=String(c.date_of_birth||'').slice(0,10);const storedMatch=storedBirthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);const displayBirthdate=storedMatch?storedMatch[2]+storedMatch[3]+storedMatch[1]:storedBirthdate;const birthdate=prompt('Birthdate (MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY; leave blank if unknown):',displayBirthdate);if(birthdate===null)return;const birthTextRaw=birthdate.trim();let birthText='';if(birthTextRaw){let birthMonth,birthDay,birthYear;let compactMatch=birthTextRaw.match(/^(\d{2})(\d{2})(\d{4})$/);let separatedMatch=birthTextRaw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);if(compactMatch){birthMonth=Number(compactMatch[1]);birthDay=Number(compactMatch[2]);birthYear=Number(compactMatch[3]);}else if(separatedMatch){birthMonth=Number(separatedMatch[1]);birthDay=Number(separatedMatch[2]);birthYear=Number(separatedMatch[3]);}else return alert('Use MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY. Example: 04152022, 04-15-2022, or 04/15/2022.');const birthCheck=new Date(birthYear,birthMonth-1,birthDay);if(birthCheck.getFullYear()!==birthYear||birthCheck.getMonth()!==birthMonth-1||birthCheck.getDate()!==birthDay)return alert('Enter a real calendar date as MMDDYYYY, MM-DD-YYYY, or MM/DD/YYYY.');birthText=birthYear+'-'+String(birthMonth).padStart(2,'0')+'-'+String(birthDay).padStart(2,'0');}const beginning=prompt('Beginning balance (positive = owed, negative = credit)::',Number(c.beginning_balance||0).toFixed(2));if(beginning===null)return;const beginningBalance=Number(beginning);if(beginning.trim()===''||!Number.isFinite(beginningBalance))return alert('Enter a valid beginning balance.');const rateType=prompt('Rate type: enter percentage or fixed',c.rate_type||'percentage');if(rateType===null)return;const rt=rateType.trim().toLowerCase();if(!['percentage','fixed'].includes(rt))return alert('Enter percentage or fixed.');let pct=0,fixedRate=null;if(rt==='percentage'){const discount=prompt('Employee discount percentage (0–100):',Number(c.employee_discount_percent||0));if(discount===null)return;pct=Number(discount);if(!Number.isFinite(pct)||pct<0||pct>100)return alert('Discount must be between 0 and 100.');}else{const fixed=prompt('Fixed weekly rate ($):',c.fixed_weekly_rate==null?'':Number(c.fixed_weekly_rate).toFixed(2));if(fixed===null)return;fixedRate=Number(fixed);if(fixed.trim()===''||!Number.isFinite(fixedRate)||fixedRate<0)return alert('Enter a valid fixed weekly rate.');}const {error}=await sb.from('daycare_children').update({name:name.trim(),rate_category:category,date_of_birth:birthText||null,beginning_balance:beginningBalance,rate_type:rt,fixed_weekly_rate:fixedRate,employee_discount:rt==='percentage'&&pct>0,employee_discount_percent:pct}).eq('id',id).eq('user_id',user.id);if(error)return alert(error.message);await loadAll();alert('Child updated. Existing charges were not changed.')};
 
  window.editChildParents=async id=>{
-  const c=children.find(x=>String(x.id)===String(id));
-  if(!c)return;
-  const parent1=prompt('First parent / guardian name (first name is enough):',String(c.parent1_name||''));
-  if(parent1===null)return;
-  const parent2=prompt('Second parent / guardian name (optional):',String(c.parent2_name||''));
-  if(parent2===null)return;
-  const {error}=await sb.from('daycare_children').update({
-    parent1_name:parent1.trim()||null,
-    parent2_name:parent2.trim()||null
-  }).eq('id',id).eq('user_id',user.id);
-  if(error){
-    const msg=String(error.message||'');
-    if(/parent1_name|parent2_name|column/i.test(msg)){
-      return alert('The Parents button is ready, but Supabase needs two columns added first. In Supabase → SQL Editor, run:\n\nALTER TABLE public.daycare_children ADD COLUMN IF NOT EXISTS parent1_name text;\nALTER TABLE public.daycare_children ADD COLUMN IF NOT EXISTS parent2_name text;\n\nThen refresh the app and try Parents again. No child or transaction records were changed.');
-    }
-    return alert('Could not save parent names: '+msg);
-  }
-  await loadAll();
-  alert('Parent names saved for '+c.name+'.');
+ const c=children.find(x=>String(x.id)===String(id));if(!c)return;
+ const fields=[
+  ['parent1_name','First parent / guardian name'],
+  ['parent1_email','First parent email address'],
+  ['parent1_phone','First parent phone number'],
+  ['parent2_name','Second parent / guardian name (optional)'],
+  ['parent2_email','Second parent email address (optional)'],
+  ['parent2_phone','Second parent phone number (optional)']
+ ];
+ const values={};
+ for(const [key,label] of fields){
+  const answer=prompt(label+':',String(c[key]||''));
+  if(answer===null)return;
+  values[key]=answer.trim()||null;
+ }
+ for(const key of ['parent1_email','parent2_email']){
+  if(values[key]&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(values[key]))return alert('Please enter a valid email address for '+(key==='parent1_email'?'the first':'the second')+' parent. Nothing was saved.');
+ }
+ const {error}=await sb.from('daycare_children').update(values).eq('id',id).eq('user_id',user.id);
+ if(error)return alert('Could not save parent information: '+error.message);
+ await loadAll();alert('Parent contact information saved for '+c.name+'.');
 };
 window.changeChildStatus=async id=>{
  const c=children.find(x=>String(x.id)===String(id));if(!c)return;
