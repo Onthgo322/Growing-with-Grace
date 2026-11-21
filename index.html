@@ -2841,7 +2841,7 @@ async function choose(id){
   const d=document.createElement('div');d.style.cssText='padding:10px;background:'+(m.sender_id===user.id?'#e6f2e8':'#f1eaf6')+';border-radius:8px;margin:8px 0;overflow-wrap:anywhere';
   const meta=document.createElement('small');meta.textContent=(m.sender_id===user.id?'You':'Family')+' · '+new Date(m.created_at).toLocaleString();
   const body=document.createElement('div');body.textContent=m.body;
-  const action=document.createElement('button');action.type='button';action.style.cssText='display:block;margin-top:10px;padding:10px 16px;background:#fff;color:#342641;border:2px solid #6f4a8e;border-radius:8px;font-size:1rem;font-weight:700;box-shadow:0 2px 4px #0002';
+  const action=document.createElement('button');action.type='button';action.style.cssText='display:inline-block;margin-top:5px;padding:4px 8px;background:#fff;color:#342641;border:1px solid #6f4a8e;border-radius:5px;font-size:.78rem;font-weight:600;box-shadow:none';
   const archived=archivedIds.has(m.id);action.textContent=archived?'Restore message':'Archive message';
   action.onclick=async()=>{
    action.disabled=true;
