@@ -221,8 +221,8 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="field"><label for="empCprExpiry">CPR expiration date</label><input id="empCprExpiry" type="date"></div>
 </div><button class="primary" type="button" id="empSave">Add employee</button> <button type="button" id="empRefresh">Refresh employees</button>
 <p id="empStatus" class="status" role="status" aria-live="polite">To begin, create the employee tables in Supabase using the accompanying SQL file.</p>
-<h3>Employee list and reminders</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Hire date</th><th>CPR expiration</th><th>Annual education deadline</th><th>Required new-hire courses</th></tr></thead><tbody id="empRows"><tr><td colspan="5">No employee records loaded.</td></tr></tbody></table></div>
-<p class="muted small">CPR reminders appear within two calendar months of expiration. Annual education reminders and clock-hour entry will be added in the next step. Training deadlines depend on role and applicable North Dakota rules; verify before relying on them for compliance.</p>
+<h3>Employee list and reminders</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Hire date</th><th>CPR expiration</th><th>Next hire anniversary (not training deadline)</th><th>Required new-hire courses</th></tr></thead><tbody id="empRows"><tr><td colspan="5">No employee records loaded.</td></tr></tbody></table></div>
+<p class="muted small">CPR reminders appear within two calendar months of expiration. The date above is the next hire anniversary, not an annual education compliance deadline. Training deadlines depend on role and applicable North Dakota rules; verify before relying on them for compliance.</p>
 <div style="border-top:1px solid #ddd5e6;margin-top:18px;padding-top:16px" id="trainingManager">
 <h3>Employee training and annual hours</h3>
 <p class="muted">Select an employee to manage their classification and individual course history. Annual totals use the completion calendar year. Confirm required hours and course eligibility with your licensor.</p>
@@ -2574,7 +2574,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
  const fmt=v=>v?new Date(v+'T12:00:00').toLocaleDateString('en-US'):'—';
  const plusMonths=(iso,n)=>{const d=new Date(iso+'T12:00:00');const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
  const localToday=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
- const anniversary=hire=>{const y=new Date().getFullYear();const md=hire.slice(5);let candidate=`${y}-${md}`;if(candidate<localToday())candidate=`${y+1}-${md}`;return candidate;};
+ const anniversary=hire=>{const y=new Date().getFullYear();const md=hire.slice(5);let candidate=`${Math.max(y,Number(hire.slice(0,4))+1)}-${md}`;if(candidate<localToday())candidate=`${Number(candidate.slice(0,4))+1}-${md}`;return candidate;};
  async function load(){
   if(!sb||!user){el('empStatus').textContent='Please sign in first.';return;}
   const {data,error}=await sb.from('daycare_employees').select('*').order('name');
@@ -2601,10 +2601,10 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    const {error}=await sb.from('daycare_employees').insert({user_id:user.id,name,hire_date:hire,cpr_issued_on:issue||null,cpr_expires_on:expires||null});
    if(error)throw error;
    el('empName').value='';el('empHire').value='';el('empCprIssue').value='';el('empCprExpiry').value='';
-   await load();el('empStatus').textContent='Employee saved. New-hire checklist created automatically.';
+   await load();document.dispatchEvent(new CustomEvent('gwg:employees-changed'));el('empStatus').textContent='Employee saved. New-hire checklist created automatically.';
   }catch(err){el('empStatus').textContent='Could not save employee: '+err.message;}finally{btn.disabled=false;}
  });
- el('empRefresh').addEventListener('click',load);
+ el('empRefresh').addEventListener('click',async()=>{await load();document.dispatchEvent(new CustomEvent('gwg:employees-changed'));});
  document.querySelector('[data-tab="employees"]').addEventListener('click',()=>setTimeout(load,0));
 })();
 </script>
@@ -2689,6 +2689,9 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
  E('trainEmployee').addEventListener('change',loadHistory);
  E('trainYear').addEventListener('change',show);
  E('trainRefresh').addEventListener('click',loadStaff);
+ document.addEventListener('gwg:employees-changed',loadStaff);
+ // Load independently of the tab-click event so newly added staff appear immediately.
+ loadStaff();
  E('trainSaveClass').addEventListener('click',async()=>{
    if(!selected||!sb||!user){E('trainClassStatus').textContent='Select an employee first.';return;}
    const h=E('trainWeeklyHours').value,override=E('trainOverride').value;
