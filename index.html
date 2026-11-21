@@ -1662,7 +1662,7 @@ window.editChild=async id=>{const c=children.find(x=>x.id===id);if(!c)return;con
   values[key]=answer.trim()||null;
  }
  for(const key of ['parent1_email','parent2_email']){
-  if(values[key]&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(values[key]))return alert('Please enter a valid email address for '+(key==='parent1_email'?'the first':'the second')+' parent. Nothing was saved.');
+  if(values[key]&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values[key]))return alert('Please enter a valid email address for '+(key==='parent1_email'?'the first':'the second')+' parent. Nothing was saved.');
  }
  const {error}=await sb.from('daycare_children').update(values).eq('id',id).eq('user_id',user.id);
  if(error)return alert('Could not save parent information: '+error.message);
