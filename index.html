@@ -223,6 +223,38 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <p id="empStatus" class="status" role="status" aria-live="polite">To begin, create the employee tables in Supabase using the accompanying SQL file.</p>
 <h3>Employee list and reminders</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Hire date</th><th>CPR expiration</th><th>Annual education deadline</th><th>Required new-hire courses</th></tr></thead><tbody id="empRows"><tr><td colspan="5">No employee records loaded.</td></tr></tbody></table></div>
 <p class="muted small">CPR reminders appear within two calendar months of expiration. Annual education reminders and clock-hour entry will be added in the next step. Training deadlines depend on role and applicable North Dakota rules; verify before relying on them for compliance.</p>
+<div style="border-top:1px solid #ddd5e6;margin-top:18px;padding-top:16px" id="trainingManager">
+<h3>Employee training and annual hours</h3>
+<p class="muted">Select an employee to manage their classification and individual course history. Annual totals use the completion calendar year. Confirm required hours and course eligibility with your licensor.</p>
+<div class="grid">
+<div class="field"><label for="trainEmployee">Employee</label><select id="trainEmployee"><option value="">Select employee</option></select></div>
+<div class="field"><label for="trainYear">Training year</label><input id="trainYear" type="number" min="2020" max="2100" step="1"></div>
+<div class="field"><label for="trainClass">Classification</label><select id="trainClass"><option value="regular">Regular employee</option><option value="director">Director / Supervisor</option><option value="substitute">Qualifying substitute / on-call</option><option value="emergency">Emergency designee</option></select></div>
+<div class="field"><label for="trainWeeklyHours">Usual hours per week</label><input id="trainWeeklyHours" type="number" min="0" max="168" step="0.5" placeholder="For regular employees"></div>
+<div class="field"><label for="trainOverride">Annual required hours override (optional)</label><input id="trainOverride" type="number" min="0" step="0.5" placeholder="Leave blank for suggested target"></div>
+</div>
+<button type="button" id="trainSaveClass">Save employee classification</button>
+<p id="trainClassStatus" class="status" aria-live="polite"></p>
+<div class="grid" style="margin:10px 0">
+<div class="metric"><span class="muted">Annual hours completed</span><strong id="trainCompleted">—</strong></div>
+<div class="metric"><span class="muted">Annual hours required</span><strong id="trainRequired">—</strong></div>
+<div class="metric"><span class="muted">Hours remaining</span><strong id="trainRemaining">—</strong></div>
+</div>
+<h3>Add completed training</h3>
+<div class="grid">
+<div class="field"><label for="trainCourse">Course / training name</label><input id="trainCourse" placeholder="e.g. Mandated Reporter"></div>
+<div class="field"><label for="trainCompletedOn">Completion date</label><input id="trainCompletedOn" type="date"></div>
+<div class="field"><label for="trainHours">Credit hours</label><input id="trainHours" type="number" min="0" step="0.25" value="0"></div>
+<div class="field"><label for="trainExpires">Expiration date (if applicable)</label><input id="trainExpires" type="date"></div>
+<div class="field"><label for="trainCounts">Counts toward annual hours?</label><select id="trainCounts"><option value="true">Yes</option><option value="false">No — certification or noncredit training</option></select></div>
+<div class="field"><label for="trainNotes">Notes (optional)</label><input id="trainNotes"></div>
+</div>
+<button type="button" class="primary" id="trainAdd">Save training record</button> <button type="button" id="trainRefresh">Refresh training</button>
+<p id="trainStatus" class="status" aria-live="polite"></p>
+<h3>Training history and expiration reminders</h3>
+<div class="tablewrap"><table><thead><tr><th>Course</th><th>Completed</th><th>Hours</th><th>Annual credit</th><th>Expiration / reminder</th><th>Action</th></tr></thead><tbody id="trainHistory"><tr><td colspan="6">Select an employee to view training.</td></tr></tbody></table></div>
+<p class="muted small">CPR/First Aid and other certifications can be recorded with annual credit set to No. This screen does not upload certificate files. Reminder indicators appear 60 days before expiration when you open the Employees tab.</p>
+</div>
 </section>
 <section class="panel tabpage hidden" id="page-children"><h2>Children</h2><div class="grid">
 <div class="field"><label>Child's full name</label><input id="childName" placeholder="Child name"></div>
@@ -2598,6 +2630,97 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    tab.addEventListener('click',function(){showSection(true);});
  });
  showSection(true);
+})();
+</script>
+<script>
+// Independent training history manager. Does not write to childcare ledger tables.
+(function(){
+ const E=id=>document.getElementById(id);
+ const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const fmt=v=>v?new Date(v+'T12:00:00').toLocaleDateString('en-US'):'—';
+ const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
+ const plusDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
+ let staff=[],history=[],selected='';
+ E('trainYear').value=new Date().getFullYear();
+ E('trainCompletedOn').value=today();
+ function requirement(e){
+   if(!e)return null;
+   if(e.annual_hours_override!==null&&e.annual_hours_override!==undefined&&e.annual_hours_override!=='')return Number(e.annual_hours_override);
+   if(['substitute','emergency'].includes(e.employee_classification))return 0;
+   if(e.employee_classification==='director')return 10;
+   if(e.weekly_hours===null||e.weekly_hours===undefined||e.weekly_hours==='')return null;
+   const h=Number(e.weekly_hours);
+   return h>=30?8:h>=20?6:h>=10?4:2;
+ }
+ function show(){
+   const e=staff.find(x=>String(x.id)===selected), year=String(E('trainYear').value);
+   if(!e){E('trainHistory').innerHTML='<tr><td colspan="6">Select an employee.</td></tr>';['trainCompleted','trainRequired','trainRemaining'].forEach(id=>E(id).textContent='—');return;}
+   E('trainClass').value=e.employee_classification||'regular';
+   E('trainWeeklyHours').value=e.weekly_hours??'';
+   E('trainOverride').value=e.annual_hours_override??'';
+   const completed=history.filter(t=>String(t.completed_on||'').startsWith(year)&&t.counts_toward_annual).reduce((sum,t)=>sum+Number(t.clock_hours||0),0);
+   const req=requirement(e);
+   E('trainCompleted').textContent=completed.toFixed(2);
+   E('trainRequired').textContent=req===null?'Set hours':req===0?'Exempt / 0':req.toFixed(2);
+   E('trainRemaining').textContent=req===null?'—':Math.max(0,req-completed).toFixed(2);
+   E('trainHistory').innerHTML=history.slice().sort((a,b)=>String(b.completed_on).localeCompare(String(a.completed_on))).map(t=>{
+      const exp=t.expires_on;
+      const reminder=!exp?'—':exp<today()?'EXPIRED':exp<=plusDays(today(),60)?'Due within 60 days':'Current';
+      return `<tr><td>${safe(t.course_name)}</td><td>${fmt(t.completed_on)}</td><td>${Number(t.clock_hours||0).toFixed(2)}</td><td>${t.counts_toward_annual?'Yes':'No'}</td><td>${fmt(exp)} — ${safe(reminder)}</td><td><button type="button" data-training-delete="${safe(t.id)}" class="danger">Delete</button></td></tr>`;
+   }).join('')||'<tr><td colspan="6">No training records for this employee.</td></tr>';
+ }
+ async function loadStaff(){
+   if(!sb||!user)return;
+   const {data,error}=await sb.from('daycare_employees').select('*').order('name');
+   if(error){E('trainStatus').textContent='Could not load employees: '+error.message;return;}
+   staff=data||[];
+   const chosen=selected;
+   E('trainEmployee').innerHTML='<option value="">Select employee</option>'+staff.map(e=>`<option value="${safe(e.id)}">${safe(e.name)}</option>`).join('');
+   if(staff.some(e=>String(e.id)===chosen)){E('trainEmployee').value=chosen;await loadHistory();}
+   else {selected='';history=[];show();}
+ }
+ async function loadHistory(){
+   selected=E('trainEmployee').value;
+   if(!selected){history=[];show();return;}
+   const {data,error}=await sb.from('daycare_employee_training_history').select('*').eq('employee_id',selected).order('completed_on',{ascending:false});
+   if(error){E('trainStatus').textContent='Could not load training: '+error.message;return;}
+   history=data||[];E('trainStatus').textContent=history.length+' training record(s) loaded.';show();
+ }
+ E('trainEmployee').addEventListener('change',loadHistory);
+ E('trainYear').addEventListener('change',show);
+ E('trainRefresh').addEventListener('click',loadStaff);
+ E('trainSaveClass').addEventListener('click',async()=>{
+   if(!selected||!sb||!user){E('trainClassStatus').textContent='Select an employee first.';return;}
+   const h=E('trainWeeklyHours').value,override=E('trainOverride').value;
+   if((h!==''&&(+h<0||+h>168))||(override!==''&&+override<0)){E('trainClassStatus').textContent='Enter valid nonnegative hours.';return;}
+   const update={employee_classification:E('trainClass').value,weekly_hours:h===''?null:Number(h),annual_hours_override:override===''?null:Number(override)};
+   const {error}=await sb.from('daycare_employees').update(update).eq('id',selected).eq('user_id',user.id);
+   if(error){E('trainClassStatus').textContent='Could not save: '+error.message;return;}
+   E('trainClassStatus').textContent='Classification saved.';await loadStaff();
+ });
+ E('trainAdd').addEventListener('click',async()=>{
+   if(!selected||!sb||!user){E('trainStatus').textContent='Select an employee first.';return;}
+   const course=E('trainCourse').value.trim(),date=E('trainCompletedOn').value,expiry=E('trainExpires').value,hours=Number(E('trainHours').value);
+   if(!course||!date||!Number.isFinite(hours)||hours<0){E('trainStatus').textContent='Enter a course, completion date, and valid hours.';return;}
+   if(expiry&&expiry<date){E('trainStatus').textContent='Expiration must not be before completion.';return;}
+   const btn=E('trainAdd');btn.disabled=true;
+   try{
+    const {error}=await sb.from('daycare_employee_training_history').insert({user_id:user.id,employee_id:selected,course_name:course,completed_on:date,clock_hours:hours,counts_toward_annual:E('trainCounts').value==='true',expires_on:expiry||null,notes:E('trainNotes').value.trim()||null});
+    if(error)throw error;
+    E('trainCourse').value='';E('trainHours').value='0';E('trainExpires').value='';E('trainNotes').value='';
+    await loadHistory();E('trainStatus').textContent='Training record saved.';
+   }catch(err){E('trainStatus').textContent='Could not save training: '+err.message;}finally{btn.disabled=false;}
+ });
+ E('trainHistory').addEventListener('click',async event=>{
+   const btn=event.target.closest('[data-training-delete]');if(!btn||!selected)return;
+   const id=btn.getAttribute('data-training-delete');const record=history.find(t=>String(t.id)===id);
+   if(!record||!confirm('Delete training record "'+record.course_name+'"? This cannot be undone.'))return;
+   btn.disabled=true;
+   const {error}=await sb.from('daycare_employee_training_history').delete().eq('id',id).eq('employee_id',selected).eq('user_id',user.id);
+   if(error){E('trainStatus').textContent='Could not delete: '+error.message;btn.disabled=false;return;}
+   await loadHistory();E('trainStatus').textContent='Training record deleted.';
+ });
+ document.querySelector('#mainNavigation [data-tab="employees"]').addEventListener('click',()=>setTimeout(loadStaff,0));
 })();
 </script>
 </body></html>
