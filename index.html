@@ -213,7 +213,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 </nav>
 <section class="panel tabpage" id="page-dashboard"><h2>Dashboard</h2><div class="grid dashboard-metrics"><div class="metric"><span class="muted">Active children</span><strong id="countChildren">0</strong></div><div class="metric"><span class="muted">Combined ending ledger balances</span><strong id="balance">$0.00</strong></div></div><p class="muted">All-time totals from saved transactions plus each child's saved beginning balance. Combined ending ledger balances add each child's ending balance, including negative credit balances. CCAP charges and payments are included.</p><h3>Balance breakdown by child</h3><p class="muted small">Read-only, all-time balances including each child’s beginning balance. A positive balance is not necessarily overdue. CCAP payments may be included in individual child totals. Transfer debits increase balances; credits reduce balances.</p><div class="tablewrap"><table><thead><tr><th>Child</th><th>Beginning balance</th><th>Charges</th><th>Payments</th><th>Credits / adjustments</th><th>Net balance</th></tr></thead><tbody id="childBalanceRows"></tbody></table></div></section>
 
-<section class="panel tabpage hidden" id="page-parentmessages"><h2>Parent Messages</h2><p class="muted">Private family conversations, separate from childcare billing.</p><p id="pmStatus" role="status"></p><button type="button" id="pmRefresh">Check for messages</button> <button type="button" id="pmInbox" aria-pressed="true">Inbox</button> <button type="button" id="pmArchived" aria-pressed="false">Archived</button><div class="grid" style="margin-top:12px"><div><h3>Families</h3><div id="pmFamilies"></div></div><div><h3 id="pmHeading">Select a family</h3><div style="margin-bottom:8px"><button type="button" id="pmMessageInbox">Message Inbox</button> <button type="button" id="pmMessageArchived">Archived Messages</button></div><button type="button" id="pmArchive" disabled style="margin-bottom:8px">Archive conversation</button><div id="pmThread" style="max-height:420px;overflow:auto;border:1px solid #ddd5e6;border-radius:10px;padding:12px;min-height:100px"></div><label for="pmDraft">Reply</label><textarea id="pmDraft" maxlength="4000"></textarea><button type="button" id="pmSend" disabled>Send reply</button></div></div></section><section class="panel tabpage hidden" id="page-employees">
+<section class="panel tabpage hidden" id="page-parentmessages"><h2>Parent Messages</h2><p class="muted">Private family conversations, separate from childcare billing.</p><p id="pmStatus" role="status"></p><button type="button" id="pmRefresh">Check for messages</button><div class="grid" style="margin-top:12px"><div><h3>Families</h3><div id="pmFamilies"></div></div><div><h3 id="pmHeading">Select a family</h3><div style="margin-bottom:8px"><button type="button" id="pmMessageInbox">Message Inbox</button> <button type="button" id="pmMessageArchived">Archived Messages</button></div><div id="pmThread" style="max-height:420px;overflow:auto;border:1px solid #ddd5e6;border-radius:10px;padding:12px;min-height:100px"></div><label for="pmDraft">Reply</label><textarea id="pmDraft" maxlength="4000"></textarea><button type="button" id="pmSend" disabled>Send reply</button></div></div></section><section class="panel tabpage hidden" id="page-employees">
 <h2>Employees</h2><p class="muted">Employee records are stored separately from children and ledger transactions. Add an employee to automatically create the new-hire training checklist.</p>
 <div id="empEditArea" style="border:2px solid transparent;border-radius:12px;padding:12px;margin:8px 0"><h3 id="empModeHeading">Add new employee</h3><p id="empModeHint" class="muted">Enter details to create a new employee record.</p><div class="grid">
 <div class="field"><label for="empName">Employee full name</label><input id="empName" autocomplete="off"></div>
@@ -2792,19 +2792,10 @@ const status=t=>E('pmStatus').textContent=t;
 const seenKey=id=>'gwg_pm_seen_'+user.id+'_'+id;
 function seen(id){return localStorage.getItem(seenKey(id))||'1970-01-01T00:00:00.000Z';}
 function markSeen(id,iso){if(iso&&iso>seen(id))localStorage.setItem(seenKey(id),iso);}
-function isArchived(id){const at=archives.get(id);return !!at&&at>(lastMessages.get(id)||'1970-01-01T00:00:00.000Z');}
-function clearConversation(){selected=null;E('pmHeading').textContent='Select a family';E('pmThread').textContent='';E('pmDraft').value='';E('pmSend').disabled=true;E('pmArchive').disabled=true;}
 function renderFamilies(){
- E('pmInbox').setAttribute('aria-pressed',String(view==='inbox'));
- E('pmArchived').setAttribute('aria-pressed',String(view==='archived'));
- E('pmInbox').style.fontWeight=view==='inbox'?'bold':'normal';
- E('pmArchived').style.fontWeight=view==='archived'?'bold':'normal';
- const shown=families.filter(f=>isArchived(f.id)===(view==='archived'));
  E('pmFamilies').replaceChildren();
- for(const f of shown){const b=document.createElement('button');b.type='button';b.style.cssText='display:block;width:100%;margin-bottom:8px;text-align:left';b.textContent=f.display_name;b.onclick=()=>choose(f.id);E('pmFamilies').append(b);}
- if(!shown.length)E('pmFamilies').textContent=view==='archived'?'No archived conversations.':'No conversations in Inbox.';
- if(selected&&!shown.some(f=>f.id===selected))clearConversation();
- if(selected)E('pmArchive').textContent=isArchived(selected)?'Move to Inbox':'Archive conversation';
+ for(const f of families){const b=document.createElement('button');b.type='button';b.style.cssText='display:block;width:100%;margin-bottom:8px;text-align:left';b.textContent=f.display_name;b.onclick=()=>choose(f.id);E('pmFamilies').append(b);}
+ if(!families.length)E('pmFamilies').textContent='No families added yet.';
 }
 async function updateUnread(){
  if(!sb||!user)return;
@@ -2827,15 +2818,7 @@ async function load(){
  if(ae||!admins?.length){status('Messaging administrator access is not enabled for this account.');return;}
  const {data,error}=await sb.from('parent_families').select('id,display_name').order('display_name');
  if(error){status('Could not load families: '+error.message);return;}
- const {data:rows,error:archiveError}=await sb.from('parent_message_archives').select('family_id,archived_at');
- if(archiveError){status('Could not load archives: '+archiveError.message);return;}
- families=data||[];archives=new Map((rows||[]).map(a=>[a.family_id,a.archived_at]));
- lastMessages=new Map();
- for(const f of families){
-  const {data:latest,error:me}=await sb.from('parent_messages').select('created_at').eq('family_id',f.id).order('created_at',{ascending:false}).limit(1);
-  if(me){status('Could not load messages: '+me.message);return;}
-  if(latest?.length)lastMessages.set(f.id,latest[0].created_at);
- }
+ families=data||[];
  renderFamilies();
  status(families.length+' families available.');
  if(selected)await choose(selected);
@@ -2844,9 +2827,8 @@ async function load(){
 }
 async function choose(id){
  selected=id;const f=families.find(x=>x.id===id);
- E('pmHeading').textContent=f?.display_name||'Family';E('pmSend').disabled=false;E('pmArchive').disabled=false;
- E('pmArchive').textContent=isArchived(id)?'Move to Inbox':'Archive conversation';
- const {data,error}=await sb.from('parent_messages').select('sender_id,body,created_at').eq('family_id',id).order('created_at',{ascending:true}).limit(200);
+ E('pmHeading').textContent=f?.display_name||'Family';E('pmSend').disabled=false;
+ const {data,error}=await sb.from('parent_messages').select('id,sender_id,body,created_at').eq('family_id',id).order('created_at',{ascending:true}).limit(200);
  if(error){status('Could not load conversation: '+error.message);return;}
  const {data:archiveRows,error:archiveError}=await sb.from('parent_message_item_archives').select('message_id').eq('user_id',user.id);
  if(archiveError){status('Unable to load message archives: '+archiveError.message);return;}
@@ -2876,16 +2858,6 @@ async function choose(id){
  const latest=(data||[]).filter(m=>m.sender_id!==user.id).map(m=>m.created_at).sort().pop();
  markSeen(id,latest);await updateUnread();
 }
-E('pmArchive').onclick=async()=>{
- if(!selected||!user)return;
- const id=selected,archived=isArchived(id);
- E('pmArchive').disabled=true;
- const stamp=archived?'1970-01-01T00:00:00.000Z':new Date().toISOString();
- const {error}=await sb.from('parent_message_archives').upsert({family_id:id,archived_at:stamp,archived_by:user.id},{onConflict:'family_id'});
- if(error){status('Could not change archive: '+error.message);E('pmArchive').disabled=false;return;}
- archives.set(id,stamp);status(archived?'Conversation moved to Inbox.':'Conversation archived. No messages were deleted.');
- renderFamilies();if(selected)E('pmArchive').disabled=false;
-};
 E('pmSend').onclick=async()=>{
  const body=E('pmDraft').value.trim();if(!selected||!body||!user)return;
  E('pmSend').disabled=true;
@@ -2897,8 +2869,6 @@ E('pmSend').onclick=async()=>{
 E('pmMessageInbox').onclick=()=>{messageView='inbox';if(selected)choose(selected);};
 E('pmMessageArchived').onclick=()=>{messageView='archived';if(selected)choose(selected);};
 E('pmRefresh').onclick=load;
-E('pmInbox').onclick=()=>{view='inbox';renderFamilies();};
-E('pmArchived').onclick=()=>{view='archived';renderFamilies();};
 tab.addEventListener('click',()=>setTimeout(load,0));
 setInterval(()=>{if(sb&&user){updateUnread().catch(()=>{});if(!document.getElementById('page-parentmessages').classList.contains('hidden'))load().catch(()=>{});}},30000);
 setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
