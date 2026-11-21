@@ -240,7 +240,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="metric"><span class="muted">Annual hours required</span><strong id="trainRequired">—</strong></div>
 <div class="metric"><span class="muted">Hours remaining</span><strong id="trainRemaining">—</strong></div>
 </div>
-<h3 id="trainFormTitle">Add completed training</h3>
+<div id="trainEditArea" style="border:2px solid transparent;border-radius:12px;padding:12px;margin:8px 0"><h3 id="trainFormTitle">Add completed training</h3><p id="trainModeHint" class="muted">Enter a new completed course below.</p>
 <div class="grid">
 <div class="field"><label for="trainCourse">Course / training name</label><input id="trainCourse" placeholder="e.g. Mandated Reporter"></div>
 <div class="field"><label for="trainCompletedOn">Completion date</label><input id="trainCompletedOn" type="date"></div>
@@ -250,7 +250,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="field"><label for="trainNotes">Notes (optional)</label><input id="trainNotes"></div>
 </div>
 <button type="button" class="primary" id="trainAdd">Save training record</button> <button type="button" id="trainCancelEdit" class="hidden">Cancel edit</button> <button type="button" id="trainRefresh">Refresh training</button>
-<p id="trainStatus" class="status" aria-live="polite"></p>
+<p id="trainStatus" class="status" aria-live="polite"></p></div>
 <h3>Training history and expiration reminders</h3>
 <div class="tablewrap"><table><thead><tr><th>Course</th><th>Completed</th><th>Hours</th><th>Annual credit</th><th>Expiration / reminder</th><th>Action</th></tr></thead><tbody id="trainHistory"><tr><td colspan="6">Select an employee to view training.</td></tr></tbody></table></div>
 <p class="muted small">CPR/First Aid and other certifications can be recorded with annual credit set to No. This screen does not upload certificate files. Reminder indicators appear 60 days before expiration when you open the Employees tab.</p>
@@ -2650,7 +2650,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
  const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
  const plusDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
  let staff=[],history=[],selected='',editingId=null;
- function resetEdit(){editingId=null;E('trainFormTitle').textContent='Add completed training';E('trainAdd').textContent='Save training record';E('trainCancelEdit').classList.add('hidden');E('trainCourse').value='';E('trainCompletedOn').value=today();E('trainHours').value='0';E('trainExpires').value='';E('trainCounts').value='true';E('trainNotes').value='';}
+ function resetEdit(){editingId=null;E('trainEditArea').style.cssText='border:2px solid transparent;border-radius:12px;padding:12px;margin:8px 0';E('trainModeHint').textContent='Enter a new completed course below.';E('trainFormTitle').textContent='Add completed training';E('trainAdd').textContent='Save training record';E('trainCancelEdit').classList.add('hidden');E('trainCourse').value='';E('trainCompletedOn').value=today();E('trainHours').value='0';E('trainExpires').value='';E('trainCounts').value='true';E('trainNotes').value='';}
  E('trainCancelEdit').addEventListener('click',()=>{resetEdit();E('trainStatus').textContent='Edit canceled. No changes saved.';});
  E('trainYear').value=new Date().getFullYear();
  E('trainCompletedOn').value=today();
@@ -2736,7 +2736,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    if(editBtn&&selected){
      const record=history.find(t=>String(t.id)===editBtn.getAttribute('data-training-edit'));if(!record)return;
      editingId=String(record.id);E('trainCourse').value=record.course_name||'';E('trainCompletedOn').value=record.completed_on||'';E('trainHours').value=record.clock_hours??0;E('trainExpires').value=record.expires_on||'';E('trainCounts').value=record.counts_toward_annual?'true':'false';E('trainNotes').value=record.notes||'';
-     E('trainFormTitle').textContent='Edit completed training';E('trainAdd').textContent='Save changes';E('trainCancelEdit').classList.remove('hidden');E('trainStatus').textContent='Editing '+record.course_name+'. Save changes or cancel.';E('trainFormTitle').scrollIntoView({behavior:'smooth',block:'start'});return;
+     E('trainEditArea').style.cssText='border:3px solid #6f4a8e;background:#f1e8fa;border-radius:12px;padding:12px;margin:8px 0';E('trainFormTitle').textContent='EDITING COMPLETED TRAINING: '+record.course_name;E('trainModeHint').textContent='You are updating this existing training record, not adding a new one.';E('trainAdd').textContent='Save changes';E('trainCancelEdit').classList.remove('hidden');E('trainStatus').textContent='Editing '+record.course_name+'. Save changes or cancel.';E('trainFormTitle').scrollIntoView({behavior:'smooth',block:'start'});return;
    }
    const btn=event.target.closest('[data-training-delete]');if(!btn||!selected)return;
    const id=btn.getAttribute('data-training-delete');const record=history.find(t=>String(t.id)===id);
