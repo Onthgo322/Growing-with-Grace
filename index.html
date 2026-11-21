@@ -213,7 +213,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 </nav>
 <section class="panel tabpage" id="page-dashboard"><h2>Dashboard</h2><div class="grid dashboard-metrics"><div class="metric"><span class="muted">Active children</span><strong id="countChildren">0</strong></div><div class="metric"><span class="muted">Combined ending ledger balances</span><strong id="balance">$0.00</strong></div></div><p class="muted">All-time totals from saved transactions plus each child's saved beginning balance. Combined ending ledger balances add each child's ending balance, including negative credit balances. CCAP charges and payments are included.</p><h3>Balance breakdown by child</h3><p class="muted small">Read-only, all-time balances including each child’s beginning balance. A positive balance is not necessarily overdue. CCAP payments may be included in individual child totals. Transfer debits increase balances; credits reduce balances.</p><div class="tablewrap"><table><thead><tr><th>Child</th><th>Beginning balance</th><th>Charges</th><th>Payments</th><th>Credits / adjustments</th><th>Net balance</th></tr></thead><tbody id="childBalanceRows"></tbody></table></div></section>
 
-<section class="panel tabpage hidden" id="page-parentmessages"><h2>Parent Messages</h2><p class="muted">Private family conversations, separate from childcare billing.</p><p id="pmStatus" role="status"></p><button type="button" id="pmRefresh">Check for messages</button><div class="grid" style="margin-top:12px"><div><h3>Families</h3><div id="pmFamilies"></div></div><div><h3 id="pmHeading">Select a family</h3><div style="margin-bottom:8px"><button type="button" id="pmMessageInbox">Message Inbox</button> <button type="button" id="pmMessageArchived">Archived Messages</button></div><p class="muted" id="pmSelectHint">Check one or more messages below, then choose Archive Selected.</p><button type="button" id="pmSelectAll">Select All Shown</button> <button type="button" id="pmBulkAction" disabled style="background:#573277;color:white;border:2px solid #371b50">Archive Selected (0)</button> <button type="button" id="pmClearSelection">Clear Selection</button><div id="pmThread" style="max-height:420px;overflow:auto;border:1px solid #ddd5e6;border-radius:10px;padding:12px;min-height:100px"></div><label for="pmDraft">Reply</label><textarea id="pmDraft" maxlength="4000"></textarea><button type="button" id="pmSend" disabled>Send reply</button></div></div></section><section class="panel tabpage hidden" id="page-employees">
+<section class="panel tabpage hidden" id="page-parentmessages"><h2>Parent Messages</h2><p class="muted">Private family conversations, separate from childcare billing.</p><p id="pmStatus" role="status"></p><button type="button" id="pmRefresh">Check for messages</button><div class="grid" style="margin-top:12px"><div><h3>Families</h3><div id="pmFamilies"></div></div><div><h3 id="pmHeading">Select a family</h3><div style="margin-bottom:8px"><button type="button" id="pmMessageInbox">Message Inbox</button> <button type="button" id="pmMessageArchived">Archived Messages</button></div><div id="pmThread" style="max-height:420px;overflow:auto;border:1px solid #ddd5e6;border-radius:10px;padding:12px;min-height:100px"></div><label for="pmDraft">Reply</label><textarea id="pmDraft" maxlength="4000"></textarea><button type="button" id="pmSend" disabled>Send reply</button></div></div></section><section class="panel tabpage hidden" id="page-employees">
 <h2>Employees</h2><p class="muted">Employee records are stored separately from children and ledger transactions. Add an employee to automatically create the new-hire training checklist.</p>
 <div id="empEditArea" style="border:2px solid transparent;border-radius:12px;padding:12px;margin:8px 0"><h3 id="empModeHeading">Add new employee</h3><p id="empModeHint" class="muted">Enter details to create a new employee record.</p><div class="grid">
 <div class="field"><label for="empName">Employee full name</label><input id="empName" autocomplete="off"></div>
@@ -2836,17 +2836,12 @@ async function choose(id){
  E('pmMessageInbox').style.fontWeight=messageView==='inbox'?'bold':'normal';
  E('pmMessageArchived').style.fontWeight=messageView==='archived'?'bold':'normal';
  const host=E('pmThread');host.replaceChildren();
- E('pmSelectHint').textContent=messageView==='archived'?'Check messages to restore, then choose Restore Selected.':'Check one or more messages to archive, then choose Archive Selected.';
- const selectedMessages=new Set();
- const bulk=E('pmBulkAction');
- function updateSelection(){bulk.disabled=!selectedMessages.size;bulk.textContent=(messageView==='archived'?'Restore Selected (':'Archive Selected (')+selectedMessages.size+')';}
- updateSelection();
  const visible=(data||[]).filter(m=>archivedIds.has(m.id)===(messageView==='archived'));
  for(const m of visible){
   const d=document.createElement('div');d.style.cssText='padding:10px;background:'+(m.sender_id===user.id?'#e6f2e8':'#f1eaf6')+';border-radius:8px;margin:8px 0;overflow-wrap:anywhere';
   const meta=document.createElement('small');meta.textContent=(m.sender_id===user.id?'You':'Family')+' · '+new Date(m.created_at).toLocaleString();
   const body=document.createElement('div');body.textContent=m.body;
-  const action=document.createElement('button');action.type='button';action.style.cssText='display:block;margin-top:10px;padding:10px 16px;background:#573277;color:#fff;border:2px solid #371b50;border-radius:8px;font-size:1rem;font-weight:700;box-shadow:0 2px 4px #0002';
+  const action=document.createElement('button');action.type='button';action.style.cssText='display:block;margin-top:10px;padding:10px 16px;background:#fff;color:#342641;border:2px solid #6f4a8e;border-radius:8px;font-size:1rem;font-weight:700;box-shadow:0 2px 4px #0002';
   const archived=archivedIds.has(m.id);action.textContent=archived?'Restore message':'Archive message';
   action.onclick=async()=>{
    action.disabled=true;
@@ -2859,29 +2854,9 @@ async function choose(id){
     status(archived?'Message restored to Inbox.':'Message moved to Archived Messages.');
    }catch(e){status('Archive did not complete: '+(e.message||String(e)));action.disabled=false;}
   };
-  const pick=document.createElement('label');pick.style.cssText='display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:600;cursor:pointer';
-  const cb=document.createElement('input');cb.type='checkbox';cb.style.cssText='width:20px;height:20px;flex:none';cb.setAttribute('aria-label','Select message from '+new Date(m.created_at).toLocaleString());
-  cb.onchange=()=>{if(cb.checked)selectedMessages.add(m.id);else selectedMessages.delete(m.id);updateSelection();};
-  const pickText=document.createElement('span');pickText.textContent=archived?'Select to restore':'Select to archive';
-  pick.append(cb,pickText);d.append(meta,body,pick,action);host.append(d);
+  d.append(meta,body,action);host.append(d);
  }
  if(!visible.length)host.textContent=messageView==='archived'?'No archived messages for this family.':'No messages in this family Inbox.';
- E('pmSelectAll').disabled=!visible.length;
- E('pmSelectAll').onclick=()=>{host.querySelectorAll('input[type="checkbox"]').forEach(cb=>{cb.checked=true;cb.onchange();});};
- E('pmClearSelection').onclick=()=>{host.querySelectorAll('input[type="checkbox"]').forEach(cb=>{cb.checked=false;cb.onchange();});};
- bulk.onclick=async()=>{
-  if(!selectedMessages.size)return;
-  bulk.disabled=true;const ids=[...selectedMessages];
-  try{
-   const restoring=messageView==='archived';
-   const result=restoring
-    ?await sb.from('parent_message_item_archives').delete().eq('user_id',user.id).in('message_id',ids)
-    :await sb.from('parent_message_item_archives').insert(ids.map(message_id=>({message_id,user_id:user.id})));
-   if(result.error)throw result.error;
-   await choose(id);
-   status(ids.length+(restoring?' message(s) restored to Inbox.':' message(s) moved to Archived Messages.'));
-  }catch(e){status('Archive did not complete: '+(e.message||String(e)));updateSelection();}
- };
  host.scrollTop=host.scrollHeight;
  const latest=(data||[]).filter(m=>m.sender_id!==user.id).map(m=>m.created_at).sort().pop();
  markSeen(id,latest);await updateUnread();
