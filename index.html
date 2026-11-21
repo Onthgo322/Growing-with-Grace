@@ -221,7 +221,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="field"><label for="empCprExpiry">CPR expiration date</label><input id="empCprExpiry" type="date"></div>
 </div><button class="primary" type="button" id="empSave">Add employee</button> <button type="button" id="empCancelEdit" class="hidden">Cancel edit</button> <button type="button" id="empRefresh">Refresh employees</button>
 <p id="empStatus" class="status" role="status" aria-live="polite">To begin, create the employee tables in Supabase using the accompanying SQL file.</p></div>
-<h3>Employee list and reminders</h3><p class="muted">Click Edit on an employee row to change their information. The selected row is highlighted while editing.</p><div class="tablewrap"><table><thead><tr><th>Name</th><th>Hire date</th><th>CPR expiration</th><th>Next hire anniversary (not training deadline)</th><th>Required new-hire courses</th><th>Action</th></tr></thead><tbody id="empRows"><tr><td colspan="6">No employee records loaded.</td></tr></tbody></table></div>
+<h3>Employee list and reminders</h3><p id="empReminderSummary" style="font-weight:700;padding:10px;background:#f7f3fb;border-radius:8px">Loading CPR reminders…</p><p class="muted">Click Edit on an employee row to change their information. The selected row is highlighted while editing.</p><div class="tablewrap"><table><thead><tr><th>Name</th><th>Hire date</th><th>CPR expiration</th><th>Next hire anniversary (not training deadline)</th><th>Required new-hire courses</th><th>Action</th></tr></thead><tbody id="empRows"><tr><td colspan="6">No employee records loaded.</td></tr></tbody></table></div>
 <p class="muted small">CPR reminders appear within two calendar months of expiration. The date above is the next hire anniversary, not an annual education compliance deadline. Training deadlines depend on role and applicable North Dakota rules; verify before relying on them for compliance.</p>
 <div style="border-top:1px solid #ddd5e6;margin-top:18px;padding-top:16px" id="trainingManager">
 <h3>Employee training and annual hours</h3>
@@ -2587,13 +2587,17 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
   if(trainError){el('empStatus').textContent='Could not load training checklist: '+trainError.message;return;}
   employeeRows=data||[];
   const today=localToday();
+  let expiredCount=0,soonCount=0,missingCount=0;
   el('empRows').innerHTML=(data||[]).map(e=>{
     const due=e.hire_date?anniversary(e.hire_date):'';
     const cpr=e.cpr_expires_on;
-    const cprLabel=!cpr?'Not entered':cpr<today?'EXPIRED':cpr<=plusMonths(today,2)?'Renewal due soon':'Current';
+    const cprLabel=!cpr?'NOT ENTERED':cpr<today?'EXPIRED':cpr<=plusMonths(today,1)?'DUE WITHIN 1 MONTH':cpr<=plusMonths(today,2)?'DUE WITHIN 2 MONTHS':'CURRENT';
+    if(!cpr)missingCount++;else if(cpr<today)expiredCount++;else if(cpr<=plusMonths(today,2))soonCount++;
+    const cprStyle=!cpr?'background:#f1f1f1;color:#444':cpr<today?'background:#ffe1e1;color:#8c2020':cpr<=plusMonths(today,2)?'background:#fff0bf;color:#6d4800':'background:#e5f4e8;color:#225a32';
     const done=(training||[]).filter(t=>t.employee_id===e.id&&t.completed_on).length;
-    return `<tr style="${String(e.id)===editingEmployeeId?'background:#e7d5f6;outline:2px solid #6f4a8e;':''}"><td>${safe(e.name)}</td><td>${fmt(e.hire_date)}</td><td>${fmt(cpr)} — ${safe(cprLabel)}</td><td>${fmt(due)}</td><td>${done} training item(s) recorded</td><td><button type="button" data-employee-edit="${safe(e.id)}">Edit</button></td></tr>`;
+    return `<tr style="${String(e.id)===editingEmployeeId?'background:#e7d5f6;outline:2px solid #6f4a8e;':''}"><td>${safe(e.name)}</td><td>${fmt(e.hire_date)}</td><td>${fmt(cpr)} <strong style="display:inline-block;padding:4px 7px;border-radius:6px;${cprStyle}">${safe(cprLabel)}</strong></td><td>${fmt(due)}</td><td>${done} training item(s) recorded</td><td><button type="button" data-employee-edit="${safe(e.id)}">Edit</button></td></tr>`;
   }).join('')||'<tr><td colspan="6">No employees added yet.</td></tr>';
+  el('empReminderSummary').textContent='CPR reminders: '+expiredCount+' expired · '+soonCount+' due within 2 months · '+missingCount+' missing expiration dates. Training hours are tracked separately below.';
   el('empStatus').textContent=(data||[]).length+' employee(s) loaded.';
  }
  el('empSave').addEventListener('click',async()=>{
