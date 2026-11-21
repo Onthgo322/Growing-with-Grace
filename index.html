@@ -240,7 +240,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="metric"><span class="muted">Annual hours required</span><strong id="trainRequired">—</strong></div>
 <div class="metric"><span class="muted">Hours remaining</span><strong id="trainRemaining">—</strong></div>
 </div>
-<h3>Add completed training</h3>
+<h3 id="trainFormTitle">Add completed training</h3>
 <div class="grid">
 <div class="field"><label for="trainCourse">Course / training name</label><input id="trainCourse" placeholder="e.g. Mandated Reporter"></div>
 <div class="field"><label for="trainCompletedOn">Completion date</label><input id="trainCompletedOn" type="date"></div>
@@ -249,7 +249,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="field"><label for="trainCounts">Counts toward annual hours?</label><select id="trainCounts"><option value="true">Yes</option><option value="false">No — certification or noncredit training</option></select></div>
 <div class="field"><label for="trainNotes">Notes (optional)</label><input id="trainNotes"></div>
 </div>
-<button type="button" class="primary" id="trainAdd">Save training record</button> <button type="button" id="trainRefresh">Refresh training</button>
+<button type="button" class="primary" id="trainAdd">Save training record</button> <button type="button" id="trainCancelEdit" class="hidden">Cancel edit</button> <button type="button" id="trainRefresh">Refresh training</button>
 <p id="trainStatus" class="status" aria-live="polite"></p>
 <h3>Training history and expiration reminders</h3>
 <div class="tablewrap"><table><thead><tr><th>Course</th><th>Completed</th><th>Hours</th><th>Annual credit</th><th>Expiration / reminder</th><th>Action</th></tr></thead><tbody id="trainHistory"><tr><td colspan="6">Select an employee to view training.</td></tr></tbody></table></div>
@@ -2640,7 +2640,9 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
  const fmt=v=>v?new Date(v+'T12:00:00').toLocaleDateString('en-US'):'—';
  const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
  const plusDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
- let staff=[],history=[],selected='';
+ let staff=[],history=[],selected='',editingId=null;
+ function resetEdit(){editingId=null;E('trainFormTitle').textContent='Add completed training';E('trainAdd').textContent='Save training record';E('trainCancelEdit').classList.add('hidden');E('trainCourse').value='';E('trainCompletedOn').value=today();E('trainHours').value='0';E('trainExpires').value='';E('trainCounts').value='true';E('trainNotes').value='';}
+ E('trainCancelEdit').addEventListener('click',()=>{resetEdit();E('trainStatus').textContent='Edit canceled. No changes saved.';});
  E('trainYear').value=new Date().getFullYear();
  E('trainCompletedOn').value=today();
  function requirement(e){
@@ -2666,7 +2668,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    E('trainHistory').innerHTML=history.slice().sort((a,b)=>String(b.completed_on).localeCompare(String(a.completed_on))).map(t=>{
       const exp=t.expires_on;
       const reminder=!exp?'—':exp<today()?'EXPIRED':exp<=plusDays(today(),60)?'Due within 60 days':'Current';
-      return `<tr><td>${safe(t.course_name)}</td><td>${fmt(t.completed_on)}</td><td>${Number(t.clock_hours||0).toFixed(2)}</td><td>${t.counts_toward_annual?'Yes':'No'}</td><td>${fmt(exp)} — ${safe(reminder)}</td><td><button type="button" data-training-delete="${safe(t.id)}" class="danger">Delete</button></td></tr>`;
+      return `<tr><td>${safe(t.course_name)}</td><td>${fmt(t.completed_on)}</td><td>${Number(t.clock_hours||0).toFixed(2)}</td><td>${t.counts_toward_annual?'Yes':'No'}</td><td>${fmt(exp)} — ${safe(reminder)}</td><td><button type="button" data-training-edit="${safe(t.id)}">Edit</button> <button type="button" data-training-delete="${safe(t.id)}" class="danger">Delete</button></td></tr>`;
    }).join('')||'<tr><td colspan="6">No training records for this employee.</td></tr>';
  }
  async function loadStaff(){
@@ -2677,10 +2679,12 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    const chosen=selected;
    E('trainEmployee').innerHTML='<option value="">Select employee</option>'+staff.map(e=>`<option value="${safe(e.id)}">${safe(e.name)}</option>`).join('');
    if(staff.some(e=>String(e.id)===chosen)){E('trainEmployee').value=chosen;await loadHistory();}
-   else {selected='';history=[];show();}
+   else {selected='';history=[];resetEdit();show();}
  }
  async function loadHistory(){
-   selected=E('trainEmployee').value;
+   const nextSelected=E('trainEmployee').value;
+   if(nextSelected!==selected)resetEdit();
+   selected=nextSelected;
    if(!selected){history=[];show();return;}
    const {data,error}=await sb.from('daycare_employee_training_history').select('*').eq('employee_id',selected).order('completed_on',{ascending:false});
    if(error){E('trainStatus').textContent='Could not load training: '+error.message;return;}
@@ -2708,20 +2712,30 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    if(expiry&&expiry<date){E('trainStatus').textContent='Expiration must not be before completion.';return;}
    const btn=E('trainAdd');btn.disabled=true;
    try{
-    const {error}=await sb.from('daycare_employee_training_history').insert({user_id:user.id,employee_id:selected,course_name:course,completed_on:date,clock_hours:hours,counts_toward_annual:E('trainCounts').value==='true',expires_on:expiry||null,notes:E('trainNotes').value.trim()||null});
+    const payload={course_name:course,completed_on:date,clock_hours:hours,counts_toward_annual:E('trainCounts').value==='true',expires_on:expiry||null,notes:E('trainNotes').value.trim()||null};
+    const wasEditing=Boolean(editingId);
+    const query=wasEditing?sb.from('daycare_employee_training_history').update(payload).eq('id',editingId).eq('employee_id',selected).eq('user_id',user.id).select('id'):sb.from('daycare_employee_training_history').insert({...payload,user_id:user.id,employee_id:selected}).select('id');
+    const {data,error}=await query;
     if(error)throw error;
-    E('trainCourse').value='';E('trainHours').value='0';E('trainExpires').value='';E('trainNotes').value='';
-    await loadHistory();E('trainStatus').textContent='Training record saved.';
+    if(!data?.length)throw new Error('No record was changed. Please refresh and try again.');
+    resetEdit();
+    await loadHistory();E('trainStatus').textContent=wasEditing?'Training record updated.':'Training record saved.';
    }catch(err){E('trainStatus').textContent='Could not save training: '+err.message;}finally{btn.disabled=false;}
  });
  E('trainHistory').addEventListener('click',async event=>{
+   const editBtn=event.target.closest('[data-training-edit]');
+   if(editBtn&&selected){
+     const record=history.find(t=>String(t.id)===editBtn.getAttribute('data-training-edit'));if(!record)return;
+     editingId=String(record.id);E('trainCourse').value=record.course_name||'';E('trainCompletedOn').value=record.completed_on||'';E('trainHours').value=record.clock_hours??0;E('trainExpires').value=record.expires_on||'';E('trainCounts').value=record.counts_toward_annual?'true':'false';E('trainNotes').value=record.notes||'';
+     E('trainFormTitle').textContent='Edit completed training';E('trainAdd').textContent='Save changes';E('trainCancelEdit').classList.remove('hidden');E('trainStatus').textContent='Editing '+record.course_name+'. Save changes or cancel.';E('trainFormTitle').scrollIntoView({behavior:'smooth',block:'start'});return;
+   }
    const btn=event.target.closest('[data-training-delete]');if(!btn||!selected)return;
    const id=btn.getAttribute('data-training-delete');const record=history.find(t=>String(t.id)===id);
    if(!record||!confirm('Delete training record "'+record.course_name+'"? This cannot be undone.'))return;
    btn.disabled=true;
    const {error}=await sb.from('daycare_employee_training_history').delete().eq('id',id).eq('employee_id',selected).eq('user_id',user.id);
    if(error){E('trainStatus').textContent='Could not delete: '+error.message;btn.disabled=false;return;}
-   await loadHistory();E('trainStatus').textContent='Training record deleted.';
+   if(editingId===id)resetEdit();await loadHistory();E('trainStatus').textContent='Training record deleted.';
  });
  document.querySelector('#mainNavigation [data-tab="employees"]').addEventListener('click',()=>setTimeout(loadStaff,0));
 })();
