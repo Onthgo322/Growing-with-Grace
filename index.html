@@ -200,12 +200,15 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 
 <div id="app" class="hidden">
 <div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected · Auto-sync every 15 seconds</div><div class="muted" id="gwgSyncStatus"></div></div><button onclick="printTransactions()">Print Transactions</button></div></div>
-<nav class="noprint">
+<nav class="noprint" id="mainNavigation" aria-label="Main sections">
+<button type="button" class="tab primary" id="mainLedger">Ledger</button>
+<button type="button" class="tab" data-tab="employees">Employees</button>
+</nav>
+<nav class="noprint" id="ledgerNavigation" aria-label="Ledger sections">
 <button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="transfers">Transfers</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
  
 <button class="tab" data-tab="deleted">Deleted Transactions</button><button class="tab" data-tab="allaudit">All-Children Audit</button>
 
-<button class="tab" data-tab="employees">Employees</button>
 </nav>
 <section class="panel tabpage" id="page-dashboard"><h2>Dashboard</h2><div class="grid dashboard-metrics"><div class="metric"><span class="muted">Active children</span><strong id="countChildren">0</strong></div><div class="metric"><span class="muted">Combined ending ledger balances</span><strong id="balance">$0.00</strong></div></div><p class="muted">All-time totals from saved transactions plus each child's saved beginning balance. Combined ending ledger balances add each child's ending balance, including negative credit balances. CCAP charges and payments are included.</p><h3>Balance breakdown by child</h3><p class="muted small">Read-only, all-time balances including each child’s beginning balance. A positive balance is not necessarily overdue. CCAP payments may be included in individual child totals. Transfer debits increase balances; credits reduce balances.</p><div class="tablewrap"><table><thead><tr><th>Child</th><th>Beginning balance</th><th>Charges</th><th>Payments</th><th>Credits / adjustments</th><th>Net balance</th></tr></thead><tbody id="childBalanceRows"></tbody></table></div></section>
 
@@ -2571,6 +2574,30 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
  });
  el('empRefresh').addEventListener('click',load);
  document.querySelector('[data-tab="employees"]').addEventListener('click',()=>setTimeout(load,0));
+})();
+</script>
+<script>
+// Navigation grouping only: preserve all existing ledger tab handlers and data.
+(function(){
+ const ledger=document.getElementById('mainLedger');
+ const employees=document.querySelector('#mainNavigation [data-tab="employees"]');
+ const subnav=document.getElementById('ledgerNavigation');
+ if(!ledger||!employees||!subnav)return;
+ function showSection(isLedger){
+   subnav.classList.toggle('hidden',!isLedger);
+   ledger.classList.toggle('primary',isLedger);
+   employees.classList.toggle('primary',!isLedger);
+ }
+ ledger.addEventListener('click',function(){
+   showSection(true);
+   const current=subnav.querySelector('[data-tab].primary')||subnav.querySelector('[data-tab="dashboard"]');
+   if(current)current.click();
+ });
+ employees.addEventListener('click',function(){showSection(false);});
+ subnav.querySelectorAll('[data-tab]').forEach(function(tab){
+   tab.addEventListener('click',function(){showSection(true);});
+ });
+ showSection(true);
 })();
 </script>
 </body></html>
