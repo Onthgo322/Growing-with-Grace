@@ -214,14 +214,14 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 
 <section class="panel tabpage hidden" id="page-employees">
 <h2>Employees</h2><p class="muted">Employee records are stored separately from children and ledger transactions. Add an employee to automatically create the new-hire training checklist.</p>
-<div class="grid">
+<div id="empEditArea" style="border:2px solid transparent;border-radius:12px;padding:12px;margin:8px 0"><h3 id="empModeHeading">Add new employee</h3><p id="empModeHint" class="muted">Enter details to create a new employee record.</p><div class="grid">
 <div class="field"><label for="empName">Employee full name</label><input id="empName" autocomplete="off"></div>
 <div class="field"><label for="empHire">Hire date</label><input id="empHire" type="date"></div>
 <div class="field"><label for="empCprIssue">CPR issue date</label><input id="empCprIssue" type="date"></div>
 <div class="field"><label for="empCprExpiry">CPR expiration date</label><input id="empCprExpiry" type="date"></div>
 </div><button class="primary" type="button" id="empSave">Add employee</button> <button type="button" id="empCancelEdit" class="hidden">Cancel edit</button> <button type="button" id="empRefresh">Refresh employees</button>
-<p id="empStatus" class="status" role="status" aria-live="polite">To begin, create the employee tables in Supabase using the accompanying SQL file.</p>
-<h3>Employee list and reminders</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Hire date</th><th>CPR expiration</th><th>Next hire anniversary (not training deadline)</th><th>Required new-hire courses</th><th>Action</th></tr></thead><tbody id="empRows"><tr><td colspan="6">No employee records loaded.</td></tr></tbody></table></div>
+<p id="empStatus" class="status" role="status" aria-live="polite">To begin, create the employee tables in Supabase using the accompanying SQL file.</p></div>
+<h3>Employee list and reminders</h3><p class="muted">Click Edit on an employee row to change their information. The selected row is highlighted while editing.</p><div class="tablewrap"><table><thead><tr><th>Name</th><th>Hire date</th><th>CPR expiration</th><th>Next hire anniversary (not training deadline)</th><th>Required new-hire courses</th><th>Action</th></tr></thead><tbody id="empRows"><tr><td colspan="6">No employee records loaded.</td></tr></tbody></table></div>
 <p class="muted small">CPR reminders appear within two calendar months of expiration. The date above is the next hire anniversary, not an annual education compliance deadline. Training deadlines depend on role and applicable North Dakota rules; verify before relying on them for compliance.</p>
 <div style="border-top:1px solid #ddd5e6;margin-top:18px;padding-top:16px" id="trainingManager">
 <h3>Employee training and annual hours</h3>
@@ -2575,9 +2575,9 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
  const plusMonths=(iso,n)=>{const d=new Date(iso+'T12:00:00');const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
  const localToday=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
  let employeeRows=[],editingEmployeeId=null;
- function resetEmployeeEdit(){editingEmployeeId=null;el('empSave').textContent='Add employee';el('empCancelEdit').classList.add('hidden');for(const id of ['empName','empHire','empCprIssue','empCprExpiry'])el(id).value='';}
+ function resetEmployeeEdit(){editingEmployeeId=null;el('empModeHeading').textContent='Add new employee';el('empModeHint').textContent='Enter details to create a new employee record.';el('empEditArea').style.cssText='border:2px solid transparent;border-radius:12px;padding:12px;margin:8px 0';el('empSave').textContent='Add employee';el('empCancelEdit').classList.add('hidden');for(const id of ['empName','empHire','empCprIssue','empCprExpiry'])el(id).value='';}
  el('empCancelEdit').addEventListener('click',()=>{resetEmployeeEdit();el('empStatus').textContent='Edit canceled. No changes saved.';});
- el('empRows').addEventListener('click',event=>{const btn=event.target.closest('[data-employee-edit]');if(!btn)return;const e=employeeRows.find(x=>String(x.id)===btn.getAttribute('data-employee-edit'));if(!e)return;editingEmployeeId=String(e.id);el('empName').value=e.name||'';el('empHire').value=e.hire_date||'';el('empCprIssue').value=e.cpr_issued_on||'';el('empCprExpiry').value=e.cpr_expires_on||'';el('empSave').textContent='Save employee changes';el('empCancelEdit').classList.remove('hidden');el('empStatus').textContent='Editing '+e.name+'. Save changes or cancel.';el('empName').scrollIntoView({behavior:'smooth',block:'center'});});
+ el('empRows').addEventListener('click',event=>{const btn=event.target.closest('[data-employee-edit]');if(!btn)return;const e=employeeRows.find(x=>String(x.id)===btn.getAttribute('data-employee-edit'));if(!e)return;editingEmployeeId=String(e.id);el('empModeHeading').textContent='EDITING EMPLOYEE: '+e.name;el('empModeHint').textContent='You are changing an existing employee. This will not create a duplicate.';el('empEditArea').style.cssText='border:3px solid #6f4a8e;background:#f1e8fa;border-radius:12px;padding:12px;margin:8px 0';el('empName').value=e.name||'';el('empHire').value=e.hire_date||'';el('empCprIssue').value=e.cpr_issued_on||'';el('empCprExpiry').value=e.cpr_expires_on||'';el('empSave').textContent='Save employee changes';el('empCancelEdit').classList.remove('hidden');el('empStatus').textContent='Editing '+e.name+'. Save changes or cancel.';el('empName').scrollIntoView({behavior:'smooth',block:'center'});});
  const anniversary=hire=>{const y=new Date().getFullYear();const md=hire.slice(5);let candidate=`${Math.max(y,Number(hire.slice(0,4))+1)}-${md}`;if(candidate<localToday())candidate=`${Number(candidate.slice(0,4))+1}-${md}`;return candidate;};
  async function load(){
   if(!sb||!user){el('empStatus').textContent='Please sign in first.';return;}
@@ -2592,7 +2592,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
     const cpr=e.cpr_expires_on;
     const cprLabel=!cpr?'Not entered':cpr<today?'EXPIRED':cpr<=plusMonths(today,2)?'Renewal due soon':'Current';
     const done=(training||[]).filter(t=>t.employee_id===e.id&&t.completed_on).length;
-    return `<tr><td>${safe(e.name)}</td><td>${fmt(e.hire_date)}</td><td>${fmt(cpr)} — ${safe(cprLabel)}</td><td>${fmt(due)}</td><td>${done} training item(s) recorded</td><td><button type="button" data-employee-edit="${safe(e.id)}">Edit</button></td></tr>`;
+    return `<tr style="${String(e.id)===editingEmployeeId?'background:#e7d5f6;outline:2px solid #6f4a8e;':''}"><td>${safe(e.name)}</td><td>${fmt(e.hire_date)}</td><td>${fmt(cpr)} — ${safe(cprLabel)}</td><td>${fmt(due)}</td><td>${done} training item(s) recorded</td><td><button type="button" data-employee-edit="${safe(e.id)}">Edit</button></td></tr>`;
   }).join('')||'<tr><td colspan="6">No employees added yet.</td></tr>';
   el('empStatus').textContent=(data||[]).length+' employee(s) loaded.';
  }
@@ -2610,7 +2610,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    if(error)throw error;
    if(!data?.length)throw new Error('No employee record was changed. Please refresh and try again.');
    resetEmployeeEdit();
-   await load();document.dispatchEvent(new CustomEvent('gwg:employees-changed'));el('empStatus').textContent=wasEditing?'Employee changes saved. Training history preserved.':'Employee saved. New-hire checklist created automatically.';
+   await load();document.dispatchEvent(new CustomEvent('gwg:employees-changed'));el('empStatus').textContent=wasEditing?'✓ CHANGES SAVED SUCCESSFULLY. Employee updated; training history preserved.':'✓ EMPLOYEE ADDED SUCCESSFULLY. New-hire checklist created automatically.';
   }catch(err){el('empStatus').textContent='Could not save employee: '+err.message;}finally{btn.disabled=false;}
  });
  el('empRefresh').addEventListener('click',async()=>{await load();document.dispatchEvent(new CustomEvent('gwg:employees-changed'));});
