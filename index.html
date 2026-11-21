@@ -219,9 +219,9 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="field"><label for="empHire">Hire date</label><input id="empHire" type="date"></div>
 <div class="field"><label for="empCprIssue">CPR issue date</label><input id="empCprIssue" type="date"></div>
 <div class="field"><label for="empCprExpiry">CPR expiration date</label><input id="empCprExpiry" type="date"></div>
-</div><button class="primary" type="button" id="empSave">Add employee</button> <button type="button" id="empRefresh">Refresh employees</button>
+</div><button class="primary" type="button" id="empSave">Add employee</button> <button type="button" id="empCancelEdit" class="hidden">Cancel edit</button> <button type="button" id="empRefresh">Refresh employees</button>
 <p id="empStatus" class="status" role="status" aria-live="polite">To begin, create the employee tables in Supabase using the accompanying SQL file.</p>
-<h3>Employee list and reminders</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Hire date</th><th>CPR expiration</th><th>Next hire anniversary (not training deadline)</th><th>Required new-hire courses</th></tr></thead><tbody id="empRows"><tr><td colspan="5">No employee records loaded.</td></tr></tbody></table></div>
+<h3>Employee list and reminders</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Hire date</th><th>CPR expiration</th><th>Next hire anniversary (not training deadline)</th><th>Required new-hire courses</th><th>Action</th></tr></thead><tbody id="empRows"><tr><td colspan="6">No employee records loaded.</td></tr></tbody></table></div>
 <p class="muted small">CPR reminders appear within two calendar months of expiration. The date above is the next hire anniversary, not an annual education compliance deadline. Training deadlines depend on role and applicable North Dakota rules; verify before relying on them for compliance.</p>
 <div style="border-top:1px solid #ddd5e6;margin-top:18px;padding-top:16px" id="trainingManager">
 <h3>Employee training and annual hours</h3>
@@ -2574,6 +2574,10 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
  const fmt=v=>v?new Date(v+'T12:00:00').toLocaleDateString('en-US'):'—';
  const plusMonths=(iso,n)=>{const d=new Date(iso+'T12:00:00');const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
  const localToday=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
+ let employeeRows=[],editingEmployeeId=null;
+ function resetEmployeeEdit(){editingEmployeeId=null;el('empSave').textContent='Add employee';el('empCancelEdit').classList.add('hidden');for(const id of ['empName','empHire','empCprIssue','empCprExpiry'])el(id).value='';}
+ el('empCancelEdit').addEventListener('click',()=>{resetEmployeeEdit();el('empStatus').textContent='Edit canceled. No changes saved.';});
+ el('empRows').addEventListener('click',event=>{const btn=event.target.closest('[data-employee-edit]');if(!btn)return;const e=employeeRows.find(x=>String(x.id)===btn.getAttribute('data-employee-edit'));if(!e)return;editingEmployeeId=String(e.id);el('empName').value=e.name||'';el('empHire').value=e.hire_date||'';el('empCprIssue').value=e.cpr_issued_on||'';el('empCprExpiry').value=e.cpr_expires_on||'';el('empSave').textContent='Save employee changes';el('empCancelEdit').classList.remove('hidden');el('empStatus').textContent='Editing '+e.name+'. Save changes or cancel.';el('empName').scrollIntoView({behavior:'smooth',block:'center'});});
  const anniversary=hire=>{const y=new Date().getFullYear();const md=hire.slice(5);let candidate=`${Math.max(y,Number(hire.slice(0,4))+1)}-${md}`;if(candidate<localToday())candidate=`${Number(candidate.slice(0,4))+1}-${md}`;return candidate;};
  async function load(){
   if(!sb||!user){el('empStatus').textContent='Please sign in first.';return;}
@@ -2581,14 +2585,15 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
   if(error){el('empStatus').textContent='Employee tables may not be set up yet: '+error.message;return;}
   const {data:training,error:trainError}=await sb.from('daycare_employee_training').select('employee_id,course_code,completed_on');
   if(trainError){el('empStatus').textContent='Could not load training checklist: '+trainError.message;return;}
+  employeeRows=data||[];
   const today=localToday();
   el('empRows').innerHTML=(data||[]).map(e=>{
     const due=e.hire_date?anniversary(e.hire_date):'';
     const cpr=e.cpr_expires_on;
     const cprLabel=!cpr?'Not entered':cpr<today?'EXPIRED':cpr<=plusMonths(today,2)?'Renewal due soon':'Current';
     const done=(training||[]).filter(t=>t.employee_id===e.id&&t.completed_on).length;
-    return `<tr><td>${safe(e.name)}</td><td>${fmt(e.hire_date)}</td><td>${fmt(cpr)} — ${safe(cprLabel)}</td><td>${fmt(due)}</td><td>${done} training item(s) recorded</td></tr>`;
-  }).join('')||'<tr><td colspan="5">No employees added yet.</td></tr>';
+    return `<tr><td>${safe(e.name)}</td><td>${fmt(e.hire_date)}</td><td>${fmt(cpr)} — ${safe(cprLabel)}</td><td>${fmt(due)}</td><td>${done} training item(s) recorded</td><td><button type="button" data-employee-edit="${safe(e.id)}">Edit</button></td></tr>`;
+  }).join('')||'<tr><td colspan="6">No employees added yet.</td></tr>';
   el('empStatus').textContent=(data||[]).length+' employee(s) loaded.';
  }
  el('empSave').addEventListener('click',async()=>{
@@ -2598,10 +2603,14 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
   if(issue&&expires&&expires<issue){el('empStatus').textContent='CPR expiration must be after the issue date.';return;}
   const btn=el('empSave');btn.disabled=true;
   try{
-   const {error}=await sb.from('daycare_employees').insert({user_id:user.id,name,hire_date:hire,cpr_issued_on:issue||null,cpr_expires_on:expires||null});
+   const wasEditing=Boolean(editingEmployeeId);
+   const payload={name,hire_date:hire,cpr_issued_on:issue||null,cpr_expires_on:expires||null};
+   const query=wasEditing?sb.from('daycare_employees').update(payload).eq('id',editingEmployeeId).eq('user_id',user.id).select('id'):sb.from('daycare_employees').insert({...payload,user_id:user.id}).select('id');
+   const {data,error}=await query;
    if(error)throw error;
-   el('empName').value='';el('empHire').value='';el('empCprIssue').value='';el('empCprExpiry').value='';
-   await load();document.dispatchEvent(new CustomEvent('gwg:employees-changed'));el('empStatus').textContent='Employee saved. New-hire checklist created automatically.';
+   if(!data?.length)throw new Error('No employee record was changed. Please refresh and try again.');
+   resetEmployeeEdit();
+   await load();document.dispatchEvent(new CustomEvent('gwg:employees-changed'));el('empStatus').textContent=wasEditing?'Employee changes saved. Training history preserved.':'Employee saved. New-hire checklist created automatically.';
   }catch(err){el('empStatus').textContent='Could not save employee: '+err.message;}finally{btn.disabled=false;}
  });
  el('empRefresh').addEventListener('click',async()=>{await load();document.dispatchEvent(new CustomEvent('gwg:employees-changed'));});
