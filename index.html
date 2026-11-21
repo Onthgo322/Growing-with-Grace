@@ -203,7 +203,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected · Auto-sync every 15 seconds</div><div class="muted" id="gwgSyncStatus"></div></div><button onclick="printTransactions()">Print Transactions</button></div></div>
 <nav class="noprint" id="mainNavigation" aria-label="Main sections">
 <button type="button" class="tab primary" id="mainLedger">Ledger</button>
-<button type="button" class="tab" data-tab="employees">Employees</button>
+<button type="button" class="tab" data-tab="employees">Employees</button><button type="button" class="tab" data-tab="parentmessages">Parent Messages</button>
 </nav>
 <nav class="noprint" id="ledgerNavigation" aria-label="Ledger sections">
 <button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="transfers">Transfers</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
@@ -213,7 +213,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 </nav>
 <section class="panel tabpage" id="page-dashboard"><h2>Dashboard</h2><div class="grid dashboard-metrics"><div class="metric"><span class="muted">Active children</span><strong id="countChildren">0</strong></div><div class="metric"><span class="muted">Combined ending ledger balances</span><strong id="balance">$0.00</strong></div></div><p class="muted">All-time totals from saved transactions plus each child's saved beginning balance. Combined ending ledger balances add each child's ending balance, including negative credit balances. CCAP charges and payments are included.</p><h3>Balance breakdown by child</h3><p class="muted small">Read-only, all-time balances including each child’s beginning balance. A positive balance is not necessarily overdue. CCAP payments may be included in individual child totals. Transfer debits increase balances; credits reduce balances.</p><div class="tablewrap"><table><thead><tr><th>Child</th><th>Beginning balance</th><th>Charges</th><th>Payments</th><th>Credits / adjustments</th><th>Net balance</th></tr></thead><tbody id="childBalanceRows"></tbody></table></div></section>
 
-<section class="panel tabpage hidden" id="page-employees">
+<section class="panel tabpage hidden" id="page-parentmessages"><h2>Parent Messages</h2><p class="muted">Private family conversations, separate from childcare billing.</p><p id="pmStatus" role="status"></p><button type="button" id="pmRefresh">Check for messages</button><div class="grid" style="margin-top:12px"><div><h3>Families</h3><div id="pmFamilies"></div></div><div><h3 id="pmHeading">Select a family</h3><div id="pmThread" style="max-height:420px;overflow:auto;border:1px solid #ddd5e6;border-radius:10px;padding:12px;min-height:100px"></div><label for="pmDraft">Reply</label><textarea id="pmDraft" maxlength="4000"></textarea><button type="button" id="pmSend" disabled>Send reply</button></div></div></section><section class="panel tabpage hidden" id="page-employees">
 <h2>Employees</h2><p class="muted">Employee records are stored separately from children and ledger transactions. Add an employee to automatically create the new-hire training checklist.</p>
 <div id="empEditArea" style="border:2px solid transparent;border-radius:12px;padding:12px;margin:8px 0"><h3 id="empModeHeading">Add new employee</h3><p id="empModeHint" class="muted">Enter details to create a new employee record.</p><div class="grid">
 <div class="field"><label for="empName">Employee full name</label><input id="empName" autocomplete="off"></div>
@@ -2214,7 +2214,32 @@ function printFilteredReport(){
  const win=window.open('','_blank');
  if(!win)return alert('Allow pop-ups for this site to print the report.');
  win.document.open();
- win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+' Report</title><style>@page{size:landscape;margin:10mm}body{font:11px Arial,sans-serif;color:#222}h2,h3{text-align:center;margin:8px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}thead{display:table-header-group}tr{break-inside:avoid}th:nth-child(6),td:nth-child(6){text-align:right}</style></head><body>'+heading+table+'</body></html>');
+ win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+' Report</title><style>@page{size:landscape;margin:10mm}body{font:11px Arial,sans-serif;color:#222}h2,h3{text-align:center;margin:8px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}thead{display:table-header-group}tr{break-inside:avoid}th:nth-child(6),td:nth-child(6){text-align:right}</style></head><body>'+heading+table+'<script>
+(function(){
+const E=id=>document.getElementById(id);let selected=null,families=[];
+const status=t=>E('pmStatus').textContent=t;
+async function load(){if(!sb||!user){status('Sign in to your ledger first.');return;}
+const {data:admins,error:ae}=await sb.from('parent_message_admins').select('user_id').eq('user_id',user.id).limit(1);
+if(ae||!admins?.length){status('Messaging administrator access is not enabled for this account.');return;}
+const {data,error}=await sb.from('parent_families').select('id,display_name').order('display_name');
+if(error){status('Could not load families: '+error.message);return;}
+families=data||[];E('pmFamilies').replaceChildren();
+for(const f of families){const b=document.createElement('button');b.type='button';b.style.cssText='display:block;width:100%;margin-bottom:8px;text-align:left';b.textContent=f.display_name;b.onclick=()=>choose(f.id);E('pmFamilies').append(b);}
+if(!families.length)E('pmFamilies').textContent='No parent families added yet.';
+status(families.length+' families available.');if(selected&&families.some(f=>f.id===selected))await choose(selected);
+}
+async function choose(id){selected=id;const f=families.find(x=>x.id===id);E('pmHeading').textContent=f?.display_name||'Family';E('pmSend').disabled=false;
+const {data,error}=await sb.from('parent_messages').select('sender_id,body,created_at').eq('family_id',id).order('created_at',{ascending:true}).limit(200);
+if(error){status('Could not load conversation: '+error.message);return;}
+const host=E('pmThread');host.replaceChildren();
+for(const m of data||[]){const d=document.createElement('div');d.style.cssText='padding:10px;background:'+(m.sender_id===user.id?'#e6f2e8':'#f1eaf6')+';border-radius:8px;margin:8px 0;overflow-wrap:anywhere';const meta=document.createElement('small');meta.textContent=(m.sender_id===user.id?'You':'Family')+' · '+new Date(m.created_at).toLocaleString();const body=document.createElement('div');body.textContent=m.body;d.append(meta,body);host.append(d);}
+if(!data?.length)host.textContent='No messages yet.';host.scrollTop=host.scrollHeight;
+}
+E('pmSend').onclick=async()=>{const body=E('pmDraft').value.trim();if(!selected||!body||!user)return;E('pmSend').disabled=true;const {error}=await sb.from('parent_messages').insert({family_id:selected,sender_id:user.id,body});if(error)status('Message not sent: '+error.message);else{E('pmDraft').value='';status('Reply sent.');await choose(selected);}E('pmSend').disabled=false;};
+E('pmRefresh').onclick=load;document.querySelector('#mainNavigation [data-tab="parentmessages"]').addEventListener('click',()=>setTimeout(load,0));
+})();
+</script>
+</body></html>');
  win.document.close();win.focus();win.print();
 }
 
@@ -2634,12 +2659,14 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
 (function(){
  const ledger=document.getElementById('mainLedger');
  const employees=document.querySelector('#mainNavigation [data-tab="employees"]');
+ const messages=document.querySelector('#mainNavigation [data-tab="parentmessages"]');
  const subnav=document.getElementById('ledgerNavigation');
  if(!ledger||!employees||!subnav)return;
  function showSection(isLedger){
    subnav.classList.toggle('hidden',!isLedger);
    ledger.classList.toggle('primary',isLedger);
-   employees.classList.toggle('primary',!isLedger);
+   employees.classList.toggle('primary',!isLedger && !messages?.classList.contains('primary'));
+   if(isLedger)messages?.classList.remove('primary');
  }
  ledger.addEventListener('click',function(){
    showSection(true);
@@ -2647,6 +2674,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    if(current)current.click();
  });
  employees.addEventListener('click',function(){showSection(false);});
+ messages?.addEventListener('click',function(){subnav.classList.add('hidden');ledger.classList.remove('primary');employees.classList.remove('primary');messages.classList.add('primary');});
  subnav.querySelectorAll('[data-tab]').forEach(function(tab){
    tab.addEventListener('click',function(){showSection(true);});
  });
