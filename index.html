@@ -2785,27 +2785,79 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
 </script>
 <script>
 (function(){
-const E=id=>document.getElementById(id);let selected=null,families=[];
+const E=id=>document.getElementById(id);
+let selected=null,families=[],loading=false;
+const tab=document.querySelector('#mainNavigation [data-tab="parentmessages"]');
 const status=t=>E('pmStatus').textContent=t;
-async function load(){if(!sb||!user){status('Sign in to your ledger first.');return;}
-const {data:admins,error:ae}=await sb.from('parent_message_admins').select('user_id').eq('user_id',user.id).limit(1);
-if(ae||!admins?.length){status('Messaging administrator access is not enabled for this account.');return;}
-const {data,error}=await sb.from('parent_families').select('id,display_name').order('display_name');
-if(error){status('Could not load families: '+error.message);return;}
-families=data||[];E('pmFamilies').replaceChildren();
-for(const f of families){const b=document.createElement('button');b.type='button';b.style.cssText='display:block;width:100%;margin-bottom:8px;text-align:left';b.textContent=f.display_name;b.onclick=()=>choose(f.id);E('pmFamilies').append(b);}
-if(!families.length)E('pmFamilies').textContent='No parent families added yet.';
-status(families.length+' families available.');if(selected&&families.some(f=>f.id===selected))await choose(selected);
+const seenKey=id=>'gwg_pm_seen_'+user.id+'_'+id;
+function seen(id){return localStorage.getItem(seenKey(id))||'1970-01-01T00:00:00.000Z';}
+function markSeen(id,iso){if(iso&&iso>seen(id))localStorage.setItem(seenKey(id),iso);}
+async function updateUnread(){
+ if(!sb||!user)return;
+ const {data:admins,error:ae}=await sb.from('parent_message_admins').select('user_id').eq('user_id',user.id).limit(1);
+ if(ae||!admins?.length)return;
+ const {data:fs,error:fe}=await sb.from('parent_families').select('id');
+ if(fe)return;
+ let total=0;
+ for(const f of fs||[]){
+   const {data:msgs,error}=await sb.from('parent_messages').select('id,created_at').eq('family_id',f.id).neq('sender_id',user.id).gt('created_at',seen(f.id)).limit(1000);
+   if(!error)total+=(msgs||[]).length;
+ }
+ tab.textContent='Parent Messages'+(total?' ('+total+')':'');
+ tab.setAttribute('aria-label','Parent Messages'+(total?', '+total+' unread':''));
 }
-async function choose(id){selected=id;const f=families.find(x=>x.id===id);E('pmHeading').textContent=f?.display_name||'Family';E('pmSend').disabled=false;
-const {data,error}=await sb.from('parent_messages').select('sender_id,body,created_at').eq('family_id',id).order('created_at',{ascending:true}).limit(200);
-if(error){status('Could not load conversation: '+error.message);return;}
-const host=E('pmThread');host.replaceChildren();
-for(const m of data||[]){const d=document.createElement('div');d.style.cssText='padding:10px;background:'+(m.sender_id===user.id?'#e6f2e8':'#f1eaf6')+';border-radius:8px;margin:8px 0;overflow-wrap:anywhere';const meta=document.createElement('small');meta.textContent=(m.sender_id===user.id?'You':'Family')+' · '+new Date(m.created_at).toLocaleString();const body=document.createElement('div');body.textContent=m.body;d.append(meta,body);host.append(d);}
-if(!data?.length)host.textContent='No messages yet.';host.scrollTop=host.scrollHeight;
+async function load(){
+ if(loading)return;loading=true;
+ try{
+ if(!sb||!user){status('Sign in to your ledger first.');return;}
+ const {data:admins,error:ae}=await sb.from('parent_message_admins').select('user_id').eq('user_id',user.id).limit(1);
+ if(ae||!admins?.length){status('Messaging administrator access is not enabled for this account.');return;}
+ const {data,error}=await sb.from('parent_families').select('id,display_name').order('display_name');
+ if(error){status('Could not load families: '+error.message);return;}
+ families=data||[];E('pmFamilies').replaceChildren();
+ for(const f of families){
+   const b=document.createElement('button');b.type='button';
+   b.style.cssText='display:block;width:100%;margin-bottom:8px;text-align:left';
+   b.textContent=f.display_name;b.onclick=()=>choose(f.id);E('pmFamilies').append(b);
+ }
+ if(!families.length)E('pmFamilies').textContent='No parent families added yet.';
+ status(families.length+' families available.');
+ if(selected&&families.some(f=>f.id===selected))await choose(selected);
+ await updateUnread();
+ }finally{loading=false;}
 }
-E('pmSend').onclick=async()=>{const body=E('pmDraft').value.trim();if(!selected||!body||!user)return;E('pmSend').disabled=true;const {error}=await sb.from('parent_messages').insert({family_id:selected,sender_id:user.id,body});if(error)status('Message not sent: '+error.message);else{E('pmDraft').value='';status('Reply sent.');await choose(selected);}E('pmSend').disabled=false;};
-E('pmRefresh').onclick=load;document.querySelector('#mainNavigation [data-tab="parentmessages"]').addEventListener('click',()=>setTimeout(load,0));
+async function choose(id){
+ selected=id;const f=families.find(x=>x.id===id);
+ E('pmHeading').textContent=f?.display_name||'Family';E('pmSend').disabled=false;
+ const {data,error}=await sb.from('parent_messages').select('sender_id,body,created_at').eq('family_id',id).order('created_at',{ascending:true}).limit(200);
+ if(error){status('Could not load conversation: '+error.message);return;}
+ const host=E('pmThread');host.replaceChildren();
+ for(const m of data||[]){
+  const d=document.createElement('div');
+  d.style.cssText='padding:10px;background:'+(m.sender_id===user.id?'#e6f2e8':'#f1eaf6')+';border-radius:8px;margin:8px 0;overflow-wrap:anywhere';
+  const meta=document.createElement('small');
+  meta.textContent=(m.sender_id===user.id?'You':'Family')+' · '+new Date(m.created_at).toLocaleString();
+  const body=document.createElement('div');body.textContent=m.body;
+  d.append(meta,body);host.append(d);
+ }
+ if(!data?.length)host.textContent='No messages yet.';
+ host.scrollTop=host.scrollHeight;
+ const latest=(data||[]).filter(m=>m.sender_id!==user.id).map(m=>m.created_at).sort().pop();
+ markSeen(id,latest);
+ await updateUnread();
+}
+E('pmSend').onclick=async()=>{
+ const body=E('pmDraft').value.trim();if(!selected||!body||!user)return;
+ E('pmSend').disabled=true;
+ const {error}=await sb.from('parent_messages').insert({family_id:selected,sender_id:user.id,body});
+ if(error)status('Message not sent: '+error.message);
+ else{E('pmDraft').value='';status('Reply sent.');await choose(selected);}
+ E('pmSend').disabled=false;
+};
+E('pmRefresh').onclick=load;
+tab.addEventListener('click',()=>setTimeout(load,0));
+setInterval(()=>{if(sb&&user)updateUnread().catch(()=>{});},30000);
+setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
 })();
 </script>
 </body></html>
