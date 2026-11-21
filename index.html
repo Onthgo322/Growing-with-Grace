@@ -201,13 +201,25 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div id="app" class="hidden">
 <div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected · Auto-sync every 15 seconds</div><div class="muted" id="gwgSyncStatus"></div></div><button onclick="printTransactions()">Print Transactions</button></div></div>
 <nav class="noprint">
-<button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="transfers">Transfers</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
+<button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="employees">Employees</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="transfers">Transfers</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
  
 <button class="tab" data-tab="deleted">Deleted Transactions</button><button class="tab" data-tab="allaudit">All-Children Audit</button>
 
 </nav>
 <section class="panel tabpage" id="page-dashboard"><h2>Dashboard</h2><div class="grid dashboard-metrics"><div class="metric"><span class="muted">Active children</span><strong id="countChildren">0</strong></div><div class="metric"><span class="muted">Combined ending ledger balances</span><strong id="balance">$0.00</strong></div></div><p class="muted">All-time totals from saved transactions plus each child's saved beginning balance. Combined ending ledger balances add each child's ending balance, including negative credit balances. CCAP charges and payments are included.</p><h3>Balance breakdown by child</h3><p class="muted small">Read-only, all-time balances including each child’s beginning balance. A positive balance is not necessarily overdue. CCAP payments may be included in individual child totals. Transfer debits increase balances; credits reduce balances.</p><div class="tablewrap"><table><thead><tr><th>Child</th><th>Beginning balance</th><th>Charges</th><th>Payments</th><th>Credits / adjustments</th><th>Net balance</th></tr></thead><tbody id="childBalanceRows"></tbody></table></div></section>
 
+<section class="panel tabpage hidden" id="page-employees">
+<h2>Employees</h2><p class="muted">Employee records are stored separately from children and ledger transactions. Add an employee to automatically create the new-hire training checklist.</p>
+<div class="grid">
+<div class="field"><label for="empName">Employee full name</label><input id="empName" autocomplete="off"></div>
+<div class="field"><label for="empHire">Hire date</label><input id="empHire" type="date"></div>
+<div class="field"><label for="empCprIssue">CPR issue date</label><input id="empCprIssue" type="date"></div>
+<div class="field"><label for="empCprExpiry">CPR expiration date</label><input id="empCprExpiry" type="date"></div>
+</div><button class="primary" type="button" id="empSave">Add employee</button> <button type="button" id="empRefresh">Refresh employees</button>
+<p id="empStatus" class="status" role="status" aria-live="polite">To begin, create the employee tables in Supabase using the accompanying SQL file.</p>
+<h3>Employee list and reminders</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Hire date</th><th>CPR expiration</th><th>Annual education deadline</th><th>Required new-hire courses</th></tr></thead><tbody id="empRows"><tr><td colspan="5">No employee records loaded.</td></tr></tbody></table></div>
+<p class="muted small">CPR reminders appear within two calendar months of expiration. Annual education reminders and clock-hour entry will be added in the next step. Training deadlines depend on role and applicable North Dakota rules; verify before relying on them for compliance.</p>
+</section>
 <section class="panel tabpage hidden" id="page-children"><h2>Children</h2><div class="grid">
 <div class="field"><label>Child's full name</label><input id="childName" placeholder="Child name"></div>
 <div class="field"><label>Child's birthdate</label><input type="date" id="childBirthdate"></div> 
@@ -2164,7 +2176,49 @@ function printFilteredReport(){
  const win=window.open('','_blank');
  if(!win)return alert('Allow pop-ups for this site to print the report.');
  win.document.open();
- win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+' Report</title><style>@page{size:landscape;margin:10mm}body{font:11px Arial,sans-serif;color:#222}h2,h3{text-align:center;margin:8px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}thead{display:table-header-group}tr{break-inside:avoid}th:nth-child(6),td:nth-child(6){text-align:right}</style></head><body>'+heading+table+'</body></html>');
+ win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+' Report</title><style>@page{size:landscape;margin:10mm}body{font:11px Arial,sans-serif;color:#222}h2,h3{text-align:center;margin:8px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}thead{display:table-header-group}tr{break-inside:avoid}th:nth-child(6),td:nth-child(6){text-align:right}</style></head><body>'+heading+table+'<script>
+// Employee module: deliberately independent of all existing ledger tables and functions.
+(function(){
+ const el=id=>document.getElementById(id);
+ const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const fmt=v=>v?new Date(v+'T12:00:00').toLocaleDateString('en-US'):'—';
+ const plusMonths=(iso,n)=>{const d=new Date(iso+'T12:00:00');const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
+ const localToday=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
+ const anniversary=hire=>{const y=new Date().getFullYear();const md=hire.slice(5);let candidate=`${y}-${md}`;if(candidate<localToday())candidate=`${y+1}-${md}`;return candidate;};
+ async function load(){
+  if(!sb||!user){el('empStatus').textContent='Please sign in first.';return;}
+  const {data,error}=await sb.from('daycare_employees').select('*').order('name');
+  if(error){el('empStatus').textContent='Employee tables may not be set up yet: '+error.message;return;}
+  const {data:training,error:trainError}=await sb.from('daycare_employee_training').select('employee_id,course_code,completed_on');
+  if(trainError){el('empStatus').textContent='Could not load training checklist: '+trainError.message;return;}
+  const today=localToday();
+  el('empRows').innerHTML=(data||[]).map(e=>{
+    const due=e.hire_date?anniversary(e.hire_date):'';
+    const cpr=e.cpr_expires_on;
+    const cprLabel=!cpr?'Not entered':cpr<today?'EXPIRED':cpr<=plusMonths(today,2)?'Renewal due soon':'Current';
+    const done=(training||[]).filter(t=>t.employee_id===e.id&&t.completed_on).length;
+    return `<tr><td>${safe(e.name)}</td><td>${fmt(e.hire_date)}</td><td>${fmt(cpr)} — ${safe(cprLabel)}</td><td>${fmt(due)}</td><td>${done} training item(s) recorded</td></tr>`;
+  }).join('')||'<tr><td colspan="5">No employees added yet.</td></tr>';
+  el('empStatus').textContent=(data||[]).length+' employee(s) loaded.';
+ }
+ el('empSave').addEventListener('click',async()=>{
+  if(!sb||!user){el('empStatus').textContent='Sign in first.';return;}
+  const name=el('empName').value.trim(),hire=el('empHire').value,issue=el('empCprIssue').value,expires=el('empCprExpiry').value;
+  if(!name||!hire){el('empStatus').textContent='Enter employee name and hire date.';return;}
+  if(issue&&expires&&expires<issue){el('empStatus').textContent='CPR expiration must be after the issue date.';return;}
+  const btn=el('empSave');btn.disabled=true;
+  try{
+   const {error}=await sb.from('daycare_employees').insert({user_id:user.id,name,hire_date:hire,cpr_issued_on:issue||null,cpr_expires_on:expires||null});
+   if(error)throw error;
+   el('empName').value='';el('empHire').value='';el('empCprIssue').value='';el('empCprExpiry').value='';
+   await load();el('empStatus').textContent='Employee saved. New-hire checklist created automatically.';
+  }catch(err){el('empStatus').textContent='Could not save employee: '+err.message;}finally{btn.disabled=false;}
+ });
+ el('empRefresh').addEventListener('click',load);
+ document.querySelector('[data-tab="employees"]').addEventListener('click',()=>setTimeout(load,0));
+})();
+</script>
+</body></html>');
  win.document.close();win.focus();win.print();
 }
 
