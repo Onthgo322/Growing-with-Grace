@@ -213,7 +213,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 </nav>
 <section class="panel tabpage" id="page-dashboard"><h2>Dashboard</h2><div class="grid dashboard-metrics"><div class="metric"><span class="muted">Active children</span><strong id="countChildren">0</strong></div><div class="metric"><span class="muted">Combined ending ledger balances</span><strong id="balance">$0.00</strong></div></div><p class="muted">All-time totals from saved transactions plus each child's saved beginning balance. Combined ending ledger balances add each child's ending balance, including negative credit balances. CCAP charges and payments are included.</p><h3>Balance breakdown by child</h3><p class="muted small">Read-only, all-time balances including each child’s beginning balance. A positive balance is not necessarily overdue. CCAP payments may be included in individual child totals. Transfer debits increase balances; credits reduce balances.</p><div class="tablewrap"><table><thead><tr><th>Child</th><th>Beginning balance</th><th>Charges</th><th>Payments</th><th>Credits / adjustments</th><th>Net balance</th></tr></thead><tbody id="childBalanceRows"></tbody></table></div></section>
 
-<section class="panel tabpage hidden" id="page-parentmessages"><h2>Parent Messages</h2><p class="muted">Private family conversations, separate from childcare billing.</p><p id="pmStatus" role="status"></p><button type="button" id="pmRefresh">Check for messages</button><div class="grid" style="margin-top:12px"><div><h3>Families</h3><div id="pmFamilies"></div></div><div><h3 id="pmHeading">Select a family</h3><div style="margin-bottom:8px"><button type="button" id="pmMessageInbox">Message Inbox</button> <button type="button" id="pmMessageArchived">Archived Messages</button></div><div id="pmThread" style="max-height:420px;overflow:auto;border:1px solid #ddd5e6;border-radius:10px;padding:12px;min-height:100px"></div><label for="pmDraft">Reply</label><textarea id="pmDraft" maxlength="4000"></textarea><button type="button" id="pmSend" disabled>Send reply</button></div></div></section><section class="panel tabpage hidden" id="page-employees">
+<section class="panel tabpage hidden" id="page-parentmessages"><h2>Parent Messages</h2><p class="muted">Private family conversations, separate from childcare billing.</p><p id="pmStatus" role="status"></p><button type="button" id="pmRefresh">Check for messages</button><div style="border:1px solid #ddd5e6;border-radius:10px;padding:12px;margin-top:12px"><h3 style="margin-top:0">Invite Parent</h3><p class="muted">Choose an existing family and enter the parent’s email address. Only messaging access will be granted.</p><label for="pmInviteFamily">Family</label><select id="pmInviteFamily"><option value="">Select a family</option></select><label for="pmInviteEmail">Parent email address</label><input id="pmInviteEmail" type="email" autocomplete="off" placeholder="parent@example.com"><button type="button" id="pmInviteSend" style="margin-top:8px">Send Invitation</button><p id="pmInviteStatus" role="status"></p></div><div class="grid" style="margin-top:12px"><div><h3>Families</h3><div id="pmFamilies"></div></div><div><h3 id="pmHeading">Select a family</h3><div style="margin-bottom:8px"><button type="button" id="pmMessageInbox">Message Inbox</button> <button type="button" id="pmMessageArchived">Archived Messages</button></div><div id="pmThread" style="max-height:420px;overflow:auto;border:1px solid #ddd5e6;border-radius:10px;padding:12px;min-height:100px"></div><label for="pmDraft">Reply</label><textarea id="pmDraft" maxlength="4000"></textarea><button type="button" id="pmSend" disabled>Send reply</button></div></div></section><section class="panel tabpage hidden" id="page-employees">
 <h2>Employees</h2><p class="muted">Employee records are stored separately from children and ledger transactions. Add an employee to automatically create the new-hire training checklist.</p>
 <div id="empEditArea" style="border:2px solid transparent;border-radius:12px;padding:12px;margin:8px 0"><h3 id="empModeHeading">Add new employee</h3><p id="empModeHint" class="muted">Enter details to create a new employee record.</p><div class="grid">
 <div class="field"><label for="empName">Employee full name</label><input id="empName" autocomplete="off"></div>
@@ -2821,6 +2821,7 @@ async function load(){
  families=data||[];
  renderFamilies();
  status(families.length+' families available.');
+ const inviteSelect=E('pmInviteFamily'),previous=inviteSelect.value;inviteSelect.replaceChildren();const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select a family';inviteSelect.append(placeholder);for(const f of families){const option=document.createElement('option');option.value=f.id;option.textContent=f.display_name;inviteSelect.append(option);}if(families.some(f=>f.id===previous))inviteSelect.value=previous;
  if(selected)await choose(selected);
  await updateUnread();
  }finally{loading=false;}
@@ -2871,6 +2872,21 @@ E('pmSend').onclick=async()=>{
 };
 E('pmMessageInbox').onclick=()=>{messageView='inbox';if(selected)choose(selected);};
 E('pmMessageArchived').onclick=()=>{messageView='archived';if(selected)choose(selected);};
+E('pmInviteSend').onclick=async()=>{
+ const email=E('pmInviteEmail').value.trim(),family_id=E('pmInviteFamily').value,notice=E('pmInviteStatus'),button=E('pmInviteSend');
+ if(!family_id){notice.textContent='Select a family first.';return;}
+ if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){notice.textContent='Enter a valid parent email address.';return;}
+ if(!confirm('Send a parent portal invitation to '+email+' for '+(families.find(f=>f.id===family_id)?.display_name||'this family')+'?'))return;
+ button.disabled=true;notice.textContent='Sending invitation…';
+ try{
+  const {data,error}=await sb.functions.invoke('invite-parent',{body:{email,family_id}});
+  if(error)throw error;
+  if(!data?.success)throw new Error(data?.error||'The invitation could not be confirmed.');
+  notice.textContent='Invitation sent to '+email+'.';
+  E('pmInviteEmail').value='';
+ }catch(err){notice.textContent='Invitation not confirmed: '+(err.message||String(err))+'. Check the Edge Function logs before trying again.';}
+ finally{button.disabled=false;}
+};
 E('pmRefresh').onclick=load;
 tab.addEventListener('click',()=>setTimeout(load,0));
 setInterval(()=>{if(sb&&user){updateUnread().catch(()=>{});if(!document.getElementById('page-parentmessages').classList.contains('hidden'))load().catch(()=>{});}},30000);
