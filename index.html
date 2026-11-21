@@ -240,6 +240,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="metric"><span class="muted">Annual hours required</span><strong id="trainRequired">—</strong></div>
 <div class="metric"><span class="muted">Hours remaining</span><strong id="trainRemaining">—</strong></div>
 </div>
+<div id="trainReminderSummary" role="status" aria-live="polite" style="background:#fde8e8;border:1px solid #e6aaaa;color:#842727;border-radius:8px;padding:12px;margin:12px 0">Select an employee to view training reminders.</div>
 <div id="trainEditArea" style="border:2px solid transparent;border-radius:12px;padding:12px;margin:8px 0"><h3 id="trainFormTitle">Add completed training</h3><p id="trainModeHint" class="muted">Enter a new completed course below.</p>
 <div class="grid">
 <div class="field"><label for="trainCourse">Course / training name</label><input id="trainCourse" placeholder="e.g. Mandated Reporter"></div>
@@ -2669,7 +2670,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
  }
  function show(){
    const e=staff.find(x=>String(x.id)===selected), year=String(E('trainYear').value);
-   if(!e){E('trainHistory').innerHTML='<tr><td colspan="6">Select an employee.</td></tr>';['trainCompleted','trainRequired','trainRemaining'].forEach(id=>E(id).textContent='—');return;}
+   if(!e){E('trainReminderSummary').textContent='Select an employee to view training reminders.';E('trainHistory').innerHTML='<tr><td colspan="6">Select an employee.</td></tr>';['trainCompleted','trainRequired','trainRemaining'].forEach(id=>E(id).textContent='—');return;}
    E('trainClass').value=e.employee_classification||'regular';
    E('trainWeeklyHours').value=e.weekly_hours??'';
    E('trainOverride').value=e.annual_hours_override??'';
@@ -2678,6 +2679,15 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    E('trainCompleted').textContent=completed.toFixed(2);
    E('trainRequired').textContent=req===null?'Set hours':req===0?'Exempt / 0':req.toFixed(2);
    E('trainRemaining').textContent=req===null?'—':Math.max(0,req-completed).toFixed(2);
+   const expired=history.filter(t=>t.expires_on&&t.expires_on<today());
+   const soon=history.filter(t=>t.expires_on&&t.expires_on>=today()&&t.expires_on<=plusDays(today(),60));
+   const remaining=req===null?null:Math.max(0,req-completed);
+   const messages=[`Training reminders for ${e.name} (${year})`];
+   messages.push(req===null?'Annual requirement not set — enter weekly hours or an override.':remaining>0?`${remaining.toFixed(2)} annual training hours remaining (not necessarily overdue).`:'Annual hour target met for selected year.');
+   if(expired.length)messages.push(`${expired.length} expired training/certification record(s): ${expired.map(t=>t.course_name).join(', ')}.`);
+   if(soon.length)messages.push(`${soon.length} record(s) expiring within 60 days: ${soon.map(t=>t.course_name).join(', ')}.`);
+   if(!expired.length&&!soon.length)messages.push('No recorded training/certification expirations due within 60 days.');
+   E('trainReminderSummary').textContent=messages.join('  •  ');
    E('trainHistory').innerHTML=history.slice().sort((a,b)=>String(b.completed_on).localeCompare(String(a.completed_on))).map(t=>{
       const exp=t.expires_on;
       const reminder=!exp?'—':exp<today()?'EXPIRED':exp<=plusDays(today(),60)?'Due within 60 days':'Current';
