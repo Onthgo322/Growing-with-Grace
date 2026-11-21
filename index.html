@@ -2594,7 +2594,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
     const cpr=e.cpr_expires_on;
     const cprLabel=!cpr?'NOT ENTERED':cpr<today?'EXPIRED':cpr<=plusMonths(today,1)?'DUE WITHIN 1 MONTH':cpr<=plusMonths(today,2)?'DUE WITHIN 2 MONTHS':'CURRENT';
     if(!cpr)missingCount++;else if(cpr<today)expiredCount++;else if(cpr<=plusMonths(today,2))soonCount++;
-    const cprStyle=!cpr?'background:#f1f1f1;color:#444':cpr<today?'background:#ffe1e1;color:#8c2020':cpr<=plusMonths(today,2)?'background:#fff0bf;color:#6d4800':'background:#e5f4e8;color:#225a32';
+    const cprStyle=!cpr?'background:#fbd6d6;color:#9b1717;border:1px solid #d77a7a':cpr<today?'background:#ffe1e1;color:#8c2020':cpr<=plusMonths(today,2)?'background:#fff0bf;color:#6d4800':'background:#e5f4e8;color:#225a32';
     const done=(training||[]).filter(t=>t.employee_id===e.id&&t.completed_on).length;
     return `<tr style="${String(e.id)===editingEmployeeId?'background:#e7d5f6;outline:2px solid #6f4a8e;':''}"><td>${safe(e.name)}</td><td>${fmt(e.hire_date)}</td><td>${fmt(cpr)} <strong style="display:inline-block;padding:4px 7px;border-radius:6px;${cprStyle}">${safe(cprLabel)}</strong></td><td>${fmt(due)}</td><td>${done} training item(s) recorded</td><td><button type="button" data-employee-edit="${safe(e.id)}">Edit</button></td></tr>`;
   }).join('')||'<tr><td colspan="6">No employees added yet.</td></tr>';
