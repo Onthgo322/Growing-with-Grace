@@ -175,7 +175,7 @@ E('hbOpenPdf').onclick=openPublishedHandbook;
 async function loadAssignedForms(){
  const host=E('assignedFormsList');host.textContent='Loading forms…';
  try{
-  const {data:assignments,error}=await sb.from('parent_form_assignments').select('template_id,child_id,status').eq('family_id',family).neq('status','draft').limit(200);
+  const {data:assignments,error}=await sb.from('parent_form_assignments').select('id,template_id,child_id,status').eq('family_id',family).neq('status','draft').limit(200);
   if(error)throw error;
   const rows=assignments||[];
   const ids=[...new Set(rows.map(x=>x.template_id).filter(Boolean))];
@@ -249,6 +249,41 @@ async function openEditableAssignedPdf(template,assignment){
   const link=document.createElement('a');link.href=url;link.download=template.title.replace(/[^a-z0-9 _-]/gi,'').slice(0,70)+'-completed.pdf';document.body.append(link);link.click();link.remove();setTimeout(()=>window.URL.revokeObjectURL(url),60000);
   alert('The filled PDF was downloaded to your device. It has NOT been submitted to Growing With Grace.');
  }catch(e){alert('Could not prepare PDF: '+e.message);}finally{save.disabled=false;}};
+ const signerLabel=document.createElement('label');signerLabel.textContent='Parent/guardian full legal name (electronic signature)';wrap.append(signerLabel);
+ const signer=document.createElement('input');signer.autocomplete='name';signer.maxLength=150;wrap.append(signer);
+ const phoneLabel=document.createElement('label');phoneLabel.textContent='Parent/guardian phone number';wrap.append(phoneLabel);
+ const phone=document.createElement('input');phone.type='tel';phone.maxLength=30;wrap.append(phone);
+ const consentLabel=document.createElement('label');consentLabel.style.display='flex';consentLabel.style.gap='8px';
+ const consent=document.createElement('input');consent.type='checkbox';consent.style.width='auto';
+ const consentText=document.createElement('span');consentText.textContent='I reviewed this form, confirm the information is accurate, and consent to sign electronically by typing my name.';
+ consentLabel.append(consent,consentText);wrap.append(consentLabel);
+ const submit=document.createElement('button');submit.type='button';submit.textContent='Sign and Submit to Growing With Grace';
+ submit.disabled=unsupported>0||assignment.status!=='sent';
+ if(unsupported||assignment.status!=='sent'){const p=document.createElement('p');p.className='muted';p.textContent=unsupported?'Submission disabled because some PDF fields are unsupported.':'This assignment is not awaiting submission.';wrap.append(p);}
+ submit.onclick=async()=>{
+  if(!currentUser||!family||!assignment.id){alert('Sign in and select a family first.');return;}
+  if(!signer.value.trim()||!consent.checked){alert('Enter your full name and check the electronic signature consent.');return;}
+  if(phone.value.replace(/\\D/g,'').length<10){alert('Enter a valid parent phone number.');return;}
+  if(!confirm('Submit this signed form to Growing With Grace? You will not be able to edit it afterward.'))return;
+  submit.disabled=true;submit.textContent='Submitting…';
+  try{
+   for(const {field,input,kind} of entries){if(kind==='PDFTextField')field.setText(input.value);else if(kind==='PDFCheckBox'){if(input.checked)field.check();else field.uncheck();}else if((kind==='PDFDropdown'||kind==='PDFRadioGroup')&&input.value)field.select(input.value);}
+   const stamp=new Date().toISOString(),page=pdf.addPage([612,180]),font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+   page.drawText('Electronic Signature Record',{x:32,y:145,size:15,font});
+   page.drawText('Signer: '+signer.value.trim().slice(0,90),{x:32,y:112,size:11,font});
+   page.drawText('Phone: '+phone.value.trim().slice(0,30),{x:32,y:90,size:11,font});
+   page.drawText('Signed (UTC): '+stamp,{x:32,y:68,size:10,font});
+   page.drawText('Consent to electronic signature: Yes',{x:32,y:46,size:10,font});
+   const pdfBytes=await pdf.save(),path=currentUser.id+'/'+assignment.id+'/'+crypto.randomUUID()+'.pdf';
+   const {error:uploadError}=await sb.storage.from('completed-parent-forms').upload(path,new Blob([pdfBytes],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});
+   if(uploadError)throw uploadError;
+   const {error:recordError}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:signer.value.trim(),parent_phone:phone.value.trim(),signature_consent:true,completed_pdf_path:path});
+   if(recordError)throw new Error('PDF uploaded but submission record could not be saved. Contact the center; do not submit again. '+recordError.message);
+   alert('Signed form submitted successfully.');wrap.remove();await loadAssignedForms();
+  }catch(e){alert('Submission not completed: '+(e.message||String(e)));}
+  finally{submit.disabled=false;submit.textContent='Sign and Submit to Growing With Grace';}
+ };
+ wrap.append(submit);
  const close=document.createElement('button');close.type='button';close.className='secondary';close.textContent='Close Editor';close.onclick=()=>wrap.remove();
  const note=document.createElement('p');note.className='muted';note.textContent='This editor works only for PDFs with built-in fillable fields. Downloading does not submit the form or add a signature.';
  wrap.append(note,save,document.createTextNode(' '),close);
