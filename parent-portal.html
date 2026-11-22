@@ -367,7 +367,7 @@ async function openEditableAssignedPdf(template,assignment){
    formArea.style.display='none';controls.style.display='none';reviewArea.style.display='block';
    const h=document.createElement('h3');h.textContent='Review Your Completed Child Information Sheet';reviewArea.append(h);
    const p=document.createElement('p');p.textContent='Review the entire original form below. Your signature has not been added yet.';reviewArea.append(p);
-   const frame=document.createElement('iframe');frame.title='Completed PDF for review';frame.src=reviewUrl;frame.style.cssText='width:100%;height:75vh;min-height:520px;border:1px solid #bbb';reviewArea.append(frame);
+   const openLarge=makeButton('Open PDF Full Size in New Tab',()=>window.open(reviewUrl,'_blank'));reviewArea.append(openLarge);const hint=document.createElement('p');hint.textContent='For easier reading, open the PDF full size in a new tab. You can zoom in there, then return to this tab to sign.';reviewArea.append(hint);const frame=document.createElement('iframe');frame.title='Completed PDF for review';frame.src=reviewUrl;frame.style.cssText='width:100%;height:85vh;min-height:650px;border:1px solid #bbb';reviewArea.append(frame);
    const correction=makeButton('Make Corrections',()=>{reviewed=false;reviewArea.style.display='none';formArea.style.display='block';controls.style.display='flex';wrap.scrollIntoView({block:'start'});},true);
    reviewArea.append(correction);
    const confirmLabel=document.createElement('label');confirmLabel.style.cssText='display:flex;align-items:center;gap:8px;margin:18px 0';
