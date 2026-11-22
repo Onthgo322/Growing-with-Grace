@@ -213,7 +213,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 </nav>
 <section class="panel tabpage" id="page-dashboard"><h2>Dashboard</h2><div class="grid dashboard-metrics"><div class="metric"><span class="muted">Active children</span><strong id="countChildren">0</strong></div><div class="metric"><span class="muted">Combined ending ledger balances</span><strong id="balance">$0.00</strong></div></div><p class="muted">All-time totals from saved transactions plus each child's saved beginning balance. Combined ending ledger balances add each child's ending balance, including negative credit balances. CCAP charges and payments are included.</p><h3>Balance breakdown by child</h3><p class="muted small">Read-only, all-time balances including each child’s beginning balance. A positive balance is not necessarily overdue. CCAP payments may be included in individual child totals. Transfer debits increase balances; credits reduce balances.</p><div class="tablewrap"><table><thead><tr><th>Child</th><th>Beginning balance</th><th>Charges</th><th>Payments</th><th>Credits / adjustments</th><th>Net balance</th></tr></thead><tbody id="childBalanceRows"></tbody></table></div></section>
 
-<section class="panel tabpage hidden" id="page-parentmessages"><h2>Parent Messages</h2><p class="muted">Private family conversations, separate from childcare billing.</p><p id="pmStatus" role="status"></p><button type="button" id="pmRefresh">Check for messages</button><div style="border:1px solid #ddd5e6;border-radius:10px;padding:12px;margin-top:12px"><h3 style="margin-top:0">Invite Parent</h3><p class="muted">Choose a parent from the saved Children → Parents contact details. The correct child messaging family is found or created automatically.</p><label for="pmInviteParent">Parent / guardian</label><select id="pmInviteParent"><option value="">Select a parent with a saved email</option></select><p class="muted" id="pmInviteHint">The selected parent must have an email saved in Children → Parents.</p><button type="button" id="pmInviteSend" style="margin-top:8px">Send Invitation</button><p id="pmInviteStatus" role="status"></p></div><div class="grid" style="margin-top:12px"><div><h3>Families</h3><div id="pmFamilies"></div></div><div><h3 id="pmHeading">Select a family</h3><div style="margin-bottom:8px"><button type="button" id="pmMessageInbox">Message Inbox</button> <button type="button" id="pmMessageArchived">Archived Messages</button></div><div id="pmThread" style="max-height:420px;overflow:auto;border:1px solid #ddd5e6;border-radius:10px;padding:12px;min-height:100px"></div><label for="pmDraft">Reply</label><textarea id="pmDraft" maxlength="4000"></textarea><button type="button" id="pmSend" disabled>Send reply</button></div></div></section><section class="panel tabpage hidden" id="page-employees">
+<section class="panel tabpage hidden" id="page-parentmessages"><h2>Parent Messages</h2><p class="muted">Private family conversations, separate from childcare billing.</p><p id="pmStatus" role="status"></p><button type="button" id="pmRefresh">Check for messages</button><div style="border:1px solid #ddd5e6;border-radius:10px;padding:12px;margin-top:12px"><h3 style="margin-top:0">Invite Parent</h3><p class="muted">Choose a parent from the saved Children → Parents contact details. The correct child messaging family is found or created automatically.</p><label for="pmInviteParent">Parent / guardian</label><select id="pmInviteParent"><option value="">Select a parent with a saved email</option></select><p class="muted" id="pmInviteHint">The selected parent must have an email saved in Children → Parents.</p><button type="button" id="pmInviteSend" style="margin-top:8px">Send Invitation</button><p id="pmInviteStatus" role="status"></p></div><div style="border:1px solid #ddd5e6;border-radius:10px;padding:12px;margin-top:12px"><h3>Connect Siblings</h3><p class="muted">Choose the existing family conversation to keep, then choose a child to add. Children already assigned to another messaging family cannot be moved here automatically. No messages or billing records will be merged.</p><label for="pmSiblingFamily">Family conversation to keep</label><select id="pmSiblingFamily"><option value="">Select a family</option></select><label for="pmSiblingChild">Child to connect</label><select id="pmSiblingChild"><option value="">Select a child</option></select><button type="button" id="pmSiblingConnect" style="margin-top:8px">Connect Child to Family</button><p id="pmSiblingStatus" role="status"></p></div><div class="grid" style="margin-top:12px"><div><h3>Families</h3><div id="pmFamilies"></div></div><div><h3 id="pmHeading">Select a family</h3><div style="margin-bottom:8px"><button type="button" id="pmMessageInbox">Message Inbox</button> <button type="button" id="pmMessageArchived">Archived Messages</button></div><div id="pmThread" style="max-height:420px;overflow:auto;border:1px solid #ddd5e6;border-radius:10px;padding:12px;min-height:100px"></div><label for="pmDraft">Reply</label><textarea id="pmDraft" maxlength="4000"></textarea><button type="button" id="pmSend" disabled>Send reply</button></div></div></section><section class="panel tabpage hidden" id="page-employees">
 <h2>Employees</h2><p class="muted">Employee records are stored separately from children and ledger transactions. Add an employee to automatically create the new-hire training checklist.</p>
 <div id="empEditArea" style="border:2px solid transparent;border-radius:12px;padding:12px;margin:8px 0"><h3 id="empModeHeading">Add new employee</h3><p id="empModeHint" class="muted">Enter details to create a new employee record.</p><div class="grid">
 <div class="field"><label for="empName">Employee full name</label><input id="empName" autocomplete="off"></div>
@@ -2821,9 +2821,17 @@ async function load(){
  const {data,error}=await sb.from('parent_families').select('id,display_name').order('display_name');
  if(error){status('Could not load families: '+error.message);return;}
  families=data||[];
+ const siblingFamily=E('pmSiblingFamily'),priorFamily=siblingFamily.value;siblingFamily.replaceChildren();
+ const sfBlank=document.createElement('option');sfBlank.value='';sfBlank.textContent='Select a family';siblingFamily.append(sfBlank);
+ for(const f of families){const opt=document.createElement('option');opt.value=f.id;opt.textContent=f.display_name;siblingFamily.append(opt);}
+ if(families.some(f=>f.id===priorFamily))siblingFamily.value=priorFamily;
  renderFamilies();
  status(families.length+' families available.');
  const {data:contacts,error:contactsError}=await sb.from('daycare_children').select('id,name,parent1_name,parent1_email,parent2_name,parent2_email').order('name').limit(1000);
+ const siblingChild=E('pmSiblingChild'),priorChild=siblingChild.value;siblingChild.replaceChildren();
+ const scBlank=document.createElement('option');scBlank.value='';scBlank.textContent='Select a child';siblingChild.append(scBlank);
+ for(const c of contacts||[]){const opt=document.createElement('option');opt.value=c.id;opt.textContent=c.name;siblingChild.append(opt);}
+ if((contacts||[]).some(c=>c.id===priorChild))siblingChild.value=priorChild;
  const parentSelect=E('pmInviteParent'),oldValue=parentSelect.value;parentSelect.replaceChildren();
  const first=document.createElement('option');first.value='';first.textContent='Select a parent with a saved email';parentSelect.append(first);
  inviteParents=[];
@@ -2890,6 +2898,19 @@ E('pmSend').onclick=async()=>{
 };
 E('pmMessageInbox').onclick=()=>{messageView='inbox';if(selected)choose(selected);};
 E('pmMessageArchived').onclick=()=>{messageView='archived';if(selected)choose(selected);};
+E('pmSiblingConnect').onclick=async()=>{
+ const familyId=E('pmSiblingFamily').value,childId=E('pmSiblingChild').value,notice=E('pmSiblingStatus'),button=E('pmSiblingConnect');
+ const family=families.find(f=>f.id===familyId),child=E('pmSiblingChild').selectedOptions[0]?.textContent;
+ if(!family||!childId){notice.textContent='Select both a family and a child.';return;}
+ if(!confirm('Connect '+child+' to '+family.display_name+'? They will share this family conversation. This does not merge existing accounts or messages.'))return;
+ button.disabled=true;notice.textContent='Checking sibling connection…';
+ try{
+  const {error}=await sb.rpc('connect_message_sibling',{p_family_id:familyId,p_child_id:childId});
+  if(error)throw error;
+  notice.textContent=child+' is connected to '+family.display_name+'.';
+ }catch(err){notice.textContent='Not connected: '+(err.message||String(err))+'. If the child already has another messaging family, do not merge conversations without reviewing access.';}
+ finally{button.disabled=false;}
+};
 E('pmInviteSend').onclick=async()=>{
  const choice=E('pmInviteParent').value,record=inviteParents.find(p=>p.key===choice),notice=E('pmInviteStatus'),button=E('pmInviteSend');
  if(!record){notice.textContent='Select a parent with a saved email address.';return;}
