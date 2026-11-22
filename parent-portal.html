@@ -16,6 +16,7 @@
 <label for="hbParent2">Parent/Guardian 2 full name (optional)</label><input id="hbParent2" maxlength="150" autocomplete="off">
 <label for="hbSign2">Parent/Guardian 2 electronic signature (optional)</label><input id="hbSign2" maxlength="150" autocomplete="off">
 <label style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input id="hbAgree" type="checkbox" style="width:auto;margin-top:5px"><span>I have received and read the Parent Handbook, understand the policies and procedures, and agree to abide by them as will my children.</span></label>
+<label style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input id="hbESignConsent" type="checkbox" style="width:auto;margin-top:5px"><span>I consent to signing this acknowledgment electronically. I understand that typing my full name in the electronic signature field and submitting this form is my electronic signature. I can review the handbook before signing.</span></label>
 <p class="muted">Handbook version: April 9, 2026. Submission date and time will be recorded automatically. A second guardian must personally provide their own signature; do not sign for someone else.</p>
 <button id="hbSubmit" type="button">Submit Signed Acknowledgement</button>
 <p id="hbStatus" role="status"></p>
@@ -111,13 +112,14 @@ E('hbSubmit').onclick=async()=>{
  if(p1.toLocaleLowerCase()!==s1.toLocaleLowerCase()){notice.textContent='Parent/Guardian 1 signature must match their full name.';return;}
  if(Boolean(p2)!==Boolean(s2)||p2&&p2.toLocaleLowerCase()!==s2.toLocaleLowerCase()){notice.textContent='Parent/Guardian 2 name and signature must both be entered and match, or both left blank.';return;}
  if(!E('hbAgree').checked){notice.textContent='Please confirm you have read and agree to the handbook.';return;}
+ if(!E('hbESignConsent').checked){notice.textContent='Please consent to using your typed electronic signature before submitting.';return;}
  if(!sb||!family||!currentUser){notice.textContent='Please sign in first.';return;}
  const btn=E('hbSubmit');btn.disabled=true;notice.textContent='Submitting…';
  try{
   const {error}=await sb.from('parent_handbook_acknowledgements').insert({family_id:family,submitted_by:currentUser.id,child_name:child,parent_phone:phone,parent1_name:p1,parent1_signature:s1,parent2_name:p2||null,parent2_signature:s2||null,handbook_version:'2026-04-09'});
   if(error)throw error;
   notice.textContent='Acknowledgement submitted successfully. Thank you!';
-  ['hbChild','hbPhone','hbParent1','hbSign1','hbParent2','hbSign2'].forEach(id=>E(id).value='');E('hbAgree').checked=false;
+  ['hbChild','hbPhone','hbParent1','hbSign1','hbParent2','hbSign2'].forEach(id=>E(id).value='');E('hbAgree').checked=false;E('hbESignConsent').checked=false;
   await loadHandbookHistory();
  }catch(e){notice.textContent='Submission failed: '+(e.message||String(e));}
  finally{btn.disabled=false;}
