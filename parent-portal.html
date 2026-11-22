@@ -277,9 +277,9 @@ async function openEditableAssignedPdf(template,assignment){
     for(const [key,caption] of [['street','Street Address'],['city','City'],['state','State'],['zip','ZIP Code']]){
      const cell=document.createElement('div'),fieldLabel=document.createElement('label'),fieldInput=document.createElement('input');
      fieldLabel.textContent=caption+(mandatory?' *':'');fieldLabel.style.display='block';fieldLabel.style.fontSize='0.9em';
-     fieldInput.type='text';fieldInput.style.width='100%';fieldInput.maxLength=key==='zip'?10:key==='state'?2:120;
+     fieldInput.type='text';fieldInput.disabled=false;fieldInput.readOnly=false;fieldInput.style.cssText='width:100%;min-width:0;background:#fff;color:#222;opacity:1;pointer-events:auto;';fieldInput.maxLength=key==='zip'?10:key==='state'?2:120;
      if(key==='state'){fieldInput.placeholder='ND';fieldInput.addEventListener('input',()=>{fieldInput.value=fieldInput.value.replace(/[^a-z]/gi,'').toUpperCase().slice(0,2);});}
-     if(key==='zip'){fieldInput.inputMode='numeric';fieldInput.placeholder='58078';fieldInput.addEventListener('input',()=>{fieldInput.value=fieldInput.value.replace(/[^\d-]/g,'').slice(0,10);});}
+     if(key==='zip'){fieldInput.inputMode='numeric';fieldInput.placeholder='Enter ZIP code';fieldInput.setAttribute('aria-label','ZIP Code');fieldInput.addEventListener('input',()=>{fieldInput.value=fieldInput.value.replace(/[^\d-]/g,'').slice(0,10);});}
      fieldInput.addEventListener('input',()=>{input.value=[parts.street?.value.trim(),parts.city?.value.trim(),parts.state?.value.trim(),parts.zip?.value.trim()].filter(Boolean).join(', ');});
      cell.append(fieldLabel,fieldInput);addressGrid.append(cell);parts[key]=fieldInput;
     }
@@ -325,6 +325,7 @@ async function openEditableAssignedPdf(template,assignment){
  const clearReview=()=>{if(reviewUrl){URL.revokeObjectURL(reviewUrl);reviewUrl=null;}reviewArea.replaceChildren();};
  const makeButton=(label,callback,secondary=false)=>{const b=document.createElement('button');b.type='button';b.textContent=label;if(secondary)b.className='secondary';b.onclick=callback;return b;};
  reviewBtn.onclick=async()=>{
+  for(const entry of required.filter(x=>x.parts)){entry.input.value=[entry.parts.street.value.trim(),entry.parts.city.value.trim(),entry.parts.state.value.trim(),entry.parts.zip.value.trim()].filter(Boolean).join(', ');}
   const missing=required.find(x=>!x.input.value.trim());
   if(missing){alert('Please complete '+missing.label+'.');(missing.parts?.street||missing.input).focus();return;}
   const addressRequirement=required.find(x=>x.name==='Address');
