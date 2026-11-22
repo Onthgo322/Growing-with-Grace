@@ -221,7 +221,16 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <button type="button" data-pf-tab="pending">Pending Forms</button>
 <button type="button" data-pf-tab="submitted">Submitted Forms</button>
 <button type="button" data-pf-tab="history">Approved / History</button></div>
-<div data-pf-pane="templates"><h3>Form Templates</h3><div style="border:1px solid #ddd5e6;border-radius:10px;padding:12px"><strong>Parent Contact Information Update</strong><p>Parents can request changes to guardian names, email addresses, and phone numbers. All requests will need approval before changing a child's saved contacts.</p><p class="muted">Template setup is next. No forms have been sent yet.</p></div></div>
+<div data-pf-pane="templates"><h3>Form Templates</h3>
+<div style="border:1px solid #ddd5e6;border-radius:10px;padding:14px;margin:10px 0">
+<h3>Upload Forms</h3>
+<p class="muted">Upload an existing PDF or Word document to your private form library. Documents remain drafts until you approve them for parents.</p>
+<label for="pfUploadTitle">Form title</label><input id="pfUploadTitle" placeholder="Example: Parent Handbook">
+<label for="pfUploadFile" style="margin-top:10px">Choose PDF or Word file</label><input id="pfUploadFile" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+<button id="pfUploadButton" type="button" class="primary" style="margin-top:10px">Upload Form</button>
+<p id="pfUploadStatus" role="status" class="muted"></p>
+<h3>Uploaded Forms</h3><button id="pfReloadTemplates" type="button">Refresh Form Library</button><div id="pfUploadedList" style="margin-top:10px"></div>
+</div><div style="border:1px solid #ddd5e6;border-radius:10px;padding:12px"><strong>Parent Contact Information Update</strong><p>Parents can request changes to guardian names, email addresses, and phone numbers. All requests will need approval before changing a child's saved contacts.</p><p class="muted">Template setup is next. No forms have been sent yet.</p></div></div>
 <div data-pf-pane="send" hidden><h3>Send Forms</h3><p class="muted">We'll add family selection and sending after the contact-update form is ready.</p></div>
 <div data-pf-pane="pending" hidden><h3>Pending Forms</h3><button type="button" id="pfRefresh">Refresh requests</button><p id="pfPendingStatus" role="status"></p><div id="pfPendingList"></div></div>
 <div data-pf-pane="submitted" hidden><h3>Submitted Forms</h3><p class="muted">Requests are saved for administrator review. Approval and rejection controls will be added in a later step.</p><div id="pfSubmittedList"></div></div>
@@ -3143,7 +3152,62 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   status.textContent=rows.filter(x=>x.status==='pending').length+' pending contact update request(s).';
  }
  document.getElementById('pfRefresh').addEventListener('click',refresh);
+ const uploadBtn=document.getElementById('pfUploadButton');
+ const uploadStatus=document.getElementById('pfUploadStatus');
+ const list=document.getElementById('pfUploadedList');
+ const allowed=new Map([['pdf','application/pdf'],['doc','application/msword'],['docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document']]);
+ async function loadTemplates(){
+  list.textContent='Loading saved forms…';
+  if(!sb||!user){list.textContent='Connect and sign in to view your form library.';return;}
+  const {data,error}=await sb.from('parent_form_templates').select('id,title,file_path,file_name,file_type,status,created_at').order('created_at',{ascending:false}).limit(100);
+  list.replaceChildren();
+  if(error){list.textContent='Could not load forms: '+error.message;return;}
+  if(!data?.length){list.textContent='No uploaded forms yet.';return;}
+  for(const item of data){
+   const card=document.createElement('div');card.style.cssText='border:1px solid #ddd5e6;border-radius:8px;padding:10px;margin:8px 0';
+   const title=document.createElement('strong');title.textContent=item.title;
+   const info=document.createElement('p');info.className='muted';info.textContent=item.file_name+' · '+item.status+' · '+new Date(item.created_at).toLocaleDateString();
+   const open=document.createElement('button');open.type='button';open.textContent=item.file_type==='application/pdf'?'View PDF':'Download Word File';
+   open.onclick=async()=>{
+    open.disabled=true;
+    try{
+     const {data:link,error:linkError}=await sb.storage.from('parent-forms').createSignedUrl(item.file_path,120);
+     if(linkError)throw linkError;
+     window.open(link.signedUrl,'_blank','noopener,noreferrer');
+    }catch(e){uploadStatus.textContent='Could not open form: '+e.message;}
+    finally{open.disabled=false;}
+   };
+   card.append(title,info,open);list.append(card);
+  }
+ }
+ document.getElementById('pfReloadTemplates').addEventListener('click',loadTemplates);
+ root.querySelector('[data-pf-tab="templates"]').addEventListener('click',loadTemplates);
+ uploadBtn.addEventListener('click',async()=>{
+  const file=document.getElementById('pfUploadFile').files[0];
+  const title=document.getElementById('pfUploadTitle').value.trim();
+  if(!sb||!user){uploadStatus.textContent='Connect and sign in first.';return;}
+  if(!file||!title){uploadStatus.textContent='Enter a form title and choose a file.';return;}
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  if(!allowed.has(ext)){uploadStatus.textContent='Choose a PDF, DOC, or DOCX file.';return;}
+  if(file.size>15*1024*1024){uploadStatus.textContent='File must be 15 MB or smaller.';return;}
+  uploadBtn.disabled=true;uploadStatus.textContent='Uploading securely…';
+  let path=null;
+  try{
+   const id=crypto.randomUUID();
+   path=user.id+'/'+id+'.'+ext;
+   const {error:storageError}=await sb.storage.from('parent-forms').upload(path,file,{contentType:allowed.get(ext),upsert:false});
+   if(storageError)throw storageError;
+   const {error:dbError}=await sb.from('parent_form_templates').insert({title,file_path:path,file_name:file.name,file_type:allowed.get(ext),status:'draft',created_by:user.id});
+   if(dbError)throw dbError;
+   uploadStatus.textContent='Form uploaded and saved as a draft. It is not yet available to parents.';
+   document.getElementById('pfUploadFile').value='';document.getElementById('pfUploadTitle').value='';
+   await loadTemplates();
+  }catch(e){
+   uploadStatus.textContent='Upload did not finish: '+(e.message||String(e))+(path?' If it says duplicate, use a new file name.':'');
+  }finally{uploadBtn.disabled=false;}
+ });
  setTab('templates');
+ loadTemplates();
 })();
 </script>
 </body></html>
