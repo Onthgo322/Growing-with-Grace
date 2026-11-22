@@ -279,7 +279,7 @@ async function openEditableAssignedPdf(template,assignment){
      fieldLabel.textContent=caption+(mandatory?' *':'');fieldLabel.style.display='block';fieldLabel.style.fontSize='0.9em';
      fieldInput.type='text';fieldInput.style.width='100%';fieldInput.maxLength=key==='zip'?10:key==='state'?2:120;
      if(key==='state'){fieldInput.placeholder='ND';fieldInput.addEventListener('input',()=>{fieldInput.value=fieldInput.value.replace(/[^a-z]/gi,'').toUpperCase().slice(0,2);});}
-     if(key==='zip'){fieldInput.inputMode='numeric';fieldInput.placeholder='58078';fieldInput.addEventListener('input',()=>{fieldInput.value=fieldInput.value.replace(/[^\\d-]/g,'').slice(0,10);});}
+     if(key==='zip'){fieldInput.inputMode='numeric';fieldInput.placeholder='58078';fieldInput.addEventListener('input',()=>{fieldInput.value=fieldInput.value.replace(/[^\d-]/g,'').slice(0,10);});}
      fieldInput.addEventListener('input',()=>{input.value=[parts.street?.value.trim(),parts.city?.value.trim(),parts.state?.value.trim(),parts.zip?.value.trim()].filter(Boolean).join(', ');});
      cell.append(fieldLabel,fieldInput);addressGrid.append(cell);parts[key]=fieldInput;
     }
@@ -328,13 +328,13 @@ async function openEditableAssignedPdf(template,assignment){
   const missing=required.find(x=>!x.input.value.trim());
   if(missing){alert('Please complete '+missing.label+'.');(missing.parts?.street||missing.input).focus();return;}
   const addressRequirement=required.find(x=>x.name==='Address');
-  if(addressRequirement){for(const [part,label] of [['street','Street Address'],['city','City'],['state','State'],['zip','ZIP Code']]){const field=addressRequirement.parts[part];if(!field.value.trim()){alert('Please enter '+label+'.');field.focus();return;}}if(!/^\\d{5}(-\\d{4})?$/.test(addressRequirement.parts.zip.value)){alert('Enter a valid 5-digit ZIP code (or ZIP+4).');addressRequirement.parts.zip.focus();return;}}
+  if(addressRequirement){for(const [part,label] of [['street','Street Address'],['city','City'],['state','State'],['zip','ZIP Code']]){const field=addressRequirement.parts[part];if(!field.value.trim()){alert('Please enter '+label+'.');field.focus();return;}}if(!/^\d{5}(-\d{4})?$/.test(addressRequirement.parts.zip.value)){alert('Enter a valid 5-digit ZIP code (or ZIP+4).');addressRequirement.parts.zip.focus();return;}}
   for(const choice of noneChoices){
    if(!choice.checkbox.checked&&(!choice.nameInput.value.trim()||!choice.phoneInput.value.trim())){
     alert('Complete the '+choice.title+' name and clinic phone number, or select None.');
     (!choice.nameInput.value.trim()?choice.nameInput:choice.phoneInput).focus();return;
    }
-   if(!choice.checkbox.checked&&choice.phoneInput.value.replace(/\\D/g,'').length<10){alert('Enter a valid clinic phone number for '+choice.title+', or select None.');choice.phoneInput.focus();return;}
+   if(!choice.checkbox.checked&&choice.phoneInput.value.replace(/\D/g,'').length<10){alert('Enter a valid clinic phone number for '+choice.title+', or select None.');choice.phoneInput.focus();return;}
   }
   if(values.get('Telephone_1').value.replace(/\D/g,'').length<10){alert('Enter a valid parent cell phone number.');values.get('Telephone_1').focus();return;}
   reviewBtn.disabled=true;
