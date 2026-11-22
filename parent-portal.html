@@ -22,7 +22,7 @@
 <p id="hbStatus" role="status"></p>
 <h3>Previously Submitted</h3><div id="hbHistory" class="muted">No submissions loaded.</div>
 </section>
-<p id="status" role="status"></p></main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
+<p id="status" role="status"></p></main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script><script>
 (()=>{'use strict';const URL='https://qiypwbokgzlkvdydxpsk.supabase.co',E=id=>document.getElementById(id);let sb=null,family=null,currentUser=null,messageView="inbox";const seenKey=()=>currentUser&&family?'gwg_parent_seen_'+currentUser.id+'_'+family:null;const status=s=>E('status').textContent=s;const show=id=>['setup','login','messages','resetPasswordPanel'].forEach(x=>E(x).classList.toggle('hidden',x!==id));const keyName='gwg_parent_publishable_key';const publicKey='sb_publishable_IoTLyDKSP5xpXSVmaVeSbQ_iGZZQbHy';
 async function start(key){
  if(!key||!window.supabase){status('The secure connection is not available yet.');return;}
@@ -92,6 +92,40 @@ async function openPublishedHandbook(){
  const a=document.createElement('a');a.href=link.signedUrl;a.target='_blank';a.rel='noopener noreferrer';document.body.append(a);a.click();a.remove();
  notice.textContent='The handbook should open in a new tab. If it does not, allow pop-ups for this site.';
 }
+async function saveCompletedHandbookPdf(item){
+ if(!window.PDFLib)throw new Error('PDF generator unavailable. Please refresh and retry.');
+ if(!crypto?.subtle)throw new Error('Secure browser connection is required to save signed PDFs.');
+ const {data:templates,error:te}=await sb.from('parent_form_templates').select('title,file_path,file_type,status').eq('status','published').eq('file_type','application/pdf').limit(30);
+ if(te)throw te;
+ const matches=(templates||[]).filter(t=>/handbook/i.test(t.title));
+ if(matches.length!==1)throw new Error('Exactly one published Parent Handbook PDF must be available.');
+ const {data:link,error:le}=await sb.storage.from('parent-forms').createSignedUrl(matches[0].file_path,120);
+ if(le||!link?.signedUrl)throw le||new Error('Could not access handbook.');
+ const response=await fetch(link.signedUrl);
+ if(!response.ok)throw new Error('Could not download the handbook.');
+ const pdf=await PDFLib.PDFDocument.load(await response.arrayBuffer());
+ if(pdf.getPageCount()!==23)throw new Error('Handbook page layout changed; the signed PDF needs administrator review.');
+ const page=pdf.getPage(21),font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),black=PDFLib.rgb(0.12,0.12,0.12);
+ const stamp=(value,x,y,width,size=10)=>{
+  if(!value)return;
+  let t=String(value);while(t.length>1&&font.widthOfTextAtSize(t,size)>width-4)t=t.slice(0,-1);
+  page.drawText(t,{x:x+2,y:y+7,size,font,color:black});
+ };
+ stamp(item.child_name,207,792-242,323,11);
+ stamp(item.parent_phone,218,792-269,150,11);
+ const date=new Date(item.signed_at).toLocaleDateString('en-US');
+ stamp(item.parent1_signature,278,792-653,145,11);
+ stamp(date,466,792-653,70,10);
+ if(item.parent2_signature){stamp(item.parent2_signature,278,792-707,145,11);stamp(date,466,792-707,70,10);}
+ const bytes=await pdf.save();
+ const digest=await crypto.subtle.digest('SHA-256',bytes);
+ const sha=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+ const filePath=currentUser.id+'/'+item.id+'.pdf';
+ const {error:ue}=await sb.storage.from('signed-parent-forms').upload(filePath,new Blob([bytes],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});
+ if(ue)throw ue;
+ const {error:re}=await sb.rpc('save_handbook_pdf_record',{p_acknowledgement_id:item.id,p_file_path:filePath,p_sha256:sha});
+ if(re)throw new Error('PDF uploaded but record finalization failed: '+re.message);
+}
 E('hbOpenPdf').onclick=openPublishedHandbook;
 function switchParentView(view){const isForm=view==='handbook';E('handbookForm').classList.toggle('hidden',!isForm);E('messageControls').classList.toggle('hidden',isForm);E('showHandbook').style.fontWeight=isForm?'800':'500';E('showMessages').style.fontWeight=isForm?'500':'800';if(isForm)loadHandbookHistory();}
 E('showHandbook').onclick=()=>switchParentView('handbook');
@@ -116,9 +150,10 @@ E('hbSubmit').onclick=async()=>{
  if(!sb||!family||!currentUser){notice.textContent='Please sign in first.';return;}
  const btn=E('hbSubmit');btn.disabled=true;notice.textContent='Submitting…';
  try{
-  const {error}=await sb.from('parent_handbook_acknowledgements').insert({family_id:family,submitted_by:currentUser.id,child_name:child,parent_phone:phone,parent1_name:p1,parent1_signature:s1,parent2_name:p2||null,parent2_signature:s2||null,handbook_version:'2026-04-09',electronic_signature_consent:true,consent_statement:'I consent to signing this acknowledgment electronically. I understand that typing my full name in the electronic signature field and submitting this form is my electronic signature. I can review the handbook before signing.'});
+  const {data:record,error}=await sb.from('parent_handbook_acknowledgements').insert({family_id:family,submitted_by:currentUser.id,child_name:child,parent_phone:phone,parent1_name:p1,parent1_signature:s1,parent2_name:p2||null,parent2_signature:s2||null,handbook_version:'2026-04-09',electronic_signature_consent:true,consent_statement:'I consent to signing this acknowledgment electronically. I understand that typing my full name in the electronic signature field and submitting this form is my electronic signature. I can review the handbook before signing.'}).select('id,child_name,parent_phone,parent1_signature,parent2_signature,signed_at').single();
   if(error)throw error;
-  notice.textContent='Acknowledgement submitted successfully. Thank you!';
+  try{notice.textContent='Acknowledgment recorded. Saving the completed PDF…';await saveCompletedHandbookPdf(record);notice.textContent='Acknowledgment and completed PDF saved successfully.';}
+  catch(pdfError){notice.textContent='Acknowledgment recorded, but the completed PDF was NOT saved: '+(pdfError.message||String(pdfError))+'. Please contact Growing With Grace. Do not submit the acknowledgment again.';}
   ['hbChild','hbPhone','hbParent1','hbSign1','hbParent2','hbSign2'].forEach(id=>E(id).value='');E('hbAgree').checked=false;E('hbESignConsent').checked=false;
   await loadHandbookHistory();
  }catch(e){notice.textContent='Submission failed: '+(e.message||String(e));}
