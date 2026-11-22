@@ -264,7 +264,7 @@ async function openEditableAssignedPdf(template,assignment){
    l.textContent=label+(mandatory?' *':'');l.style.display='block';input.type=/Date|DOB/.test(name)?'date':/Telephone|ClinicNo/.test(name)?'tel':'text';
    input.style.width='100%';input.maxLength=input.type==='tel'?14:300;input.autocomplete='off';
    if(input.type==='tel'){
-    const formatPhone=value=>{const digits=value.replace(/\\D/g,'').slice(0,10);if(!digits)return '';if(digits.length<4)return '('+digits;if(digits.length<7)return '('+digits.slice(0,3)+') '+digits.slice(3);return '('+digits.slice(0,3)+') '+digits.slice(3,6)+'-'+digits.slice(6);};
+    const formatPhone=value=>{const digits=value.replace(/\D/g,'').slice(0,10);if(!digits)return '';if(digits.length<4)return '('+digits;if(digits.length<7)return '('+digits.slice(0,3)+') '+digits.slice(3);return '('+digits.slice(0,3)+') '+digits.slice(3,6)+'-'+digits.slice(6);};
     input.addEventListener('input',()=>{input.value=formatPhone(input.value);});
     input.addEventListener('blur',()=>{input.value=formatPhone(input.value);});
    }
