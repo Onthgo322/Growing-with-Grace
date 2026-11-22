@@ -2992,7 +2992,22 @@ async function showParentAccess(){
   nameLine.textContent=matching.length?[...new Set(matching)].join(', '):'Parent name not verified against this family’s saved child contacts';
   const emailLine=document.createElement('div');emailLine.textContent='Account email: '+(member.email||'Not available');
   const stateLine=document.createElement('div');stateLine.textContent='Messaging access: Connected';
-  item.append(nameLine,emailLine,stateLine);host.append(item);
+  const remove=document.createElement('button');remove.type='button';remove.textContent='Remove Parent Access';
+  remove.style.cssText='margin-top:8px;background:#fff;color:#8b2635;border:1px solid #8b2635;border-radius:6px;padding:7px 12px';
+  remove.onclick=async()=>{
+   const label=member.email||member.user_id;
+   if(!confirm('Remove '+label+' from '+(families.find(f=>f.id===familyId)?.display_name||'this family')+'? This immediately revokes their access to this family’s messages. Their other family access, account, messages, and ledger records will remain.'))return;
+   const typed=prompt('To confirm removal, type REMOVE exactly:');
+   if(typed!=='REMOVE'){return;}
+   remove.disabled=true;remove.textContent='Removing access…';
+   try{
+    const {error:removeError}=await sb.rpc('remove_parent_family_access',{p_family_id:familyId,p_parent_user_id:member.user_id});
+    if(removeError)throw removeError;
+    status('Parent access removed for '+label+'.');
+    await showParentAccess();
+   }catch(err){status('Could not remove parent access: '+(err.message||String(err)));remove.disabled=false;remove.textContent='Remove Parent Access';}
+  };
+  item.append(nameLine,emailLine,stateLine,remove);host.append(item);
  }
 }
 E('pmAccessFamily').onchange=showParentAccess;
