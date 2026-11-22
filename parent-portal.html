@@ -322,7 +322,7 @@ async function openEditableAssignedPdf(template,assignment){
   return new Uint8Array(await doc.save());
  };
  let reviewUrl=null,reviewed=false;
- const clearReview=()=>{if(reviewUrl){URL.revokeObjectURL(reviewUrl);reviewUrl=null;}reviewArea.replaceChildren();};
+ const clearReview=()=>{if(reviewUrl){window.URL.revokeObjectURL(reviewUrl);reviewUrl=null;}reviewArea.replaceChildren();};
  const makeButton=(label,callback,secondary=false)=>{const b=document.createElement('button');b.type='button';b.textContent=label;if(secondary)b.className='secondary';b.onclick=callback;return b;};
  reviewBtn.onclick=async()=>{
   for(const entry of required.filter(x=>x.parts)){entry.input.value=[entry.parts.street.value.trim(),entry.parts.city.value.trim(),entry.parts.state.value.trim(),entry.parts.zip.value.trim()].filter(Boolean).join(', ');}
@@ -340,7 +340,7 @@ async function openEditableAssignedPdf(template,assignment){
   if(values.get('Telephone_1').value.replace(/\D/g,'').length<10){alert('Enter a valid parent cell phone number.');values.get('Telephone_1').focus();return;}
   reviewBtn.disabled=true;
   try{
-   clearReview();const pdfBytes=await fillPdf('');reviewUrl=URL.createObjectURL(new Blob([pdfBytes],{type:'application/pdf'}));
+   clearReview();const pdfBytes=await fillPdf('');reviewUrl=window.URL.createObjectURL(new Blob([pdfBytes],{type:'application/pdf'}));
    formArea.style.display='none';controls.style.display='none';reviewArea.style.display='block';
    const h=document.createElement('h3');h.textContent='Review Your Completed Child Information Sheet';reviewArea.append(h);
    const p=document.createElement('p');p.textContent='Review the entire original form below. Your signature has not been added yet.';reviewArea.append(p);
