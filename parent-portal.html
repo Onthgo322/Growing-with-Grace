@@ -233,7 +233,12 @@ async function openEditableAssignedPdf(template,assignment){
  const entries=[];let unsupported=0;
  for(const field of fields){
   const name=field.getName(),kind=field instanceof PDFLib.PDFTextField?'PDFTextField':field instanceof PDFLib.PDFCheckBox?'PDFCheckBox':field instanceof PDFLib.PDFDropdown?'PDFDropdown':field instanceof PDFLib.PDFRadioGroup?'PDFRadioGroup':'unsupported';
-  const label=document.createElement('label');label.textContent=name;wrap.append(label);
+  // XFA/AcroForm hybrid PDFs often expose decorative DFS_* fields and TX_* placeholders.
+  // Never show these internal identifiers to parents as questions.
+  if(kind==='unsupported'){unsupported++;continue;}
+  if(/^DFS_(Background|Title)_/i.test(name)){continue;}
+  const readable=name.replace(/^(?:DFS_)?(?:TextField|Field)_?/i,'').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').trim();
+  const label=document.createElement('label');label.textContent=/^(?:TX|Button|Picture)\\d*_?\\d*$/i.test(name)?'Form field':readable;wrap.append(label);
   if(kind==='PDFTextField'){
    const input=document.createElement('input');input.value=field.getText()||'';input.maxLength=2000;wrap.append(input);entries.push({field,input,kind});
   }else if(kind==='PDFCheckBox'){
@@ -249,7 +254,7 @@ async function openEditableAssignedPdf(template,assignment){
    select.value=field.getSelected()||'';wrap.append(select);entries.push({field,input:select,kind});
   }else{unsupported++;const note=document.createElement('div');note.className='muted';note.textContent='Unsupported PDF field: '+kind+'. This field cannot be completed here.';wrap.append(note);}
  }
- if(unsupported){const warning=document.createElement('p');warning.setAttribute('role','alert');warning.textContent=unsupported+' field(s) cannot be filled here. Downloaded PDF may be incomplete. Please use a full PDF editor for those fields.';wrap.append(warning);}
+ if(unsupported){const warning=document.createElement('p');warning.setAttribute('role','alert');warning.textContent='This PDF contains '+unsupported+' unsupported fields. Online submission is disabled to prevent incomplete paperwork. Please contact the center.';wrap.append(warning);}
  const save=document.createElement('button');save.type='button';save.textContent='Download Filled PDF (Not Submitted)';
  save.onclick=async()=>{save.disabled=true;try{
   for(const {field,input,kind} of entries){if(kind==='PDFTextField')field.setText(input.value);else if(kind==='PDFCheckBox'){if(input.checked)field.check();else field.uncheck();}else if((kind==='PDFDropdown'||kind==='PDFRadioGroup')&&input.value)field.select(input.value);}
