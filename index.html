@@ -2239,7 +2239,8 @@ function printFilteredReport(){
  const win=window.open('','_blank');
  if(!win)return alert('Allow pop-ups for this site to print the report.');
  win.document.open();
- win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+' Report</title><style>@page{size:landscape;margin:10mm}body{font:11px Arial,sans-serif;color:#222}h2,h3{text-align:center;margin:8px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}thead{display:table-header-group}tr{break-inside:avoid}th:nth-child(6),td:nth-child(6){text-align:right}</style></head><body>'+heading+table+'</body></html>');
+ win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+' Report</title><style>@page{size:landscape;margin:10mm}body{font:11px Arial,sans-serif;color:#222}h2,h3{text-align:center;margin:8px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}thead{display:table-header-group}tr{break-inside:avoid}th:nth-child(6),td:nth-child(6){text-align:right}</style></head><body>'+heading+table+'<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+</body></html>');
  win.document.close();win.focus();win.print();
 }
 
@@ -3165,14 +3166,44 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
    const fields=[['Parent phone',item.parent_phone],['Parent/Guardian 1',item.parent1_name],['Typed signature 1',item.parent1_signature],['Parent/Guardian 2',item.parent2_name],['Typed signature 2',item.parent2_signature],['Handbook version',item.handbook_version],['Submitted',item.signed_at?new Date(item.signed_at).toLocaleString():'']];
    for(const [label,value] of fields){const p=document.createElement('p');p.style.margin='4px 0';p.textContent=label+': '+(value||'Not provided');card.append(p);}
    const print=document.createElement('button');print.type='button';print.textContent='Print Acknowledgment';
-   print.onclick=()=>{
-    const win=window.open('','_blank');
-    if(!win){notice.textContent='Please allow pop-ups to print the acknowledgment.';return;}
-    const doc=win.document;doc.title='Parent Handbook Acknowledgment';const heading=doc.createElement('h1');heading.textContent='Growing With Grace — Parent Handbook Acknowledgment';doc.body.append(heading);
-    const child=doc.createElement('h2');child.textContent=item.child_name||'Unnamed child';doc.body.append(child);
-    for(const [label,value] of fields){const p=doc.createElement('p');const strong=doc.createElement('strong');strong.textContent=label+': ';p.append(strong,doc.createTextNode(value||'Not provided'));doc.body.append(p);}
-    const statement=doc.createElement('p');statement.textContent='The submitting parent acknowledged receiving and reading the Parent Handbook, understanding its policies and procedures, and agreeing to abide by them.';doc.body.append(statement);
-    win.focus();win.print();
+   print.textContent='Open Completed Original PDF';
+   print.onclick=async()=>{
+    print.disabled=true;notice.textContent='Preparing the completed original handbook page…';
+    try{
+     if(!window.PDFLib)throw new Error('PDF editor did not load. Refresh the app and try again.');
+     const {data:templates,error:templateError}=await sb.from('parent_form_templates').select('file_path,title,file_type,status').eq('status','published').eq('file_type','application/pdf').limit(20);
+     if(templateError)throw templateError;
+     const template=(templates||[]).find(t=>/handbook/i.test(t.title))||(templates||[])[0];
+     if(!template)throw new Error('No published Parent Handbook PDF was found in Form Templates.');
+     const {data:link,error:linkError}=await sb.storage.from('parent-forms').createSignedUrl(template.file_path,120);
+     if(linkError)throw linkError;
+     const response=await fetch(link.signedUrl);
+     if(!response.ok)throw new Error('Could not retrieve the original handbook PDF.');
+     const pdf=await PDFLib.PDFDocument.load(await response.arrayBuffer());
+     if(pdf.getPageCount()!==23)throw new Error('The uploaded handbook has '+pdf.getPageCount()+' pages, but the verified acknowledgment layout is for the 23-page handbook. No fields were placed.');
+     const page=pdf.getPage(21),font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+     const black=PDFLib.rgb(0.12,0.12,0.12),white=PDFLib.rgb(1,1,1);
+     const stamp=(value,x,y,width,size=10)=>{
+      if(!value)return;
+      page.drawRectangle({x,y:y-2,width,height:16,color:white});
+      const s=String(value),max=width-4;
+      let text=s;while(text.length>1&&font.widthOfTextAtSize(text,size)>max)text=text.slice(0,-1);
+      page.drawText(text,{x:x+2,y:y+2,size,font,color:black});
+     };
+     // PDF coordinates are measured from the bottom of the original 612 x 792 point page.
+     stamp(item.child_name,207,792-242,323,11);
+     stamp(item.parent_phone,218,792-269,150,11);
+     const date=item.signed_at?new Date(item.signed_at).toLocaleDateString('en-US'):'';
+     stamp(item.parent1_signature,262,792-653,156,10);
+     stamp(date,454,792-653,77,10);
+     if(item.parent2_signature){stamp(item.parent2_signature,262,792-707,156,10);stamp(date,454,792-707,77,10);}
+     const bytes=await pdf.save(),blob=new Blob([bytes],{type:'application/pdf'}),url=URL.createObjectURL(blob);
+     const a=document.createElement('a');a.href=url;a.download='Handbook-Acknowledgment-'+String(item.child_name||'Child').replace(/[^a-z0-9 -]/gi,'').trim().replace(/\\s+/g,'-')+'.pdf';
+     document.body.append(a);a.click();a.remove();
+     notice.textContent='Completed original handbook PDF downloaded. Open it to review the filled-in spaces and print.';
+     setTimeout(()=>URL.revokeObjectURL(url),60000);
+    }catch(e){notice.textContent='Could not create completed handbook PDF: '+(e.message||String(e));}
+    finally{print.disabled=false;}
    };
    card.append(print);host.append(card);
   }
