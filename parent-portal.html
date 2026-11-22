@@ -116,7 +116,7 @@ E('hbSubmit').onclick=async()=>{
  if(!sb||!family||!currentUser){notice.textContent='Please sign in first.';return;}
  const btn=E('hbSubmit');btn.disabled=true;notice.textContent='Submitting…';
  try{
-  const {error}=await sb.from('parent_handbook_acknowledgements').insert({family_id:family,submitted_by:currentUser.id,child_name:child,parent_phone:phone,parent1_name:p1,parent1_signature:s1,parent2_name:p2||null,parent2_signature:s2||null,handbook_version:'2026-04-09'});
+  const {error}=await sb.from('parent_handbook_acknowledgements').insert({family_id:family,submitted_by:currentUser.id,child_name:child,parent_phone:phone,parent1_name:p1,parent1_signature:s1,parent2_name:p2||null,parent2_signature:s2||null,handbook_version:'2026-04-09',electronic_signature_consent:true,consent_statement:'I consent to signing this acknowledgment electronically. I understand that typing my full name in the electronic signature field and submitting this form is my electronic signature. I can review the handbook before signing.'});
   if(error)throw error;
   notice.textContent='Acknowledgement submitted successfully. Thank you!';
   ['hbChild','hbPhone','hbParent1','hbSign1','hbParent2','hbSign2'].forEach(id=>E(id).value='');E('hbAgree').checked=false;E('hbESignConsent').checked=false;
