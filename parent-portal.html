@@ -305,6 +305,29 @@ async function openEditableAssignedPdf(template,assignment){
   checkbox.onchange=sync;
   noneChoices.push({title,primary,phoneField,checkbox,nameInput,phoneInput});
  }
+ const draftKey='gwg_form_draft_'+(currentUser?.id||'guest')+'_'+assignment.id;
+ const saveDraft=()=>{
+  try{
+   const fields={};for(const [name,input] of values){const entry=required.find(x=>x.name===name&&x.parts);fields[name]=entry?{street:entry.parts.street.value,city:entry.parts.city.value,state:entry.parts.state.value,zip:entry.parts.zip.value}:input.value;}
+   localStorage.setItem(draftKey,JSON.stringify({fields,none:noneChoices.map(c=>c.checkbox.checked),savedAt:Date.now()}));
+  }catch(e){console.warn('Could not save form draft',e);}
+ };
+ try{
+  const draft=JSON.parse(localStorage.getItem(draftKey)||'null');
+  if(draft?.fields){for(const [name,saved] of Object.entries(draft.fields)){
+   const input=values.get(name);if(!input)continue;
+   const entry=required.find(x=>x.name===name&&x.parts);
+   if(entry&&saved&&typeof saved==='object'){
+    for(const part of ['street','city','state','zip'])entry.parts[part].value=saved[part]||'';
+    input.value=[saved.street,saved.city,saved.state,saved.zip].filter(Boolean).join(', ');
+   }else if(typeof saved==='string')input.value=saved;
+  }
+  noneChoices.forEach((c,i)=>{c.checkbox.checked=!!draft.none?.[i];c.checkbox.dispatchEvent(new Event('change'));});
+  const restored=document.createElement('p');restored.textContent='Your previously entered answers have been restored automatically.';restored.style.color='#285a38';wrap.insertBefore(restored,formArea);
+  }
+ }catch(e){console.warn('Could not restore form draft',e);}
+ formArea.addEventListener('input',saveDraft);
+ formArea.addEventListener('change',saveDraft);
  const controls=document.createElement('div');controls.style.cssText='display:flex;gap:10px;flex-wrap:wrap;margin:12px 0';
  const reviewBtn=document.createElement('button');reviewBtn.type='button';reviewBtn.textContent='Review Completed Form';
  const closeBtn=document.createElement('button');closeBtn.type='button';closeBtn.className='secondary';closeBtn.textContent='Close';closeBtn.onclick=()=>wrap.remove();controls.append(reviewBtn,closeBtn);wrap.append(controls);
@@ -368,7 +391,7 @@ async function openEditableAssignedPdf(template,assignment){
      if(uploadError)throw uploadError;
      const {error:recordError}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:signer.value.trim(),parent_phone:values.get('Telephone_1').value.trim(),signature_consent:true,completed_pdf_path:path});
      if(recordError)throw new Error('PDF uploaded but submission record could not be saved. Contact the center; do not submit again. '+recordError.message);
-     alert('Signed form submitted successfully.');clearReview();wrap.remove();await loadAssignedForms();
+     localStorage.removeItem(draftKey);alert('Signed form submitted successfully.');clearReview();wrap.remove();await loadAssignedForms();
     }catch(e){alert('Submission not completed: '+(e.message||String(e)));submit.disabled=false;submit.textContent='Sign and Submit to Growing With Grace';}
    });
    submit.disabled=assignment.status!=='sent';signatureArea.append(submit);reviewArea.append(signatureArea);
