@@ -106,6 +106,24 @@ async function saveCompletedHandbookPdf(item){
  const pdf=await PDFLib.PDFDocument.load(await response.arrayBuffer());
  if(pdf.getPageCount()!==23)throw new Error('Handbook page layout changed; the signed PDF needs administrator review.');
  const page=pdf.getPage(21),font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),black=PDFLib.rgb(0.12,0.12,0.12);
+ // Render typed electronic signatures with a cursive appearance on the PDF.
+ // The saved typed signature remains the legally recorded value.
+ const stampSignature=async(value,x,y,width)=>{
+  if(!value)return;
+  const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+  if(!ctx)throw new Error('Signature rendering is unavailable.');
+  canvas.width=1200;canvas.height=130;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#201f20';
+  ctx.textBaseline='middle';
+  ctx.font='italic 76px "Brush Script MT","Segoe Script","Lucida Handwriting",cursive';
+  const t=String(value);
+  const measured=ctx.measureText(t).width;
+  const scale=Math.min(1,1130/Math.max(1,measured));
+  ctx.save();ctx.translate(12,0);ctx.scale(scale,1);ctx.fillText(t,0,68);ctx.restore();
+  const png=await pdf.embedPng(canvas.toDataURL('image/png'));
+  page.drawImage(png,{x:x+2,y:y-3,width,height:22});
+ };
  const stamp=(value,x,y,width,size=10)=>{
   if(!value)return;
   let t=String(value);while(t.length>1&&font.widthOfTextAtSize(t,size)>width-4)t=t.slice(0,-1);
@@ -114,9 +132,9 @@ async function saveCompletedHandbookPdf(item){
  stamp(item.child_name,207,792-242,323,11);
  stamp(item.parent_phone,218,792-269,150,11);
  const date=new Date(item.signed_at).toLocaleDateString('en-US');
- stamp(item.parent1_signature,278,792-653,145,11);
+ await stampSignature(item.parent1_signature,278,792-653,145);
  stamp(date,466,792-653,70,10);
- if(item.parent2_signature){stamp(item.parent2_signature,278,792-707,145,11);stamp(date,466,792-707,70,10);}
+ if(item.parent2_signature){await stampSignature(item.parent2_signature,278,792-707,145);stamp(date,466,792-707,70,10);}
  const bytes=await pdf.save();
  const digest=await crypto.subtle.digest('SHA-256',bytes);
  const sha=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
