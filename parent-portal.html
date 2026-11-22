@@ -230,9 +230,9 @@ async function openEditableAssignedPdf(template,assignment){
  const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
  const heading=document.createElement('strong');heading.textContent='Fill out '+template.title;wrap.append(heading);
  const context=document.createElement('p');context.className='muted';context.textContent=assignment.child_id?'Individual child form':'Family form';wrap.append(context);
- const preview=document.createElement('div');preview.style.margin='12px 0';
+ const preview=document.createElement('div');preview.style.cssText='margin:12px 0;position:relative;left:50%;transform:translateX(-50%);width:min(96vw,1100px);max-width:1100px';
  const previewTitle=document.createElement('strong');previewTitle.textContent='Original form (view only — not yet editable in place)';preview.append(previewTitle);
- const iframe=document.createElement('iframe');iframe.title='Original '+template.title;iframe.style.cssText='width:100%;height:560px;border:1px solid #bfb3c9;border-radius:8px;background:white';
+ const iframe=document.createElement('iframe');iframe.title='Original '+template.title;iframe.style.cssText='display:block;width:100%;height:85vh;min-height:680px;border:1px solid #bfb3c9;border-radius:8px;background:white';
  iframe.src=data.signedUrl;preview.append(iframe);wrap.append(preview);
  const note=document.createElement('p');note.className='muted';note.textContent='The original PDF is shown above. Direct typing on the PDF is not available yet. The separate field editor below is collapsed to avoid a long confusing list.';wrap.append(note);
  const entries=[];let unsupported=0;
