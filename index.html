@@ -2794,9 +2794,17 @@ const status=t=>E('pmStatus').textContent=t;
 const seenKey=id=>'gwg_pm_seen_'+user.id+'_'+id;
 function seen(id){return localStorage.getItem(seenKey(id))||'1970-01-01T00:00:00.000Z';}
 function markSeen(id,iso){if(iso&&iso>seen(id))localStorage.setItem(seenKey(id),iso);}
+let siblingNamesByFamily=new Map(),siblingListError='';
 function renderFamilies(){
  E('pmFamilies').replaceChildren();
- for(const f of families){const b=document.createElement('button');b.type='button';b.style.cssText='display:block;width:100%;margin-bottom:8px;text-align:left';b.textContent=f.display_name;b.onclick=()=>choose(f.id);E('pmFamilies').append(b);}
+ for(const f of families){
+  const b=document.createElement('button');b.type='button';b.style.cssText='display:block;width:100%;margin-bottom:8px;text-align:left';
+  const title=document.createElement('strong');title.textContent=f.display_name;b.append(title);
+  const names=siblingNamesByFamily.get(f.id)||[];
+  const detail=document.createElement('div');detail.style.cssText='font-size:.83rem;font-weight:400;margin-top:3px';
+  detail.textContent=siblingListError?'Child list unavailable':names.length?'Children: '+names.join(', '):'No children linked';
+  b.append(detail);b.onclick=()=>choose(f.id);E('pmFamilies').append(b);
+ }
  if(!families.length)E('pmFamilies').textContent='No families added yet.';
 }
 async function updateUnread(){
@@ -2821,6 +2829,22 @@ async function load(){
  const {data,error}=await sb.from('parent_families').select('id,display_name').order('display_name');
  if(error){status('Could not load families: '+error.message);return;}
  families=data||[];
+ siblingNamesByFamily=new Map();siblingListError='';
+ const {data:linkedChildren,error:linkedError}=await sb.from('parent_family_children').select('family_id,child_id').limit(2000);
+ if(linkedError){siblingListError=linkedError.message;}
+ else{
+  const {data:childNames,error:childNamesError}=await sb.from('daycare_children').select('id,name').limit(2000);
+  if(childNamesError)siblingListError=childNamesError.message;
+  else{
+   const byId=new Map((childNames||[]).map(c=>[c.id,c.name]));
+   for(const link of linkedChildren||[]){
+    const name=byId.get(link.child_id);if(!name)continue;
+    if(!siblingNamesByFamily.has(link.family_id))siblingNamesByFamily.set(link.family_id,[]);
+    siblingNamesByFamily.get(link.family_id).push(name);
+   }
+   for(const names of siblingNamesByFamily.values())names.sort((a,b)=>a.localeCompare(b));
+  }
+ }
  const siblingFamily=E('pmSiblingFamily'),priorFamily=siblingFamily.value;siblingFamily.replaceChildren();
  const sfBlank=document.createElement('option');sfBlank.value='';sfBlank.textContent='Select a family';siblingFamily.append(sfBlank);
  for(const f of families){const opt=document.createElement('option');opt.value=f.id;opt.textContent=f.display_name;siblingFamily.append(opt);}
@@ -2908,6 +2932,7 @@ E('pmSiblingConnect').onclick=async()=>{
   const {error}=await sb.rpc('connect_message_sibling',{p_family_id:familyId,p_child_id:childId});
   if(error)throw error;
   notice.textContent=child+' is connected to '+family.display_name+'.';
+  await load();
  }catch(err){notice.textContent='Not connected: '+(err.message||String(err))+'. If the child already has another messaging family, do not merge conversations without reviewing access.';}
  finally{button.disabled=false;}
 };
