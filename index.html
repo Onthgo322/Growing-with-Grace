@@ -3187,15 +3187,15 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
       // Preserve the original printed labels and lines; never paint over the form.
       const s=String(value),max=width-4;
       let text=s;while(text.length>1&&font.widthOfTextAtSize(text,size)>max)text=text.slice(0,-1);
-      page.drawText(text,{x:x+2,y:y+2,size,font,color:black});
+      page.drawText(text,{x:x+2,y:y+7,size,font,color:black});
      };
      // PDF coordinates are measured from the bottom of the original 612 x 792 point page.
      stamp(item.child_name,207,792-242,323,11);
      stamp(item.parent_phone,218,792-269,150,11);
      const date=item.signed_at?new Date(item.signed_at).toLocaleDateString('en-US'):'';
-     stamp(item.parent1_signature,278,792-653,125,9);
-     stamp(date,502,792-653,78,9);
-     if(item.parent2_signature){stamp(item.parent2_signature,278,792-707,125,9);stamp(date,502,792-707,78,9);}
+     stamp(item.parent1_signature,278,792-653,145,11);
+     stamp(date,466,792-653,70,10);
+     if(item.parent2_signature){stamp(item.parent2_signature,278,792-707,145,11);stamp(date,466,792-707,70,10);}
      const bytes=await pdf.save(),blob=new Blob([bytes],{type:'application/pdf'}),url=URL.createObjectURL(blob);
      const a=document.createElement('a');a.href=url;a.download='Handbook-Acknowledgment-'+String(item.child_name||'Child').replace(/[^a-z0-9 -]/gi,'').trim().replace(/\\s+/g,'-')+'.pdf';
      document.body.append(a);a.click();a.remove();
