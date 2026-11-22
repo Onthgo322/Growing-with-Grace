@@ -238,15 +238,19 @@ async function openEditableAssignedPdf(template,assignment){
  const entries=[];let unsupported=0;
  const fieldSection=document.createElement('details');fieldSection.style.margin='12px 0';
  const fieldSummary=document.createElement('summary');fieldSummary.textContent='Optional separate field editor (not on the PDF)';fieldSummary.style.cssText='cursor:pointer;font-weight:700;padding:10px';fieldSection.append(fieldSummary);
+ const fieldHelp=document.createElement('p');fieldHelp.className='muted';fieldHelp.textContent='Only recognizable parent-entry fields are shown. Some fields in this PDF still need administrator mapping before this form is ready for production use.';fieldSection.append(fieldHelp);
  const fieldGrid=document.createElement('div');fieldGrid.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;padding:10px';fieldSection.append(fieldGrid);wrap.append(fieldSection);
  for(const field of fields){
   const name=field.getName(),kind=field instanceof PDFLib.PDFTextField?'PDFTextField':field instanceof PDFLib.PDFCheckBox?'PDFCheckBox':field instanceof PDFLib.PDFDropdown?'PDFDropdown':field instanceof PDFLib.PDFRadioGroup?'PDFRadioGroup':'unsupported';
   // XFA/AcroForm hybrid PDFs often expose decorative DFS_* fields and TX_* placeholders.
   // Never show these internal identifiers to parents as questions.
   if(kind==='unsupported'){if(window.PDFLib.PDFButton && field instanceof PDFLib.PDFButton){continue;}unsupported++;continue;}
-  if(/^DFS_(Background|Title)_/i.test(name)){continue;}
+  // Hide PDF metadata and signature widgets: signing is collected once below.
+  if(/^(?:DFS_|Produced(?:\d+)?$|Signature(?:\d+)?$|Sig(?:\d+)?$|FormType$|Form_Type$)/i.test(name)){continue;}
   const readable=name.replace(/^(?:DFS_)?(?:TextField|Field)_?/i,'').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').trim();
-  const item=document.createElement('div');const label=document.createElement('label');label.textContent=/^(?:TX|Button|Picture)\d*_?\d*$/i.test(name)?'Form field':readable;item.append(label);fieldGrid.append(item);
+  // Unmapped PDF identifiers cannot be safely presented as parent questions.
+  if(/^(?:TX|Button|Picture)\d*_?\d*$/i.test(name)){continue;}
+  const item=document.createElement('div');const label=document.createElement('label');label.textContent=readable.replace(/^Clinic No(?:\s|$)/i,'Clinic phone number ').trim();item.append(label);fieldGrid.append(item);
   if(kind==='PDFTextField'){
    const input=document.createElement('input');input.value=field.getText()||'';input.maxLength=2000;item.append(input);entries.push({field,input,kind});
   }else if(kind==='PDFCheckBox'){
