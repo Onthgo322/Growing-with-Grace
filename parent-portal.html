@@ -10,6 +10,7 @@
 <h2>Parent Handbook &amp; Acknowledgement</h2>
 <p class="muted">Read the complete Parent Handbook before completing your acknowledgement. The original document opens securely in a separate tab.</p><button id="hbOpenPdf" type="button" class="secondary">Open Parent Handbook PDF</button><p id="hbPdfStatus" role="status" class="muted"></p>
 <label for="hbChild">Child's full name</label><input id="hbChild" maxlength="150" autocomplete="off">
+<label for="hbPhone">Parent/Guardian phone number (required)</label><input id="hbPhone" type="tel" maxlength="30" autocomplete="tel" inputmode="tel" required>
 <label for="hbParent1">Parent/Guardian 1 full name</label><input id="hbParent1" maxlength="150" autocomplete="name">
 <label for="hbSign1">Parent/Guardian 1 electronic signature (type full name)</label><input id="hbSign1" maxlength="150" autocomplete="off">
 <label for="hbParent2">Parent/Guardian 2 full name (optional)</label><input id="hbParent2" maxlength="150" autocomplete="off">
@@ -103,19 +104,20 @@ async function loadHandbookHistory(){
  for(const item of data){const p=document.createElement('p');p.textContent=item.child_name+' — '+new Date(item.signed_at).toLocaleString()+' — signed by '+item.parent1_name+(item.parent2_name?' and '+item.parent2_name:'');host.append(p);}
 }
 E('hbSubmit').onclick=async()=>{
- const child=E('hbChild').value.trim(),p1=E('hbParent1').value.trim(),s1=E('hbSign1').value.trim(),p2=E('hbParent2').value.trim(),s2=E('hbSign2').value.trim();
+ const child=E('hbChild').value.trim(),phone=E('hbPhone').value.trim(),p1=E('hbParent1').value.trim(),s1=E('hbSign1').value.trim(),p2=E('hbParent2').value.trim(),s2=E('hbSign2').value.trim();
  const notice=E('hbStatus');
- if(!child||!p1||!s1){notice.textContent='Enter the child name and Parent/Guardian 1 name and signature.';return;}
+ if(!child||!phone||!p1||!s1){notice.textContent='Enter the child name, parent phone number, and Parent/Guardian 1 name and signature.';return;}
+ if(phone.replace(/\D/g,'').length<10){notice.textContent='Enter a valid parent phone number with at least 10 digits.';return;}
  if(p1.toLocaleLowerCase()!==s1.toLocaleLowerCase()){notice.textContent='Parent/Guardian 1 signature must match their full name.';return;}
  if(Boolean(p2)!==Boolean(s2)||p2&&p2.toLocaleLowerCase()!==s2.toLocaleLowerCase()){notice.textContent='Parent/Guardian 2 name and signature must both be entered and match, or both left blank.';return;}
  if(!E('hbAgree').checked){notice.textContent='Please confirm you have read and agree to the handbook.';return;}
  if(!sb||!family||!currentUser){notice.textContent='Please sign in first.';return;}
  const btn=E('hbSubmit');btn.disabled=true;notice.textContent='Submitting…';
  try{
-  const {error}=await sb.from('parent_handbook_acknowledgements').insert({family_id:family,submitted_by:currentUser.id,child_name:child,parent1_name:p1,parent1_signature:s1,parent2_name:p2||null,parent2_signature:s2||null,handbook_version:'2026-04-09'});
+  const {error}=await sb.from('parent_handbook_acknowledgements').insert({family_id:family,submitted_by:currentUser.id,child_name:child,parent_phone:phone,parent1_name:p1,parent1_signature:s1,parent2_name:p2||null,parent2_signature:s2||null,handbook_version:'2026-04-09'});
   if(error)throw error;
   notice.textContent='Acknowledgement submitted successfully. Thank you!';
-  ['hbChild','hbParent1','hbSign1','hbParent2','hbSign2'].forEach(id=>E(id).value='');E('hbAgree').checked=false;
+  ['hbChild','hbPhone','hbParent1','hbSign1','hbParent2','hbSign2'].forEach(id=>E(id).value='');E('hbAgree').checked=false;
   await loadHandbookHistory();
  }catch(e){notice.textContent='Submission failed: '+(e.message||String(e));}
  finally{btn.disabled=false;}
