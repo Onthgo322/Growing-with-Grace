@@ -314,6 +314,8 @@ async function openEditableAssignedPdf(template,assignment){
  const finalNote=document.createElement('p');finalNote.className='muted';finalNote.textContent='This editor works only for PDFs with built-in fillable fields. Downloading does not submit the form or add a signature.';
  wrap.append(finalNote,save,document.createTextNode(' '),close);
  E('assignedFormsList').prepend(wrap);
+ // Opening the editor should bring its heading into view, not leave the parent at the previous scroll position.
+ requestAnimationFrame(()=>{wrap.scrollIntoView({block:'start',behavior:'instant'});});
 }
 function switchParentView(view){const isForm=view==='handbook',isAssigned=view==='assigned';E('handbookForm').classList.toggle('hidden',!isForm);E('assignedForms').classList.toggle('hidden',!isAssigned);E('messageControls').classList.toggle('hidden',isForm||isAssigned);E('showHandbook').style.fontWeight=isForm?'800':'500';E('showAssignedForms').style.fontWeight=isAssigned?'800':'500';E('showMessages').style.fontWeight=!isForm&&!isAssigned?'800':'500';if(isForm){loadHandbookChildren();loadHandbookHistory();}if(isAssigned)loadAssignedForms();}
 E('showHandbook').onclick=()=>switchParentView('handbook');
