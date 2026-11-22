@@ -2972,8 +2972,28 @@ async function showParentAccess(){
  const {data,error}=await sb.rpc('get_parent_family_accounts',{p_family_id:familyId});
  host.replaceChildren();
  if(error){host.textContent='Unable to load parent access: '+error.message;return;}
- if(!data?.length){host.textContent='No parent accounts linked to this messaging family.';return;}
- const heading=document.createElement('p');heading.textContent=data.length+' linked parent account'+(data.length===1?'':'s')+'.';host.append(heading);
+ if(!data?.length){const empty=document.createElement('p');empty.textContent='No parent accounts linked to this messaging family.';host.append(empty);}
+ else {const heading=document.createElement('p');heading.textContent=data.length+' linked parent account'+(data.length===1?'':'s')+'.';host.append(heading);}
+ const restoreRow=document.createElement('div');restoreRow.style.cssText='padding:12px 0;margin-bottom:8px;border-bottom:1px solid #ddd5e6';
+ const restoreLabel=document.createElement('label');restoreLabel.textContent='Restore existing parent account by email';restoreLabel.style.cssText='display:block;font-weight:600;margin-bottom:5px';
+ const restoreInput=document.createElement('input');restoreInput.type='email';restoreInput.placeholder='Parent account email';restoreInput.autocomplete='off';restoreInput.style.cssText='padding:8px;max-width:330px;width:100%;box-sizing:border-box';
+ const restoreButton=document.createElement('button');restoreButton.type='button';restoreButton.textContent='Restore Parent Access';restoreButton.style.cssText='display:block;margin-top:8px;padding:8px 12px';
+ const restoreNotice=document.createElement('div');restoreNotice.style.cssText='margin-top:7px;font-size:.9rem';
+ restoreButton.onclick=async()=>{
+  const email=restoreInput.value.trim().toLowerCase();
+  if(!email||!restoreInput.checkValidity()){restoreNotice.textContent='Enter a valid existing parent account email.';return;}
+  const familyName=families.find(f=>f.id===familyId)?.display_name||'this family';
+  if(!confirm('Restore '+email+' to '+familyName+'? This account will be able to read existing and future messages for this family.'))return;
+  restoreButton.disabled=true;restoreButton.textContent='Restoring…';restoreNotice.textContent='';
+  try{
+   const {error:restoreError}=await sb.rpc('restore_parent_family_access',{p_family_id:familyId,p_parent_email:email});
+   if(restoreError)throw restoreError;
+   await showParentAccess();
+   status('Parent access restored for '+email+'.');
+  }catch(err){restoreNotice.textContent='Unable to restore access: '+(err.message||String(err));restoreButton.disabled=false;restoreButton.textContent='Restore Parent Access';}
+ };
+ restoreRow.append(restoreLabel,restoreInput,restoreButton,restoreNotice);host.append(restoreRow);
+ if(!data?.length)return;
  const linkedIds=siblingLinksByFamily.get(familyId)||[];
  for(const member of data){
   const item=document.createElement('div');item.style.cssText='padding:9px 0;border-top:1px solid #ddd5e6;overflow-wrap:anywhere;font-size:.9rem';
