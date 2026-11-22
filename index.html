@@ -2239,8 +2239,7 @@ function printFilteredReport(){
  const win=window.open('','_blank');
  if(!win)return alert('Allow pop-ups for this site to print the report.');
  win.document.open();
- win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+' Report</title><style>@page{size:landscape;margin:10mm}body{font:11px Arial,sans-serif;color:#222}h2,h3{text-align:center;margin:8px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}thead{display:table-header-group}tr{break-inside:avoid}th:nth-child(6),td:nth-child(6){text-align:right}</style></head><body>'+heading+table+'<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-</body></html>');
+ win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+' Report</title><style>@page{size:landscape;margin:10mm}body{font:11px Arial,sans-serif;color:#222}h2,h3{text-align:center;margin:8px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}thead{display:table-header-group}tr{break-inside:avoid}th:nth-child(6),td:nth-child(6){text-align:right}</style></head><body>'+heading+table+'</body></html>');
  win.document.close();win.focus();win.print();
 }
 
@@ -3286,4 +3285,5 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
  loadTemplates();
 })();
 </script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 </body></html>
