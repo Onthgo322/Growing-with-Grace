@@ -4,6 +4,7 @@
 <body><header><h1>Growing With Grace Christian Learning Center</h1><p>Private Parent Messages</p></header><main>
 <section class="card" id="setup"><h2>Connect to Parent Messages</h2><p class="muted">Your center will provide the secure connection details when parent messaging is ready. Do not enter a service-role or secret key.</p><label for="key">Supabase publishable key</label><input id="key" type="password" autocomplete="off"><button id="connect" style="margin-top:12px">Connect</button></section>
 <section class="card hidden" id="login"><h2>Parent Sign In</h2><p class="muted">Use the email and password registered with Growing With Grace. Accounts must be activated by the center.</p><label for="email">Email</label><input id="email" type="email" autocomplete="email"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password"><label style="display:flex;gap:8px;align-items:center;font-weight:normal;margin:8px 0"><input type="checkbox" id="showPassword" style="width:auto"> Show password</label><button type="button" id="forgotPassword" class="secondary" style="margin-top:10px">Forgot Parent Portal Password?</button><p id="resetStatus" role="status" class="muted"></p><button id="signIn" style="margin-top:14px">Sign In</button></section>
+<section class="card hidden" id="resetPasswordPanel"><h2>Set New Parent Portal Password</h2><p>This changes only your Growing With Grace Parent Portal password, not your MSN email password.</p><label for="newPortalPassword">New password</label><input id="newPortalPassword" type="password" autocomplete="new-password" minlength="8"><label for="confirmPortalPassword">Confirm new password</label><input id="confirmPortalPassword" type="password" autocomplete="new-password" minlength="8"><button id="savePortalPassword" type="button">Save New Password</button><p id="newPasswordStatus" role="status"></p></section>
 <section class="card hidden" id="messages"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>Messages <span id="unreadBadge" class="hidden" aria-label="Unread messages" style="display:inline-block;background:#6f4a8e;color:white;border-radius:999px;padding:2px 9px;font-size:.85rem"></span></h2><button id="signOut" class="secondary">Sign Out</button></div><p class="muted" id="familyName"></p><div style="display:flex;gap:8px;margin:10px 0;flex-wrap:wrap"><button id="showMessages" class="secondary" type="button">Messages</button><button id="showHandbook" class="secondary" type="button">Parent Handbook Form</button></div><div id="messageControls"><div style="display:flex;gap:8px;margin:10px 0"><button id="messageInbox" class="secondary" type="button">Message Inbox</button><button id="messageArchived" class="secondary" type="button">Archived Messages</button></div><div id="thread" aria-live="polite"></div><label for="draft">Message to Growing With Grace</label><textarea id="draft" maxlength="4000" placeholder="Type your message"></textarea><button id="send" style="margin-top:10px">Send Message</button><button id="reload" class="secondary" style="margin-top:10px">Check for Replies</button></div></section>
 <section class="card hidden" id="handbookForm">
 <h2>Parent Handbook &amp; Acknowledgement</h2>
@@ -20,8 +21,8 @@
 <h3>Previously Submitted</h3><div id="hbHistory" class="muted">No submissions loaded.</div>
 </section>
 <p id="status" role="status"></p></main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
-(()=>{'use strict';const URL='https://qiypwbokgzlkvdydxpsk.supabase.co',E=id=>document.getElementById(id);let sb=null,family=null,currentUser=null,messageView="inbox";const seenKey=()=>currentUser&&family?'gwg_parent_seen_'+currentUser.id+'_'+family:null;const status=s=>E('status').textContent=s;const show=id=>['setup','login','messages'].forEach(x=>E(x).classList.toggle('hidden',x!==id));const keyName='gwg_parent_publishable_key';
-async function start(key){if(!key||!window.supabase){status('The secure connection is not available yet.');return;}try{sb=window.supabase.createClient(URL,key,{auth:{persistSession:true,storageKey:'gwg-parent-auth'}});const {data:{user}}=await sb.auth.getUser();if(user)await enter();else show('login');}catch(e){status('Connection failed: '+e.message);}}
+(()=>{'use strict';const URL='https://qiypwbokgzlkvdydxpsk.supabase.co',E=id=>document.getElementById(id);let sb=null,family=null,currentUser=null,messageView="inbox";const seenKey=()=>currentUser&&family?'gwg_parent_seen_'+currentUser.id+'_'+family:null;const status=s=>E('status').textContent=s;const show=id=>['setup','login','messages','resetPasswordPanel'].forEach(x=>E(x).classList.toggle('hidden',x!==id));const keyName='gwg_parent_publishable_key';
+async function start(key){if(!key||!window.supabase){status('The secure connection is not available yet.');return;}try{sb=window.supabase.createClient(URL,key,{auth:{persistSession:true,storageKey:'gwg-parent-auth'}});sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')showRecovery();});const {data:{user}}=await sb.auth.getUser();if(user){if(location.hash.includes('type=recovery'))show('resetPasswordPanel');else await enter();}else show('login');}catch(e){status('Connection failed: '+e.message);}}
 async function enter(){family=null;const {data:{user},error:authError}=await sb.auth.getUser();if(authError||!user){show('login');return;}const {data,error}=await sb.from('parent_family_members').select('family_id,parent_families(id,display_name)').eq('user_id',user.id).limit(1);if(error){status('Messaging is not yet activated for this account.');show('login');return;}if(!data?.length){await sb.auth.signOut();show('login');status('Your account is not linked to a family yet. Please contact Growing With Grace.');return;}currentUser=user;family=data[0].family_id;E('familyName').textContent=data[0].parent_families?.display_name||'Your family';show('messages');switchParentView('messages');status('');await load();}
 async function load(){
  if(!family||!currentUser)return;
@@ -102,6 +103,25 @@ E('hbSubmit').onclick=async()=>{
 E('messageInbox').onclick=()=>{messageView='inbox';load();};
 E('messageArchived').onclick=()=>{messageView='archived';load();};
 E('connect').onclick=async()=>{const k=E('key').value.trim();if(!k)return status('Enter the publishable key provided by the center.');localStorage.setItem(keyName,k);await start(k);};
+function showRecovery(){show('resetPasswordPanel');status('');}
+window.addEventListener('hashchange',()=>{if(location.hash.includes('type=recovery'))showRecovery();});
+E('savePortalPassword').onclick=async()=>{
+ const p=E('newPortalPassword').value,c=E('confirmPortalPassword').value,n=E('newPasswordStatus'),btn=E('savePortalPassword');
+ if(p.length<8){n.textContent='Use at least 8 characters.';return;}
+ if(p!==c){n.textContent='Passwords do not match.';return;}
+ if(!sb){n.textContent='Connect to Supabase first.';return;}
+ btn.disabled=true;n.textContent='Saving password…';
+ try{
+  const {error}=await sb.auth.updateUser({password:p});
+  if(error)throw error;
+  E('newPortalPassword').value='';E('confirmPortalPassword').value='';
+  history.replaceState(null,'',location.pathname+location.search);
+  n.textContent='Your Parent Portal password has been updated.';
+  await enter();
+  status('Parent Portal password updated successfully.');
+ }catch(e){n.textContent='Could not update password: '+(e.message||String(e));}
+ finally{btn.disabled=false;}
+};
 E('showPassword').onchange=()=>{E('password').type=E('showPassword').checked?'text':'password';};
 E('forgotPassword').onclick=async()=>{
  const email=E('email').value.trim(),notice=E('resetStatus');
