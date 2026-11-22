@@ -163,14 +163,17 @@ E('messageInbox').onclick=()=>{messageView='inbox';load();};
 E('messageArchived').onclick=()=>{messageView='archived';load();};
 E('connect').onclick=async()=>{const k=E('key').value.trim();if(!k)return status('Enter the publishable key provided by the center.');localStorage.setItem(keyName,k);await start(k);};
 function showRecovery(){show('resetPasswordPanel');status('');}
-window.addEventListener('hashchange',()=>{if(location.hash.includes('type=recovery'))showRecovery();});
+window.addEventListener('hashchange',async()=>{if(!sb||!location.hash.includes('type=recovery'))return;const {data:{session},error}=await sb.auth.getSession();if(session&&!error)showRecovery();else{show('login');E('resetStatus').textContent='This reset link has no valid recovery session. Please request a fresh link after the email limit clears.';}});
 E('savePortalPassword').onclick=async()=>{
  const p=E('newPortalPassword').value,c=E('confirmPortalPassword').value,n=E('newPasswordStatus'),btn=E('savePortalPassword');
  if(p.length<8){n.textContent='Use at least 8 characters.';return;}
  if(p!==c){n.textContent='Passwords do not match.';return;}
  if(!sb){n.textContent='Connect to Supabase first.';return;}
- btn.disabled=true;n.textContent='Saving password…';
+ btn.disabled=true;n.textContent='Checking secure reset session…';
  try{
+  const {data:{session},error:sessionError}=await sb.auth.getSession();
+  if(sessionError||!session)throw new Error('The reset link has no valid session. Please request a fresh link after the email limit clears.');
+  n.textContent='Saving password…';
   const {error}=await sb.auth.updateUser({password:p});
   if(error)throw error;
   E('newPortalPassword').value='';E('confirmPortalPassword').value='';
