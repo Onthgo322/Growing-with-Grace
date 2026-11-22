@@ -3178,6 +3178,27 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   render(submitted,rows);
   render(history,rows.filter(x=>x.status==='approved'||x.status==='rejected'));
   status.textContent=rows.filter(x=>x.status==='pending').length+' pending contact update request(s).';
+  await loadFormAssignmentOverview();
+ }
+ async function loadFormAssignmentOverview(){
+  const hosts={pending:document.getElementById('pfPendingList'),submitted:document.getElementById('pfSubmittedList'),history:document.getElementById('pfHistoryList')};
+  const {data,error}=await sb.from('parent_form_assignments').select('id,family_id,child_id,template_id,status').limit(2000);
+  if(error){const p=document.createElement('p');p.textContent='Form assignments unavailable: '+error.message;hosts.pending.prepend(p);return;}
+  const [fs,cs,ts]=await Promise.all([sb.from('parent_families').select('id,display_name'),sb.from('daycare_children').select('id,name'),sb.from('parent_form_templates').select('id,title')]);
+  const families=new Map((fs.data||[]).map(x=>[x.id,x.display_name]));
+  const children=new Map((cs.data||[]).map(x=>[x.id,x.name]));
+  const templates=new Map((ts.data||[]).map(x=>[x.id,x.title]));
+  const rows=data||[];
+  const render=(host,items,heading)=>{
+   const section=document.createElement('section');section.style.marginBottom='14px';
+   const title=document.createElement('h4');title.textContent=heading+' ('+items.length+')';section.append(title);
+   for(const x of items){const p=document.createElement('p');p.style.cssText='padding:7px;border-bottom:1px solid #ddd5e6;margin:0';p.textContent=(templates.get(x.template_id)||'Form')+' · '+(families.get(x.family_id)||'Family')+(x.child_id?' · '+(children.get(x.child_id)||'Child'):'')+' · '+x.status;section.append(p);}
+   if(!items.length){const p=document.createElement('p');p.className='muted';p.textContent='No assigned forms in this section.';section.append(p);}
+   host.prepend(section);
+  };
+  render(hosts.pending,rows.filter(x=>['draft','sent','pending'].includes(x.status)),'Form assignments awaiting completion');
+  render(hosts.submitted,rows.filter(x=>['submitted','completed'].includes(x.status)),'Submitted form assignments');
+  render(hosts.history,rows.filter(x=>['approved','rejected'].includes(x.status)),'Reviewed form assignments');
  }
  async function loadHandbookAcknowledgements(){
   const host=document.getElementById('pfHandbookList'),notice=document.getElementById('pfHandbookStatus');
