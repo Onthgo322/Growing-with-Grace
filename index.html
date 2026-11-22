@@ -2788,7 +2788,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
 <script>
 (function(){
 const E=id=>document.getElementById(id);
-let selected=null,families=[],loading=false,view='inbox',archives=new Map(),lastMessages=new Map(),messageView='inbox',inviteParents=[];
+let selected=null,families=[],loading=false,view='inbox',archives=new Map(),lastMessages=new Map(),messageView='inbox',inviteParents=[],accessContactByChild=new Map();
 const tab=document.querySelector('#mainNavigation [data-tab="parentmessages"]');
 const status=t=>E('pmStatus').textContent=t;
 const seenKey=id=>'gwg_pm_seen_'+user.id+'_'+id;
@@ -2861,7 +2861,7 @@ async function load(){
  const afBlank=document.createElement('option');afBlank.value='';afBlank.textContent='Select a family';accessFamily.append(afBlank);
  for(const f of families){const opt=document.createElement('option');opt.value=f.id;opt.textContent=f.display_name;accessFamily.append(opt);}
  if(families.some(f=>f.id===previousAccess))accessFamily.value=previousAccess;
- if(accessFamily.value)await showParentAccess();
+
  renderFamilies();
  status(families.length+' families available.');
  const {data:contacts,error:contactsError}=await sb.from('daycare_children').select('id,name,parent1_name,parent1_email,parent2_name,parent2_email').order('name').limit(1000);
@@ -2871,9 +2871,10 @@ async function load(){
  if((contacts||[]).some(c=>c.id===priorChild))siblingChild.value=priorChild;
  const parentSelect=E('pmInviteParent'),oldValue=parentSelect.value;parentSelect.replaceChildren();
  const first=document.createElement('option');first.value='';first.textContent='Select a parent with a saved email';parentSelect.append(first);
- inviteParents=[];
+ inviteParents=[];accessContactByChild=new Map();
  if(contactsError){E('pmInviteHint').textContent='Could not load parent contacts: '+contactsError.message;}
  else{
+  for(const c of contacts||[]){accessContactByChild.set(c.id,c);}
   for(const c of contacts||[])for(const n of [1,2]){
    const email=String(c['parent'+n+'_email']||'').trim().toLowerCase();
    const name=String(c['parent'+n+'_name']||'').trim();
@@ -2885,6 +2886,7 @@ async function load(){
   if(inviteParents.some(p=>p.key===oldValue))parentSelect.value=oldValue;
   E('pmInviteHint').textContent=inviteParents.length?'The selected child determines the messaging family automatically.':'No parent email addresses saved yet. Add one under Children → Parents.';
  }
+ if(E('pmAccessFamily').value)await showParentAccess();
  if(selected)await choose(selected);
  await updateUnread();
  }finally{loading=false;}
@@ -2966,13 +2968,32 @@ async function showParentAccess(){
  const familyId=E('pmAccessFamily').value,host=E('pmAccessMembers');
  host.replaceChildren();
  if(!familyId){host.textContent='Select a family to view parent access.';return;}
- host.textContent='Loading linked parent accounts…';
- const {data,error}=await sb.from('parent_family_members').select('user_id').eq('family_id',familyId);
+ host.textContent='Loading verified parent accounts…';
+ const {data,error}=await sb.rpc('get_parent_family_accounts',{p_family_id:familyId});
  host.replaceChildren();
  if(error){host.textContent='Unable to load parent access: '+error.message;return;}
  if(!data?.length){host.textContent='No parent accounts linked to this messaging family.';return;}
- const heading=document.createElement('p');heading.textContent=data.length+' linked parent account'+(data.length===1?'':'s')+'. Account IDs are shown until we add secure email lookup.';host.append(heading);
- for(const member of data){const item=document.createElement('div');item.style.cssText='padding:6px 0;border-top:1px solid #ddd5e6;overflow-wrap:anywhere;font-size:.85rem';item.textContent='Account ID: '+member.user_id;host.append(item);}
+ const heading=document.createElement('p');heading.textContent=data.length+' linked parent account'+(data.length===1?'':'s')+'.';host.append(heading);
+ const linkedIds=siblingLinksByFamily.get(familyId)||[];
+ for(const member of data){
+  const item=document.createElement('div');item.style.cssText='padding:9px 0;border-top:1px solid #ddd5e6;overflow-wrap:anywhere;font-size:.9rem';
+  const email=String(member.email||'').trim().toLowerCase();
+  const matching=[];
+  for(const childId of linkedIds){
+   const c=accessContactByChild.get(childId);if(!c)continue;
+   for(const n of [1,2]){
+    if(email&&String(c['parent'+n+'_email']||'').trim().toLowerCase()===email){
+     const name=String(c['parent'+n+'_name']||'').trim();
+     matching.push((name||'Unnamed parent')+' ('+c.name+')');
+    }
+   }
+  }
+  const nameLine=document.createElement('div');nameLine.style.fontWeight='600';
+  nameLine.textContent=matching.length?[...new Set(matching)].join(', '):'Parent name not verified against this family’s saved child contacts';
+  const emailLine=document.createElement('div');emailLine.textContent='Account email: '+(member.email||'Not available');
+  const stateLine=document.createElement('div');stateLine.textContent='Messaging access: Connected';
+  item.append(nameLine,emailLine,stateLine);host.append(item);
+ }
 }
 E('pmAccessFamily').onchange=showParentAccess;
 E('pmSiblingConnect').onclick=async()=>{
