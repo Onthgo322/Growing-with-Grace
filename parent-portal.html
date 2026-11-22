@@ -278,8 +278,8 @@ async function openEditableAssignedPdf(template,assignment){
      const cell=document.createElement('div'),fieldLabel=document.createElement('label'),fieldInput=document.createElement('input');
      fieldLabel.textContent=caption+(mandatory?' *':'');fieldLabel.style.display='block';fieldLabel.style.fontSize='0.9em';
      fieldInput.type='text';fieldInput.disabled=false;fieldInput.readOnly=false;fieldInput.style.cssText='width:100%;min-width:0;background:#fff;color:#222;opacity:1;pointer-events:auto;';fieldInput.maxLength=key==='zip'?10:key==='state'?2:120;
-     if(key==='state'){fieldInput.placeholder='ND';fieldInput.addEventListener('input',()=>{fieldInput.value=fieldInput.value.replace(/[^a-z]/gi,'').toUpperCase().slice(0,2);});}
-     if(key==='zip'){fieldInput.inputMode='numeric';fieldInput.placeholder='Enter ZIP code';fieldInput.setAttribute('aria-label','ZIP Code');fieldInput.addEventListener('input',()=>{fieldInput.value=fieldInput.value.replace(/[^\d-]/g,'').slice(0,10);});}
+     if(key==='state'){fieldInput.placeholder='';fieldInput.addEventListener('input',()=>{fieldInput.value=fieldInput.value.replace(/[^a-z]/gi,'').toUpperCase().slice(0,2);});}
+     if(key==='zip'){fieldInput.inputMode='numeric';fieldInput.placeholder='';fieldInput.setAttribute('aria-label','ZIP Code');fieldInput.addEventListener('input',()=>{fieldInput.value=fieldInput.value.replace(/[^\d-]/g,'').slice(0,10);});}
      fieldInput.addEventListener('input',()=>{input.value=[parts.street?.value.trim(),parts.city?.value.trim(),parts.state?.value.trim(),parts.zip?.value.trim()].filter(Boolean).join(', ');});
      cell.append(fieldLabel,fieldInput);addressGrid.append(cell);parts[key]=fieldInput;
     }
