@@ -177,18 +177,30 @@ async function loadAssignedForms(){
  try{
   const {data:assignments,error}=await sb.from('parent_form_assignments').select('template_id,child_id,status').eq('family_id',family).neq('status','draft').limit(200);
   if(error)throw error;
-  const ids=[...new Set((assignments||[]).map(x=>x.template_id).filter(Boolean))];
+  const rows=assignments||[];
+  const ids=[...new Set(rows.map(x=>x.template_id).filter(Boolean))];
   if(!ids.length){host.textContent='No forms have been released to this family yet.';return;}
   const {data:templates,error:te}=await sb.from('parent_form_templates').select('id,title,file_path,file_type,status').in('id',ids).eq('status','published');
   if(te)throw te;
+  const childIds=[...new Set(rows.map(x=>x.child_id).filter(Boolean))];
+  let names=new Map();
+  if(childIds.length){
+   const {data:children,error:ce}=await sb.from('daycare_children').select('id,name').in('id',childIds);
+   if(!ce)names=new Map((children||[]).map(x=>[x.id,x.name]));
+  }
+  const byId=new Map((templates||[]).map(x=>[x.id,x]));
   host.replaceChildren();
-  for(const t of templates||[]){
-   if(t.file_type!=='application/pdf')continue;
+  for(const a of rows){
+   const t=byId.get(a.template_id);
+   if(!t||t.file_type!=='application/pdf')continue;
    const wrap=document.createElement('div');wrap.className='message';
    const heading=document.createElement('strong');heading.textContent=t.title;wrap.append(heading);
+   const detail=document.createElement('div');detail.className='muted';
+   detail.textContent=(a.child_id?'Child: '+(names.get(a.child_id)||'Assigned child'):'Family form')+' · '+a.status;
+   wrap.append(detail);
    const btn=document.createElement('button');btn.className='secondary';btn.style.marginTop='8px';btn.textContent='Open PDF';
    btn.onclick=async()=>{btn.disabled=true;try{const {data,error}=await sb.storage.from('parent-forms').createSignedUrl(t.file_path,120);if(error)throw error;window.open(data.signedUrl,'_blank','noopener');}catch(e){alert('Could not open PDF: '+e.message);}finally{btn.disabled=false;}};
-   wrap.append(document.createElement('div'),btn);host.append(wrap);
+   wrap.append(btn);host.append(wrap);
   }
   if(!host.children.length)host.textContent='No published PDF forms are available yet.';
  }catch(e){host.textContent='Could not load assigned forms: '+(e.message||String(e));}
