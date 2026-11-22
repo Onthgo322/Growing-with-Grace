@@ -270,6 +270,24 @@ async function openEditableAssignedPdf(template,assignment){
    }
    const existing=initial.getForm().getTextField(name).getText()||'';
    if(existing && input.type!=='date')input.value=existing;
+   if(name==='Address'||name==='Address_1'){
+    input.type='hidden';
+    const addressGrid=document.createElement('div');addressGrid.style.cssText='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px';
+    const parts={};
+    for(const [key,caption] of [['street','Street Address'],['city','City'],['state','State'],['zip','ZIP Code']]){
+     const cell=document.createElement('div'),fieldLabel=document.createElement('label'),fieldInput=document.createElement('input');
+     fieldLabel.textContent=caption+(mandatory?' *':'');fieldLabel.style.display='block';fieldLabel.style.fontSize='0.9em';
+     fieldInput.type='text';fieldInput.style.width='100%';fieldInput.maxLength=key==='zip'?10:key==='state'?2:120;
+     if(key==='state'){fieldInput.placeholder='ND';fieldInput.addEventListener('input',()=>{fieldInput.value=fieldInput.value.replace(/[^a-z]/gi,'').toUpperCase().slice(0,2);});}
+     if(key==='zip'){fieldInput.inputMode='numeric';fieldInput.placeholder='58078';fieldInput.addEventListener('input',()=>{fieldInput.value=fieldInput.value.replace(/[^\\d-]/g,'').slice(0,10);});}
+     fieldInput.addEventListener('input',()=>{input.value=[parts.street?.value.trim(),parts.city?.value.trim(),parts.state?.value.trim(),parts.zip?.value.trim()].filter(Boolean).join(', ');});
+     cell.append(fieldLabel,fieldInput);addressGrid.append(cell);parts[key]=fieldInput;
+    }
+    addressGrid.firstElementChild.style.gridColumn='1 / -1';
+    item.append(l,addressGrid,input);item.style.gridColumn='1 / -1';grid.append(item);values.set(name,input);
+    if(mandatory)required.push({name,label,input,parts});
+    continue;
+   }
    item.append(l,input);grid.append(item);values.set(name,input);
    if(mandatory)required.push({name,label,input});
   }
@@ -308,7 +326,9 @@ async function openEditableAssignedPdf(template,assignment){
  const makeButton=(label,callback,secondary=false)=>{const b=document.createElement('button');b.type='button';b.textContent=label;if(secondary)b.className='secondary';b.onclick=callback;return b;};
  reviewBtn.onclick=async()=>{
   const missing=required.find(x=>!x.input.value.trim());
-  if(missing){alert('Please complete '+missing.label+'.');missing.input.focus();return;}
+  if(missing){alert('Please complete '+missing.label+'.');(missing.parts?.street||missing.input).focus();return;}
+  const addressRequirement=required.find(x=>x.name==='Address');
+  if(addressRequirement){for(const [part,label] of [['street','Street Address'],['city','City'],['state','State'],['zip','ZIP Code']]){const field=addressRequirement.parts[part];if(!field.value.trim()){alert('Please enter '+label+'.');field.focus();return;}}if(!/^\\d{5}(-\\d{4})?$/.test(addressRequirement.parts.zip.value)){alert('Enter a valid 5-digit ZIP code (or ZIP+4).');addressRequirement.parts.zip.focus();return;}}
   for(const choice of noneChoices){
    if(!choice.checkbox.checked&&(!choice.nameInput.value.trim()||!choice.phoneInput.value.trim())){
     alert('Complete the '+choice.title+' name and clinic phone number, or select None.');
