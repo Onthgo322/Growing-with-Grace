@@ -152,6 +152,25 @@ async function saveCompletedHandbookPdf(item){
  const {error:re}=await sb.rpc('save_handbook_pdf_record',{p_acknowledgement_id:item.id,p_file_path:filePath,p_sha256:sha});
  if(re)throw new Error('PDF uploaded but record finalization failed: '+re.message);
 }
+let linkedHandbookChildren=[];
+async function loadHandbookChildren(){
+ const host=E('hbChildrenList');linkedHandbookChildren=[];E('hbChild').value='';
+ host.textContent='Loading linked children…';
+ try{
+  if(!family){host.textContent='Choose a family first.';return;}
+  const {data:links,error}=await sb.from('parent_family_children').select('child_id').eq('family_id',family);
+  if(error)throw error;
+  const ids=[...new Set((links||[]).map(x=>x.child_id).filter(Boolean))];
+  if(!ids.length){host.textContent='No children are linked to this family. Contact the center.';return;}
+  const {data:children,error:ce}=await sb.from('daycare_children').select('id,name').in('id',ids);
+  if(ce)throw ce;
+  if(!children||children.length!==ids.length){host.textContent='Some linked children could not be loaded. Contact the center.';return;}
+  linkedHandbookChildren=children.sort((a,b)=>a.name.localeCompare(b.name));
+  host.replaceChildren();
+  for(const child of linkedHandbookChildren){const line=document.createElement('div');line.textContent='✓ '+child.name;host.appendChild(line);}
+  E('hbChild').value=linkedHandbookChildren.map(x=>x.name).join(' / ');
+ }catch(e){host.textContent='Unable to load children: '+(e.message||String(e));}
+}
 E('hbOpenPdf').onclick=openPublishedHandbook;
 function switchParentView(view){const isForm=view==='handbook';E('handbookForm').classList.toggle('hidden',!isForm);E('messageControls').classList.toggle('hidden',isForm);E('showHandbook').style.fontWeight=isForm?'800':'500';E('showMessages').style.fontWeight=isForm?'500':'800';if(isForm){loadHandbookChildren();loadHandbookHistory();}}
 E('showHandbook').onclick=()=>switchParentView('handbook');
