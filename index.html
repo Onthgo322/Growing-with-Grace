@@ -3156,7 +3156,7 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   if(!sb||!user){status.textContent='Sign in to view form requests.';return;}
   status.textContent='Loading requests…';
   const {data,error}=await sb.from('parent_contact_update_requests').select('id,child_id,status,submitted_at,parent1_name,parent1_email,parent1_phone,parent2_name,parent2_email,parent2_phone,notes').order('submitted_at',{ascending:false}).limit(200);
-  if(error){status.textContent='Could not load requests: '+error.message;return;}
+  if(error){status.textContent='Could not load contact update requests: '+error.message+'. Form assignments are loaded separately.';pending.replaceChildren();submitted.replaceChildren();history.replaceChildren();await loadFormAssignmentOverview();return;}
   const {data:children}=await sb.from('daycare_children').select('id,name').limit(1000);
   const names=new Map((children||[]).map(c=>[c.id,c.name]));
   const render=(host,rows)=>{
