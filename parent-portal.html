@@ -218,11 +218,13 @@ async function openEditableAssignedPdf(template,assignment){
  const pdf=await PDFLib.PDFDocument.load(bytes);
  const fields=pdf.getForm().getFields();
  if(!fields.length){alert('This PDF has no fillable fields. You can open the original PDF, but online completion for this form needs a custom layout.');return;}
- const wrap=document.createElement('div');wrap.className='message';
+ const prior=E('assignedPdfEditor');if(prior)prior.remove();
+ const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
  const heading=document.createElement('strong');heading.textContent='Fill out '+template.title;wrap.append(heading);
+ const context=document.createElement('p');context.className='muted';context.textContent=assignment.child_id?'Individual child form':'Family form';wrap.append(context);
  const entries=[];
  for(const field of fields){
-  const name=field.getName(),kind=field.constructor.name;
+  const name=field.getName(),kind=field instanceof PDFLib.PDFTextField?'PDFTextField':field instanceof PDFLib.PDFCheckBox?'PDFCheckBox':field instanceof PDFLib.PDFDropdown?'PDFDropdown':field instanceof PDFLib.PDFRadioGroup?'PDFRadioGroup':'unsupported';
   const label=document.createElement('label');label.textContent=name;wrap.append(label);
   if(kind==='PDFTextField'){
    const input=document.createElement('input');input.value=field.getText()||'';input.maxLength=2000;wrap.append(input);entries.push({field,input,kind});
@@ -232,11 +234,16 @@ async function openEditableAssignedPdf(template,assignment){
    const select=document.createElement('select');select.style.width='100%';
    for(const option of field.getOptions()){const el=document.createElement('option');el.value=option;el.textContent=option;select.append(el);}
    wrap.append(select);entries.push({field,input:select,kind});
+  }else if(kind==='PDFRadioGroup'){
+   const select=document.createElement('select');select.style.width='100%';
+   const blank=document.createElement('option');blank.value='';blank.textContent='Select an answer';select.append(blank);
+   for(const option of field.getOptions()){const el=document.createElement('option');el.value=option;el.textContent=option;select.append(el);}
+   select.value=field.getSelected()||'';wrap.append(select);entries.push({field,input:select,kind});
   }else{const note=document.createElement('div');note.className='muted';note.textContent='This field must be completed in a PDF editor.';wrap.append(note);}
  }
  const save=document.createElement('button');save.type='button';save.textContent='Download Completed PDF';
  save.onclick=async()=>{save.disabled=true;try{
-  for(const {field,input,kind} of entries){if(kind==='PDFTextField')field.setText(input.value);else if(kind==='PDFCheckBox'){if(input.checked)field.check();else field.uncheck();}else if(kind==='PDFDropdown'&&input.value)field.select(input.value);}
+  for(const {field,input,kind} of entries){if(kind==='PDFTextField')field.setText(input.value);else if(kind==='PDFCheckBox'){if(input.checked)field.check();else field.uncheck();}else if((kind==='PDFDropdown'||kind==='PDFRadioGroup')&&input.value)field.select(input.value);}
   const result=await pdf.save(),blob=new Blob([result],{type:'application/pdf'}),url=window.URL.createObjectURL(blob);
   const link=document.createElement('a');link.href=url;link.download=template.title.replace(/[^a-z0-9 _-]/gi,'').slice(0,70)+'-completed.pdf';document.body.append(link);link.click();link.remove();setTimeout(()=>window.URL.revokeObjectURL(url),60000);
   alert('The filled PDF was downloaded to your device. It has NOT been submitted to Growing With Grace.');
