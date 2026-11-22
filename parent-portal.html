@@ -223,104 +223,114 @@ async function openEditableAssignedPdf(template,assignment){
  if(!response.ok)throw new Error('Could not download the form.');
  const bytes=await response.arrayBuffer();
  if(!window.PDFLib)throw new Error('PDF editor unavailable.');
- const pdf=await PDFLib.PDFDocument.load(bytes);
- const fields=pdf.getForm().getFields();
- if(!fields.length){alert('This PDF has no fillable fields. You can open the original PDF, but online completion for this form needs a custom layout.');return;}
- const prior=E('assignedPdfEditor');if(prior)prior.remove();
+ const initial=await PDFLib.PDFDocument.load(bytes);
+ const names=new Set(initial.getForm().getFields().map(f=>f.getName()));
+ const isChildSheet=names.has('ChildName')&&names.has('DateEnrolled')&&names.has('DOB')&&names.has('Entry_9');
+ if(!isChildSheet){alert('This form needs its own question mapping before it can be submitted online. The Child Information Sheet is supported first.');return;}
+ E('assignedPdfEditor')?.remove();
  const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
- const heading=document.createElement('strong');heading.textContent='Fill out '+template.title;wrap.append(heading);
- const context=document.createElement('p');context.className='muted';context.textContent=assignment.child_id?'Individual child form':'Family form';wrap.append(context);
- const preview=document.createElement('div');preview.style.cssText='position:fixed;inset:0;z-index:9999;background:white;padding:10px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
- const previewBar=document.createElement('div');previewBar.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap';const previewTitle=document.createElement('strong');previewTitle.textContent=template.title+' — full-size preview';previewBar.append(previewTitle);const closePreview=document.createElement('button');closePreview.type='button';closePreview.textContent='Close Full-Size Preview';closePreview.onclick=()=>{preview.remove();wrap.scrollIntoView({block:'start',behavior:'instant'});};previewBar.append(closePreview);preview.append(previewBar);
- const iframe=document.createElement('iframe');iframe.title='Original '+template.title;iframe.style.cssText='display:block;width:100%;flex:1;min-height:0;border:1px solid #bfb3c9;border-radius:8px;background:white';
- const pdfBlobUrl=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));iframe.src=pdfBlobUrl;preview.append(iframe);document.body.append(preview);const reopen=document.createElement('button');reopen.type='button';reopen.className='secondary';reopen.textContent='View Original PDF Full Size';reopen.onclick=()=>{iframe.src=pdfBlobUrl;document.body.append(preview);};wrap.append(reopen);
- const note=document.createElement('p');note.className='muted';note.textContent='The original PDF is shown above. Direct typing on the PDF is not available yet. The separate field editor below is collapsed to avoid a long confusing list.';wrap.append(note);
- const entries=[];let unsupported=0;
- const fieldSection=document.createElement('details');fieldSection.style.margin='12px 0';
- const fieldSummary=document.createElement('summary');fieldSummary.textContent='Optional separate field editor (not on the PDF)';fieldSummary.style.cssText='cursor:pointer;font-weight:700;padding:10px';fieldSection.append(fieldSummary);
- const fieldHelp=document.createElement('p');fieldHelp.className='muted';fieldHelp.textContent='Unlabeled and numbered PDF fields are hidden because their meaning cannot be verified. The form is not ready for complete online submission until all required boxes are mapped to their printed questions.';fieldSection.append(fieldHelp);
- const fieldGrid=document.createElement('div');fieldGrid.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;padding:10px';fieldSection.append(fieldGrid);wrap.append(fieldSection);
- for(const field of fields){
-  const name=field.getName(),kind=field instanceof PDFLib.PDFTextField?'PDFTextField':field instanceof PDFLib.PDFCheckBox?'PDFCheckBox':field instanceof PDFLib.PDFDropdown?'PDFDropdown':field instanceof PDFLib.PDFRadioGroup?'PDFRadioGroup':'unsupported';
-  // XFA/AcroForm hybrid PDFs often expose decorative DFS_* fields and TX_* placeholders.
-  // Never show these internal identifiers to parents as questions.
-  if(kind==='unsupported'){if(window.PDFLib.PDFButton && field instanceof PDFLib.PDFButton){continue;}unsupported++;continue;}
-  // Hide PDF metadata and signature widgets: signing is collected once below.
-  if(/^(?:DFS_|Produced(?:\d+)?$|Signature(?:\d+)?$|Sig(?:\d+)?$|FormType$|Form_Type$)/i.test(name)){continue;}
-  const readable=name.replace(/^(?:DFS_)?(?:TextField|Field)_?/i,'').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').trim();
-  // Hide ambiguous numbered/technical fields until they are mapped to the printed form.
-  // Never guess that a numbered field is optional or required.
-  if(/^(?:TX|Button|Picture)\d*_?\d*$/i.test(name)||/^(?:Entry|Telephone|Relationship|Produced|Signature|Parent|Address|Employment|Date|Name|Clinic No)\s*\d+$/i.test(readable)||/^(?:DFS|Form Type|FormType|PDF|Meta|Hidden|Calc|Print|Reset)(?:\b|[_\d])/i.test(readable)){continue;}
-  const item=document.createElement('div');const label=document.createElement('label');label.textContent=readable.replace(/^Clinic No(?:\s|$)/i,'Clinic phone number ').trim();item.append(label);fieldGrid.append(item);
-  if(kind==='PDFTextField'){
-   const input=document.createElement('input');input.value=field.getText()||'';input.maxLength=2000;item.append(input);entries.push({field,input,kind});
-  }else if(kind==='PDFCheckBox'){
-   const input=document.createElement('input');input.type='checkbox';input.style.width='auto';input.checked=field.isChecked();item.append(input);entries.push({field,input,kind});
-  }else if(kind==='PDFDropdown'){
-   const select=document.createElement('select');select.style.width='100%';
-   for(const option of field.getOptions()){const el=document.createElement('option');el.value=option;el.textContent=option;select.append(el);}
-   item.append(select);entries.push({field,input:select,kind});
-  }else if(kind==='PDFRadioGroup'){
-   const select=document.createElement('select');select.style.width='100%';
-   const blank=document.createElement('option');blank.value='';blank.textContent='Select an answer';select.append(blank);
-   for(const option of field.getOptions()){const el=document.createElement('option');el.value=option;el.textContent=option;select.append(el);}
-   select.value=field.getSelected()||'';wrap.append(select);entries.push({field,input:select,kind});
-  }else{unsupported++;const note=document.createElement('div');note.className='muted';note.textContent='Unsupported PDF field: '+kind+'. This field cannot be completed here.';wrap.append(note);}
+ const heading=document.createElement('h3');heading.textContent='Child Information Sheet — SFN 845';wrap.append(heading);
+ const intro=document.createElement('p');intro.textContent='Complete the questions below. Only fields marked * are required. You will review the completed original form before signing.';wrap.append(intro);
+ const sections=[
+  ['Child Information',[
+   ['ChildName',"Child's Name",true],['DateEnrolled','Date Child Enrolled',true],['Nickname','Preferred or Nickname of Child'],['DOB','Date of Birth',true]]],
+  ['Parent Information — Parent 1',[
+   ['parentName',"Parent's Name",true],['Telephone','Home Telephone Number'],['Telephone_1','Cell Phone Number',true],['Telephone_2','Work Telephone Number'],['Address','Home Address',true],['Employment','Place of Employment']]],
+  ['Parent Information — Parent 2 (Optional)',[
+   ['Parent',"Parent's Name"],['Telephone_3','Home Telephone Number'],['Telephone_4','Cell Phone Number'],['Telephone_5','Work Telephone Number'],['Address_1','Home Address'],['Employment_1','Place of Employment']]],
+  ['EMERGENCY AUTHORIZATION',[
+   ['Entry_1','Emergency Contact 1 — Name'],['Relationship','Emergency Contact 1 — Relationship to Child'],['Telephone_6','Emergency Contact 1 — Work Telephone Number'],['Telephone_7','Emergency Contact 1 — Home Telephone Number'],
+   ['Entry_4','Emergency Contact 2 — Name'],['Relationship_2','Emergency Contact 2 — Relationship to Child'],['Telephone_11','Emergency Contact 2 — Work Telephone Number'],['Telephone_12','Emergency Contact 2 — Home Telephone Number'],
+   ['Physician','Physician to Call in an Emergency'],['ClinicNo','Physician — Clinic Telephone Number'],['Dentist','Dentist to Call in an Emergency'],['ClinicNo_1','Dentist — Clinic Telephone Number']]],
+  ['AUTHORIZATION TO RELEASE CHILD',[
+   ['Entry_5','Authorized Person 1 — Name'],['Relationship_3','Authorized Person 1 — Relationship to Child'],['Telephone_13','Authorized Person 1 — Telephone Number'],
+   ['Entry_6','Authorized Person 2 — Name'],['Relationship_4','Authorized Person 2 — Relationship to Child'],['Telephone_14','Authorized Person 2 — Telephone Number'],
+   ['Entry_7','Authorized Person 3 — Name'],['Relationship_5','Authorized Person 3 — Relationship to Child'],['Telephone_15','Authorized Person 3 — Telephone Number']]],
+  ['These people are NOT allowed to pick up my child.',[
+   ['Entry_8','Person 1 — Name'],['Relationship_6','Person 1 — Relationship to Child'],
+   ['Entry_9','Person 2 — Name'],['Relationship_7','Person 2 — Relationship to Child']]]
+ ];
+ const values=new Map(),required=[];
+ const formArea=document.createElement('div');wrap.append(formArea);
+ for(const [sectionTitle,items] of sections){
+  const section=document.createElement('section');section.style.cssText='margin:12px 0;padding:12px;border:1px solid #ddd;border-radius:8px';
+  const h=document.createElement('h4');h.textContent=sectionTitle;h.style.margin='0 0 10px';section.append(h);
+  const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px';section.append(grid);
+  for(const [name,label,mandatory] of items){
+   if(!names.has(name))continue;
+   const item=document.createElement('div'),l=document.createElement('label'),input=document.createElement('input');
+   l.textContent=label+(mandatory?' *':'');l.style.display='block';input.type=/Date|DOB/.test(name)?'date':/Telephone|ClinicNo/.test(name)?'tel':'text';
+   input.style.width='100%';input.maxLength=300;input.autocomplete='off';
+   const existing=initial.getForm().getTextField(name).getText()||'';
+   if(existing && input.type!=='date')input.value=existing;
+   item.append(l,input);grid.append(item);values.set(name,input);
+   if(mandatory)required.push({name,label,input});
+  }
+  formArea.append(section);
  }
- if(unsupported){const warning=document.createElement('p');warning.setAttribute('role','alert');warning.textContent='This PDF contains '+unsupported+' unsupported fields. Online submission is disabled to prevent incomplete paperwork. Please contact the center.';wrap.append(warning);}
- const save=document.createElement('button');save.type='button';save.textContent='Download Filled PDF (Not Submitted)';save.disabled=unsupported>0;
- save.onclick=async()=>{save.disabled=true;try{
-  for(const {field,input,kind} of entries){if(kind==='PDFTextField')field.setText(input.value);else if(kind==='PDFCheckBox'){if(input.checked)field.check();else field.uncheck();}else if((kind==='PDFDropdown'||kind==='PDFRadioGroup')&&input.value)field.select(input.value);}
-  const result=await pdf.save(),blob=new Blob([result],{type:'application/pdf'});const url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Could not prepare download'));reader.readAsDataURL(blob);});
-  const link=document.createElement('a');link.href=url;link.download=template.title.replace(/[^a-z0-9 _-]/gi,'').slice(0,70)+'-completed.pdf';document.body.append(link);link.click();link.remove();
-  alert('The filled PDF was downloaded to your device. It has NOT been submitted to Growing With Grace.');
- }catch(e){alert('Could not prepare PDF: '+e.message);}finally{save.disabled=false;}};
- const signerLabel=document.createElement('label');signerLabel.textContent='Parent/guardian full legal name (electronic signature)';wrap.append(signerLabel);
- const signer=document.createElement('input');signer.autocomplete='name';signer.maxLength=150;wrap.append(signer);
- const signaturePreview=document.createElement('div');signaturePreview.setAttribute('aria-label','Cursive signature preview');signaturePreview.style.cssText='font-family:"Brush Script MT","Segoe Script","Lucida Handwriting",cursive;font-size:32px;min-height:48px;padding:8px 12px;border-bottom:1px solid #777;margin:8px 0 14px';signaturePreview.textContent='Your signature appears here';signer.addEventListener('input',()=>{signaturePreview.textContent=signer.value.trim()||'Your signature appears here';});wrap.append(signaturePreview);
- const phoneLabel=document.createElement('label');phoneLabel.textContent='Parent/guardian phone number';wrap.append(phoneLabel);
- const phone=document.createElement('input');phone.type='tel';phone.maxLength=30;wrap.append(phone);
- const consentLabel=document.createElement('label');consentLabel.style.display='flex';consentLabel.style.gap='8px';
- const consent=document.createElement('input');consent.type='checkbox';consent.style.width='auto';
- const consentText=document.createElement('span');consentText.textContent='I reviewed this form, confirm the information is accurate, and consent to sign electronically by typing my name.';
- consentLabel.append(consent,consentText);wrap.append(consentLabel);
- const submit=document.createElement('button');submit.type='button';submit.textContent='Sign and Submit to Growing With Grace';
- submit.disabled=unsupported>0||assignment.status!=='sent';
- if(unsupported||assignment.status!=='sent'){const p=document.createElement('p');p.className='muted';p.textContent=unsupported?'Submission disabled because some PDF fields are unsupported.':'This assignment is not awaiting submission.';wrap.append(p);}
- submit.onclick=async()=>{
-  if(!currentUser||!family||!assignment.id){alert('Sign in and select a family first.');return;}
-  if(!signer.value.trim()||!consent.checked){alert('Enter your full name and check the electronic signature consent.');return;}
-  if(phone.value.replace(/\\D/g,'').length<10){alert('Enter a valid parent phone number.');return;}
-  if(!confirm('Submit this signed form to Growing With Grace? You will not be able to edit it afterward.'))return;
-  submit.disabled=true;submit.textContent='Submitting…';
-  try{
-   for(const {field,input,kind} of entries){if(kind==='PDFTextField')field.setText(input.value);else if(kind==='PDFCheckBox'){if(input.checked)field.check();else field.uncheck();}else if((kind==='PDFDropdown'||kind==='PDFRadioGroup')&&input.value)field.select(input.value);}
-   const stamp=new Date().toISOString(),page=pdf.addPage([612,180]),font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
-   page.drawText('Electronic Signature Record',{x:32,y:145,size:15,font});
-   page.drawText('Signer: '+signer.value.trim().slice(0,90),{x:32,y:112,size:11,font});
-   // Render the visible cursive signature from the same preview using a canvas image.
-   const signatureCanvas=document.createElement('canvas');signatureCanvas.width=1000;signatureCanvas.height=120;
-   const ctx=signatureCanvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,1000,120);ctx.fillStyle='#171717';ctx.font='italic 64px "Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive';ctx.fillText(signer.value.trim().slice(0,70),18,85,960);
-   const signaturePng=await pdf.embedPng(signatureCanvas.toDataURL('image/png'));page.drawImage(signaturePng,{x:32,y:8,width:350,height:42});
-   page.drawText('Phone: '+phone.value.trim().slice(0,30),{x:32,y:90,size:11,font});
-   page.drawText('Signed (UTC): '+stamp,{x:32,y:68,size:10,font});
-   page.drawText('Consent to electronic signature: Yes',{x:32,y:46,size:10,font});
-   const pdfBytes=await pdf.save(),path=currentUser.id+'/'+assignment.id+'/'+crypto.randomUUID()+'.pdf';
-   const {error:uploadError}=await sb.storage.from('completed-parent-forms').upload(path,new Blob([pdfBytes],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});
-   if(uploadError)throw uploadError;
-   const {error:recordError}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:signer.value.trim(),parent_phone:phone.value.trim(),signature_consent:true,completed_pdf_path:path});
-   if(recordError)throw new Error('PDF uploaded but submission record could not be saved. Contact the center; do not submit again. '+recordError.message);
-   alert('Signed form submitted successfully.');wrap.remove();await loadAssignedForms();
-  }catch(e){alert('Submission not completed: '+(e.message||String(e)));}
-  finally{submit.disabled=false;submit.textContent='Sign and Submit to Growing With Grace';}
+ const controls=document.createElement('div');controls.style.cssText='display:flex;gap:10px;flex-wrap:wrap;margin:12px 0';
+ const reviewBtn=document.createElement('button');reviewBtn.type='button';reviewBtn.textContent='Review Completed Form';
+ const closeBtn=document.createElement('button');closeBtn.type='button';closeBtn.className='secondary';closeBtn.textContent='Close';closeBtn.onclick=()=>wrap.remove();controls.append(reviewBtn,closeBtn);wrap.append(controls);
+ const reviewArea=document.createElement('div');reviewArea.style.display='none';wrap.append(reviewArea);
+ const setField=(form,name,value)=>{if(!value||!names.has(name))return;try{form.getTextField(name).setText(value);}catch(e){console.warn('Could not fill '+name,e);}};
+ const formatDate=value=>{if(!value)return '';const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(value);return m?m[2]+'/'+m[3]+'/'+m[1]:value;};
+ const fillPdf=async(signature)=>{
+  const doc=await PDFLib.PDFDocument.load(bytes);const form=doc.getForm();
+  for(const [name,input] of values)setField(form,name,input.type==='date'?formatDate(input.value):input.value.trim());
+  if(signature){
+   setField(form,'ParentSign',signature);
+   setField(form,'DateSigned_1',new Date().toLocaleDateString('en-US'));
+  }
+  return new Uint8Array(await doc.save());
  };
- wrap.append(submit);
- const close=document.createElement('button');close.type='button';close.className='secondary';close.textContent='Close Editor';close.onclick=()=>wrap.remove();
- const finalNote=document.createElement('p');finalNote.className='muted';finalNote.textContent='This editor works only for PDFs with built-in fillable fields. Downloading does not submit the form or add a signature.';
- wrap.append(finalNote,save,document.createTextNode(' '),close);
- E('assignedFormsList').prepend(wrap);
- // Opening the editor should bring its heading into view, not leave the parent at the previous scroll position.
- requestAnimationFrame(()=>{wrap.scrollIntoView({block:'start',behavior:'instant'});});
+ let reviewUrl=null,reviewed=false;
+ const clearReview=()=>{if(reviewUrl){URL.revokeObjectURL(reviewUrl);reviewUrl=null;}reviewArea.replaceChildren();};
+ const makeButton=(label,callback,secondary=false)=>{const b=document.createElement('button');b.type='button';b.textContent=label;if(secondary)b.className='secondary';b.onclick=callback;return b;};
+ reviewBtn.onclick=async()=>{
+  const missing=required.find(x=>!x.input.value.trim());
+  if(missing){alert('Please complete '+missing.label+'.');missing.input.focus();return;}
+  if(values.get('Telephone_1').value.replace(/\D/g,'').length<10){alert('Enter a valid parent cell phone number.');values.get('Telephone_1').focus();return;}
+  reviewBtn.disabled=true;
+  try{
+   clearReview();const pdfBytes=await fillPdf('');reviewUrl=URL.createObjectURL(new Blob([pdfBytes],{type:'application/pdf'}));
+   formArea.style.display='none';controls.style.display='none';reviewArea.style.display='block';
+   const h=document.createElement('h3');h.textContent='Review Your Completed Child Information Sheet';reviewArea.append(h);
+   const p=document.createElement('p');p.textContent='Review the entire original form below. Your signature has not been added yet.';reviewArea.append(p);
+   const frame=document.createElement('iframe');frame.title='Completed PDF for review';frame.src=reviewUrl;frame.style.cssText='width:100%;height:75vh;min-height:520px;border:1px solid #bbb';reviewArea.append(frame);
+   const correction=makeButton('Make Corrections',()=>{reviewed=false;reviewArea.style.display='none';formArea.style.display='block';controls.style.display='flex';wrap.scrollIntoView({block:'start'});},true);
+   reviewArea.append(correction);
+   const confirmLabel=document.createElement('label');confirmLabel.style.cssText='display:flex;align-items:center;gap:8px;margin:18px 0';
+   const check=document.createElement('input');check.type='checkbox';check.style.width='auto';
+   confirmLabel.append(check,document.createTextNode('I have reviewed the completed form and confirm everything is correct.'));reviewArea.append(confirmLabel);
+   const signatureArea=document.createElement('div');signatureArea.style.display='none';
+   const signatureLabel=document.createElement('label');signatureLabel.textContent='Parent/guardian full legal name (electronic signature)';
+   const signer=document.createElement('input');signer.maxLength=150;signer.autocomplete='name';signer.style.width='100%';
+   const script=document.createElement('div');script.style.cssText='font-family:"Brush Script MT","Segoe Script","Lucida Handwriting",cursive;font-size:32px;min-height:52px;padding:8px;border-bottom:1px solid #888';
+   signer.oninput=()=>{script.textContent=signer.value;};
+   signatureArea.append(signatureLabel,signer,script);
+   const submit=makeButton('Sign and Submit to Growing With Grace',async()=>{
+    if(!check.checked||!signer.value.trim())return alert('Confirm the review and enter your legal name.');
+    if(!currentUser||!family||!assignment.id)return alert('Sign in and select your family first.');
+    if(!confirm('Submit this signed form? You will not be able to edit it afterward.'))return;
+    submit.disabled=true;submit.textContent='Submitting…';
+    try{
+     const signed=await fillPdf(signer.value.trim());
+     const path=currentUser.id+'/'+assignment.id+'/'+crypto.randomUUID()+'.pdf';
+     const {error:uploadError}=await sb.storage.from('completed-parent-forms').upload(path,new Blob([signed],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});
+     if(uploadError)throw uploadError;
+     const {error:recordError}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:signer.value.trim(),parent_phone:values.get('Telephone_1').value.trim(),signature_consent:true,completed_pdf_path:path});
+     if(recordError)throw new Error('PDF uploaded but submission record could not be saved. Contact the center; do not submit again. '+recordError.message);
+     alert('Signed form submitted successfully.');clearReview();wrap.remove();await loadAssignedForms();
+    }catch(e){alert('Submission not completed: '+(e.message||String(e)));submit.disabled=false;submit.textContent='Sign and Submit to Growing With Grace';}
+   });
+   submit.disabled=assignment.status!=='sent';signatureArea.append(submit);reviewArea.append(signatureArea);
+   check.onchange=()=>{reviewed=check.checked;signatureArea.style.display=reviewed?'block':'none';if(!reviewed)signer.value='';};
+   reviewArea.append(makeButton('Close Form',()=>{clearReview();wrap.remove();},true));
+   reviewArea.scrollIntoView({block:'start'});
+  }catch(e){alert('Could not prepare review PDF: '+e.message);}
+  finally{reviewBtn.disabled=false;}
+ };
+ E('assignedFormsList').prepend(wrap);wrap.scrollIntoView({block:'start'});
 }
 function switchParentView(view){const isForm=view==='handbook',isAssigned=view==='assigned';E('handbookForm').classList.toggle('hidden',!isForm);E('assignedForms').classList.toggle('hidden',!isAssigned);E('messageControls').classList.toggle('hidden',isForm||isAssigned);E('showHandbook').style.fontWeight=isForm?'800':'500';E('showAssignedForms').style.fontWeight=isAssigned?'800':'500';E('showMessages').style.fontWeight=!isForm&&!isAssigned?'800':'500';if(isForm){loadHandbookChildren();loadHandbookHistory();}if(isAssigned)loadAssignedForms();}
 E('showHandbook').onclick=()=>switchParentView('handbook');
