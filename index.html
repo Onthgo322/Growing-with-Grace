@@ -3177,7 +3177,24 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
     }catch(e){uploadStatus.textContent='Could not open form: '+e.message;}
     finally{open.disabled=false;}
    };
-   card.append(title,info,open);list.append(card);
+   card.append(title,info,open);
+   if(item.file_type==='application/pdf'){
+    const choose=document.createElement('button');choose.type='button';choose.style.marginLeft='8px';
+    choose.textContent=item.status==='published'?'Published handbook':'Select as Parent Handbook';
+    choose.disabled=item.status==='published';
+    choose.onclick=async()=>{
+     if(!confirm('Select "'+item.title+'" as the Parent Handbook? This will label the document as the handbook in your library. Parents will not be given access until secure portal permissions are configured.'))return;
+     choose.disabled=true;uploadStatus.textContent='Saving handbook selection…';
+     try{
+      const {error}=await sb.from('parent_form_templates').update({status:'published'}).eq('id',item.id);
+      if(error)throw error;
+      uploadStatus.textContent='Handbook selected. Parent access and signing are not enabled yet.';
+      await loadTemplates();
+     }catch(e){uploadStatus.textContent='Could not select handbook: '+(e.message||String(e));choose.disabled=false;}
+    };
+    card.append(choose);
+   }
+   list.append(card);
   }
  }
  document.getElementById('pfReloadTemplates').addEventListener('click',loadTemplates);
