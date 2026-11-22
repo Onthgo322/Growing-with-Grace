@@ -3264,6 +3264,20 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
     finally{open.disabled=false;}
    };
    card.append(title,info,open);
+    if(item.status!=='published'){
+     const publish=document.createElement('button');publish.type='button';publish.style.marginLeft='8px';publish.textContent='Publish Form';
+     publish.onclick=async()=>{
+      if(!confirm('Publish "'+item.title+'" for use in form assignments? This does not send it to parents.'))return;
+      publish.disabled=true;uploadStatus.textContent='Publishing form…';
+      try{
+       const {error}=await sb.from('parent_form_templates').update({status:'published'}).eq('id',item.id);
+       if(error)throw error;
+       uploadStatus.textContent='Form published. Use Send Forms to release it to selected families.';
+       await loadTemplates();
+      }catch(e){uploadStatus.textContent='Could not publish form: '+(e.message||String(e));publish.disabled=false;}
+     };
+     card.append(publish);
+    }
    if(item.file_type==='application/pdf'){
     const choose=document.createElement('button');choose.type='button';choose.style.marginLeft='8px';
     choose.textContent=item.status==='published'?'Published handbook':'Select as Parent Handbook';
