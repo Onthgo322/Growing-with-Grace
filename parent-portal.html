@@ -9,7 +9,7 @@
 <section class="card hidden" id="handbookForm">
 <h2>Parent Handbook &amp; Acknowledgement</h2>
 <p class="muted">Read the complete Parent Handbook before completing your acknowledgement. The original document opens securely in a separate tab.</p><button id="hbOpenPdf" type="button" class="secondary">Open Parent Handbook PDF</button><p id="hbPdfStatus" role="status" class="muted"></p>
-<label for="hbChild">Child's full name</label><input id="hbChild" maxlength="150" autocomplete="off">
+<label>Children covered by this acknowledgement</label><div id="hbChildrenList" class="message">Loading linked children…</div><input id="hbChild" type="hidden">
 <label for="hbPhone">Parent/Guardian phone number (required)</label><input id="hbPhone" type="tel" maxlength="30" autocomplete="tel" inputmode="tel" required>
 <label for="hbParent1">Parent/Guardian 1 full name</label><input id="hbParent1" maxlength="150" autocomplete="name">
 <label for="hbSign1">Parent/Guardian 1 electronic signature (type full name)</label><input id="hbSign1" maxlength="150" autocomplete="off">
@@ -153,7 +153,7 @@ async function saveCompletedHandbookPdf(item){
  if(re)throw new Error('PDF uploaded but record finalization failed: '+re.message);
 }
 E('hbOpenPdf').onclick=openPublishedHandbook;
-function switchParentView(view){const isForm=view==='handbook';E('handbookForm').classList.toggle('hidden',!isForm);E('messageControls').classList.toggle('hidden',isForm);E('showHandbook').style.fontWeight=isForm?'800':'500';E('showMessages').style.fontWeight=isForm?'500':'800';if(isForm)loadHandbookHistory();}
+function switchParentView(view){const isForm=view==='handbook';E('handbookForm').classList.toggle('hidden',!isForm);E('messageControls').classList.toggle('hidden',isForm);E('showHandbook').style.fontWeight=isForm?'800':'500';E('showMessages').style.fontWeight=isForm?'500':'800';if(isForm){loadHandbookChildren();loadHandbookHistory();}}
 E('showHandbook').onclick=()=>switchParentView('handbook');
 E('showMessages').onclick=()=>switchParentView('messages');
 async function loadHandbookHistory(){
@@ -167,7 +167,7 @@ async function loadHandbookHistory(){
 E('hbSubmit').onclick=async()=>{
  const child=E('hbChild').value.trim(),phone=E('hbPhone').value.trim(),p1=E('hbParent1').value.trim(),s1=E('hbSign1').value.trim(),p2=E('hbParent2').value.trim(),s2=E('hbSign2').value.trim();
  const notice=E('hbStatus');
- if(!child||!phone||!p1||!s1){notice.textContent='Enter the child name, parent phone number, and Parent/Guardian 1 name and signature.';return;}
+ if(!linkedHandbookChildren.length||!child||!phone||!p1||!s1){notice.textContent='Make sure linked children are shown, then enter the parent phone number and Parent/Guardian 1 name and signature.';return;}
  if(phone.replace(/\D/g,'').length<10){notice.textContent='Enter a valid parent phone number with at least 10 digits.';return;}
  if(p1.toLocaleLowerCase()!==s1.toLocaleLowerCase()){notice.textContent='Parent/Guardian 1 signature must match their full name.';return;}
  if(Boolean(p2)!==Boolean(s2)||p2&&p2.toLocaleLowerCase()!==s2.toLocaleLowerCase()){notice.textContent='Parent/Guardian 2 name and signature must both be entered and match, or both left blank.';return;}
@@ -180,7 +180,7 @@ E('hbSubmit').onclick=async()=>{
   if(error)throw error;
   try{notice.textContent='Acknowledgment recorded. Saving the completed PDF…';await saveCompletedHandbookPdf(record);notice.textContent='Acknowledgment and completed PDF saved successfully.';}
   catch(pdfError){notice.textContent='Acknowledgment recorded, but the completed PDF was NOT saved: '+(pdfError.message||String(pdfError))+'. Please contact Growing With Grace. Do not submit the acknowledgment again.';}
-  ['hbChild','hbPhone','hbParent1','hbSign1','hbParent2','hbSign2'].forEach(id=>E(id).value='');E('hbAgree').checked=false;E('hbESignConsent').checked=false;
+  ['hbPhone','hbParent1','hbSign1','hbParent2','hbSign2'].forEach(id=>E(id).value='');E('hbAgree').checked=false;E('hbESignConsent').checked=false;
   await loadHandbookHistory();
  }catch(e){notice.textContent='Submission failed: '+(e.message||String(e));}
  finally{btn.disabled=false;}
