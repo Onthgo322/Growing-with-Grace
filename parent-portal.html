@@ -222,7 +222,7 @@ async function openEditableAssignedPdf(template,assignment){
  const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
  const heading=document.createElement('strong');heading.textContent='Fill out '+template.title;wrap.append(heading);
  const context=document.createElement('p');context.className='muted';context.textContent=assignment.child_id?'Individual child form':'Family form';wrap.append(context);
- const entries=[];
+ const entries=[];let unsupported=0;
  for(const field of fields){
   const name=field.getName(),kind=field instanceof PDFLib.PDFTextField?'PDFTextField':field instanceof PDFLib.PDFCheckBox?'PDFCheckBox':field instanceof PDFLib.PDFDropdown?'PDFDropdown':field instanceof PDFLib.PDFRadioGroup?'PDFRadioGroup':'unsupported';
   const label=document.createElement('label');label.textContent=name;wrap.append(label);
@@ -239,9 +239,10 @@ async function openEditableAssignedPdf(template,assignment){
    const blank=document.createElement('option');blank.value='';blank.textContent='Select an answer';select.append(blank);
    for(const option of field.getOptions()){const el=document.createElement('option');el.value=option;el.textContent=option;select.append(el);}
    select.value=field.getSelected()||'';wrap.append(select);entries.push({field,input:select,kind});
-  }else{const note=document.createElement('div');note.className='muted';note.textContent='This field must be completed in a PDF editor.';wrap.append(note);}
+  }else{unsupported++;const note=document.createElement('div');note.className='muted';note.textContent='Unsupported PDF field: '+kind+'. This field cannot be completed here.';wrap.append(note);}
  }
- const save=document.createElement('button');save.type='button';save.textContent='Download Completed PDF';
+ if(unsupported){const warning=document.createElement('p');warning.setAttribute('role','alert');warning.textContent=unsupported+' field(s) cannot be filled here. Downloaded PDF may be incomplete. Please use a full PDF editor for those fields.';wrap.append(warning);}
+ const save=document.createElement('button');save.type='button';save.textContent='Download Filled PDF (Not Submitted)';
  save.onclick=async()=>{save.disabled=true;try{
   for(const {field,input,kind} of entries){if(kind==='PDFTextField')field.setText(input.value);else if(kind==='PDFCheckBox'){if(input.checked)field.check();else field.uncheck();}else if((kind==='PDFDropdown'||kind==='PDFRadioGroup')&&input.value)field.select(input.value);}
   const result=await pdf.save(),blob=new Blob([result],{type:'application/pdf'}),url=window.URL.createObjectURL(blob);
