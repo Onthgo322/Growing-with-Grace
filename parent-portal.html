@@ -231,11 +231,14 @@ async function openEditableAssignedPdf(template,assignment){
  const heading=document.createElement('strong');heading.textContent='Fill out '+template.title;wrap.append(heading);
  const context=document.createElement('p');context.className='muted';context.textContent=assignment.child_id?'Individual child form':'Family form';wrap.append(context);
  const preview=document.createElement('div');preview.style.margin='12px 0';
- const previewTitle=document.createElement('strong');previewTitle.textContent='Original form preview';preview.append(previewTitle);
+ const previewTitle=document.createElement('strong');previewTitle.textContent='Original form (view only — not yet editable in place)';preview.append(previewTitle);
  const iframe=document.createElement('iframe');iframe.title='Original '+template.title;iframe.style.cssText='width:100%;height:560px;border:1px solid #bfb3c9;border-radius:8px;background:white';
  const previewUrl=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));iframe.src=previewUrl;preview.append(iframe);wrap.append(preview);
- const note=document.createElement('p');note.className='muted';note.textContent='Review the original form above. The fields below are a separate editor and may not support every item in the original PDF.';wrap.append(note);
+ const note=document.createElement('p');note.className='muted';note.textContent='The original PDF is shown above. Direct typing on the PDF is not available yet. The separate field editor below is collapsed to avoid a long confusing list.';wrap.append(note);
  const entries=[];let unsupported=0;
+ const fieldSection=document.createElement('details');fieldSection.style.margin='12px 0';
+ const fieldSummary=document.createElement('summary');fieldSummary.textContent='Optional separate field editor (not on the PDF)';fieldSummary.style.cssText='cursor:pointer;font-weight:700;padding:10px';fieldSection.append(fieldSummary);
+ const fieldGrid=document.createElement('div');fieldGrid.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;padding:10px';fieldSection.append(fieldGrid);wrap.append(fieldSection);
  for(const field of fields){
   const name=field.getName(),kind=field instanceof PDFLib.PDFTextField?'PDFTextField':field instanceof PDFLib.PDFCheckBox?'PDFCheckBox':field instanceof PDFLib.PDFDropdown?'PDFDropdown':field instanceof PDFLib.PDFRadioGroup?'PDFRadioGroup':'unsupported';
   // XFA/AcroForm hybrid PDFs often expose decorative DFS_* fields and TX_* placeholders.
@@ -243,15 +246,15 @@ async function openEditableAssignedPdf(template,assignment){
   if(kind==='unsupported'){unsupported++;continue;}
   if(/^DFS_(Background|Title)_/i.test(name)){continue;}
   const readable=name.replace(/^(?:DFS_)?(?:TextField|Field)_?/i,'').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').trim();
-  const label=document.createElement('label');label.textContent=/^(?:TX|Button|Picture)\d*_?\d*$/i.test(name)?'Form field':readable;wrap.append(label);
+  const item=document.createElement('div');const label=document.createElement('label');label.textContent=/^(?:TX|Button|Picture)\d*_?\d*$/i.test(name)?'Form field':readable;item.append(label);fieldGrid.append(item);
   if(kind==='PDFTextField'){
-   const input=document.createElement('input');input.value=field.getText()||'';input.maxLength=2000;wrap.append(input);entries.push({field,input,kind});
+   const input=document.createElement('input');input.value=field.getText()||'';input.maxLength=2000;item.append(input);entries.push({field,input,kind});
   }else if(kind==='PDFCheckBox'){
-   const input=document.createElement('input');input.type='checkbox';input.style.width='auto';input.checked=field.isChecked();wrap.append(input);entries.push({field,input,kind});
+   const input=document.createElement('input');input.type='checkbox';input.style.width='auto';input.checked=field.isChecked();item.append(input);entries.push({field,input,kind});
   }else if(kind==='PDFDropdown'){
    const select=document.createElement('select');select.style.width='100%';
    for(const option of field.getOptions()){const el=document.createElement('option');el.value=option;el.textContent=option;select.append(el);}
-   wrap.append(select);entries.push({field,input:select,kind});
+   item.append(select);entries.push({field,input:select,kind});
   }else if(kind==='PDFRadioGroup'){
    const select=document.createElement('select');select.style.width='100%';
    const blank=document.createElement('option');blank.value='';blank.textContent='Select an answer';select.append(blank);
