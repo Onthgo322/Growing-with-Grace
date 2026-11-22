@@ -129,7 +129,7 @@ E('forgotPassword').onclick=async()=>{
  if(!sb){notice.textContent='Connect to Supabase first.';return;}
  const btn=E('forgotPassword');btn.disabled=true;notice.textContent='Sending reset instructions…';
  try{
-  const redirectTo=new URL('parent-portal.html',location.href).href;
+  const redirectTo=location.origin+location.pathname;
   const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
   if(error)throw error;
   notice.textContent='If this email has a Parent Portal account, a password reset email will arrive shortly. Check spam or junk too. This does not change your MSN email password.';
