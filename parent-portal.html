@@ -188,6 +188,13 @@ async function loadAssignedForms(){
    const {data:children,error:ce}=await sb.from('daycare_children').select('id,name').in('id',childIds);
    if(!ce)names=new Map((children||[]).map(x=>[x.id,x.name]));
   }
+  const assignmentIds=rows.map(x=>x.id).filter(Boolean);
+  const submittedIds=new Set();
+  if(assignmentIds.length){
+   const {data:submissions,error:se}=await sb.from('parent_form_submissions').select('assignment_id').in('assignment_id',assignmentIds);
+   if(se)throw se;
+   for(const s of submissions||[])submittedIds.add(s.assignment_id);
+  }
   const byId=new Map((templates||[]).map(x=>[x.id,x]));
   host.replaceChildren();
   for(const a of rows){
@@ -196,12 +203,13 @@ async function loadAssignedForms(){
    const wrap=document.createElement('div');wrap.className='message';
    const heading=document.createElement('strong');heading.textContent=t.title;wrap.append(heading);
    const detail=document.createElement('div');detail.className='muted';
-   detail.textContent=(a.child_id?'Child: '+(names.get(a.child_id)||'Assigned child'):'Family form')+' · '+a.status;
+   detail.textContent=(a.child_id?'Child: '+(names.get(a.child_id)||'Assigned child'):'Family form')+' · '+(submittedIds.has(a.id)?'submitted':a.status);
    wrap.append(detail);
    const btn=document.createElement('button');btn.className='secondary';btn.style.marginTop='8px';btn.textContent='Open PDF';
    btn.onclick=async()=>{btn.disabled=true;try{const {data,error}=await sb.storage.from('parent-forms').createSignedUrl(t.file_path,120);if(error)throw error;window.open(data.signedUrl,'_blank','noopener');}catch(e){alert('Could not open PDF: '+e.message);}finally{btn.disabled=false;}};
    wrap.append(btn);
    const edit=document.createElement('button');edit.type='button';edit.className='secondary';edit.style.margin='8px 0 0 8px';edit.textContent='Fill PDF Fields';
+   edit.disabled=submittedIds.has(a.id);edit.textContent=submittedIds.has(a.id)?'Already Submitted':'Fill PDF Fields';
    edit.onclick=async()=>{edit.disabled=true;try{await openEditableAssignedPdf(t,a);}catch(e){alert('Could not edit form: '+(e.message||String(e)));}finally{edit.disabled=false;}};
    wrap.append(edit);host.append(wrap);
   }
