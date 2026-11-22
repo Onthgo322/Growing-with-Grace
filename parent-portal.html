@@ -7,7 +7,7 @@
 <section class="card hidden" id="messages"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>Messages <span id="unreadBadge" class="hidden" aria-label="Unread messages" style="display:inline-block;background:#6f4a8e;color:white;border-radius:999px;padding:2px 9px;font-size:.85rem"></span></h2><button id="signOut" class="secondary">Sign Out</button></div><p class="muted" id="familyName"></p><div style="display:flex;gap:8px;margin:10px 0;flex-wrap:wrap"><button id="showMessages" class="secondary" type="button">Messages</button><button id="showHandbook" class="secondary" type="button">Parent Handbook Form</button></div><div id="messageControls"><div style="display:flex;gap:8px;margin:10px 0"><button id="messageInbox" class="secondary" type="button">Message Inbox</button><button id="messageArchived" class="secondary" type="button">Archived Messages</button></div><div id="thread" aria-live="polite"></div><label for="draft">Message to Growing With Grace</label><textarea id="draft" maxlength="4000" placeholder="Type your message"></textarea><button id="send" style="margin-top:10px">Send Message</button><button id="reload" class="secondary" style="margin-top:10px">Check for Replies</button></div></section>
 <section class="card hidden" id="handbookForm">
 <h2>Parent Handbook &amp; Acknowledgement</h2>
-<p class="muted">Please read the complete Growing With Grace Parent Handbook provided by the center before signing. Your typed signature is your electronic acknowledgement. The handbook PDF will be available here once the center publishes it.</p>
+<p class="muted">Read the complete Parent Handbook before completing your acknowledgement. The original document opens securely in a separate tab.</p><button id="hbOpenPdf" type="button" class="secondary">Open Parent Handbook PDF</button><p id="hbPdfStatus" role="status" class="muted"></p>
 <label for="hbChild">Child's full name</label><input id="hbChild" maxlength="150" autocomplete="off">
 <label for="hbParent1">Parent/Guardian 1 full name</label><input id="hbParent1" maxlength="150" autocomplete="name">
 <label for="hbSign1">Parent/Guardian 1 electronic signature (type full name)</label><input id="hbSign1" maxlength="150" autocomplete="off">
@@ -57,6 +57,19 @@ async function load(){
  if(latest&&seenKey())localStorage.setItem(seenKey(),latest);
  await checkUnread();
 }
+async function openPublishedHandbook(){
+ const notice=E('hbPdfStatus');notice.textContent='Finding the published handbook…';
+ if(!sb||!family||!currentUser){notice.textContent='Sign in first.';return;}
+ const {data,error}=await sb.from('parent_form_templates').select('id,title,file_path,file_type,status').eq('status','published').eq('file_type','application/pdf').order('created_at',{ascending:false}).limit(30);
+ if(error){notice.textContent='Could not load handbook: '+error.message;return;}
+ const matches=(data||[]).filter(x=>/handbook/i.test(x.title));
+ if(matches.length!==1){notice.textContent=matches.length?'More than one published handbook was found. Please ask the center to select the current version.':'The Parent Handbook is not yet published. Please contact the center.';return;}
+ const {data:link,error:linkError}=await sb.storage.from('parent-forms').createSignedUrl(matches[0].file_path,300);
+ if(linkError||!link?.signedUrl){notice.textContent='Could not open the handbook: '+(linkError?.message||'No secure link returned');return;}
+ const a=document.createElement('a');a.href=link.signedUrl;a.target='_blank';a.rel='noopener noreferrer';document.body.append(a);a.click();a.remove();
+ notice.textContent='The handbook should open in a new tab. If it does not, allow pop-ups for this site.';
+}
+E('hbOpenPdf').onclick=openPublishedHandbook;
 function switchParentView(view){const isForm=view==='handbook';E('handbookForm').classList.toggle('hidden',!isForm);E('messageControls').classList.toggle('hidden',isForm);E('showHandbook').style.fontWeight=isForm?'800':'500';E('showMessages').style.fontWeight=isForm?'500':'800';if(isForm)loadHandbookHistory();}
 E('showHandbook').onclick=()=>switchParentView('handbook');
 E('showMessages').onclick=()=>switchParentView('messages');
