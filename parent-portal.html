@@ -22,7 +22,27 @@
 </section>
 <p id="status" role="status"></p></main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
 (()=>{'use strict';const URL='https://qiypwbokgzlkvdydxpsk.supabase.co',E=id=>document.getElementById(id);let sb=null,family=null,currentUser=null,messageView="inbox";const seenKey=()=>currentUser&&family?'gwg_parent_seen_'+currentUser.id+'_'+family:null;const status=s=>E('status').textContent=s;const show=id=>['setup','login','messages','resetPasswordPanel'].forEach(x=>E(x).classList.toggle('hidden',x!==id));const keyName='gwg_parent_publishable_key';const publicKey='sb_publishable_IoTLyDKSP5xpXSVmaVeSbQ_iGZZQbHy';
-async function start(key){if(!key||!window.supabase){status('The secure connection is not available yet.');return;}try{sb=window.supabase.createClient(URL,key,{auth:{persistSession:true,storageKey:'gwg-parent-auth'}});sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')showRecovery();});const {data:{user}}=await sb.auth.getUser();if(user){if(location.hash.includes('type=recovery'))show('resetPasswordPanel');else await enter();}else show('login');}catch(e){status('Connection failed: '+e.message);}}
+async function start(key){
+ if(!key||!window.supabase){status('The secure connection is not available yet.');return;}
+ try{
+  const hash=new URLSearchParams(location.hash.slice(1)),query=new URLSearchParams(location.search);
+  const recoveryLink=hash.get('type')==='recovery'||query.get('type')==='recovery';
+  const linkError=hash.get('error_description')||query.get('error_description')||hash.get('error')||query.get('error');
+  sb=window.supabase.createClient(URL,key,{auth:{persistSession:true,storageKey:'gwg-parent-auth',detectSessionInUrl:true}});
+  let recoveryEvent=false;
+  sb.auth.onAuthStateChange((event)=>{
+   if(event==='PASSWORD_RECOVERY'){recoveryEvent=true;showRecovery();}
+  });
+  const {data:{user},error:authError}=await sb.auth.getUser();
+  if(linkError){show('login');E('resetStatus').textContent='Password reset link could not be used: '+linkError+'. Please request a fresh link after the email limit clears.';return;}
+  if(recoveryLink||recoveryEvent){
+   if(user&&!authError){showRecovery();}
+   else{show('login');E('resetStatus').textContent='This password reset link has expired or could not be verified. Please request a new link after the email limit clears.';}
+   return;
+  }
+  if(user&&!authError)await enter();else show('login');
+ }catch(e){show('login');status('Connection failed: '+e.message);}
+}
 async function enter(){family=null;const {data:{user},error:authError}=await sb.auth.getUser();if(authError||!user){show('login');return;}const {data,error}=await sb.from('parent_family_members').select('family_id,parent_families(id,display_name)').eq('user_id',user.id).limit(1);if(error){status('Messaging is not yet activated for this account.');show('login');return;}if(!data?.length){await sb.auth.signOut();show('login');status('Your account is not linked to a family yet. Please contact Growing With Grace.');return;}currentUser=user;family=data[0].family_id;E('familyName').textContent=data[0].parent_families?.display_name||'Your family';show('messages');switchParentView('messages');status('');await load();}
 async function load(){
  if(!family||!currentUser)return;
