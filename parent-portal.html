@@ -161,7 +161,7 @@ async function loadHandbookChildren(){
   const {data:links,error}=await sb.from('parent_family_children').select('child_id').eq('family_id',family);
   if(error)throw error;
   const ids=[...new Set((links||[]).map(x=>x.child_id).filter(Boolean))];
-  if(!ids.length){host.textContent='No children are linked to this family. Contact the center.';return;}
+  if(!ids.length){host.textContent='No child links are visible to this parent account. The family may be linked correctly, but Supabase read permissions need checking. Family ID: '+family;return;}
   const {data:children,error:ce}=await sb.from('daycare_children').select('id,name').in('id',ids);
   if(ce)throw ce;
   if(!children||children.length!==ids.length){host.textContent='Some linked children could not be loaded. Contact the center.';return;}
