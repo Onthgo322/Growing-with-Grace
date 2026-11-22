@@ -241,7 +241,9 @@ async function openEditableAssignedPdf(template,assignment){
   ['EMERGENCY AUTHORIZATION',[
    ['Entry_1','Emergency Contact 1 — Name'],['Relationship','Emergency Contact 1 — Relationship to Child'],['Telephone_6','Emergency Contact 1 — Work Telephone Number'],['Telephone_7','Emergency Contact 1 — Home Telephone Number'],
    ['Entry_4','Emergency Contact 2 — Name'],['Relationship_2','Emergency Contact 2 — Relationship to Child'],['Telephone_11','Emergency Contact 2 — Work Telephone Number'],['Telephone_12','Emergency Contact 2 — Home Telephone Number'],
-   ['Physician','Physician to Call in an Emergency'],['ClinicNo','Physician — Clinic Telephone Number'],['Dentist','Dentist to Call in an Emergency'],['ClinicNo_1','Dentist — Clinic Telephone Number']]],
+   ]],
+  ['DOCTOR INFORMATION',[['Physician','Physician to Call in an Emergency'],['ClinicNo','Physician — Clinic Telephone Number']]],
+  ['DENTIST INFORMATION',[['Dentist','Dentist to Call in an Emergency'],['ClinicNo_1','Dentist — Clinic Telephone Number']]],
   ['AUTHORIZATION TO RELEASE CHILD',[
    ['Entry_5','Authorized Person 1 — Name'],['Relationship_3','Authorized Person 1 — Relationship to Child'],['Telephone_13','Authorized Person 1 — Telephone Number'],
    ['Entry_6','Authorized Person 2 — Name'],['Relationship_4','Authorized Person 2 — Relationship to Child'],['Telephone_14','Authorized Person 2 — Telephone Number'],
@@ -268,6 +270,18 @@ async function openEditableAssignedPdf(template,assignment){
   }
   formArea.append(section);
  }
+ const noneChoices=[];
+ for(const [title,primary,phoneField] of [['DOCTOR INFORMATION','Physician','ClinicNo'],['DENTIST INFORMATION','Dentist','ClinicNo_1']]){
+  const section=Array.from(formArea.children).find(el=>el.querySelector('h4')?.textContent===title);
+  if(!section)continue;
+  const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:8px;margin-top:10px';
+  const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.style.width='auto';
+  label.append(checkbox,document.createTextNode('None — does not currently have one'));section.append(label);
+  const nameInput=values.get(primary),phoneInput=values.get(phoneField);
+  const sync=()=>{nameInput.disabled=checkbox.checked;phoneInput.disabled=checkbox.checked;if(checkbox.checked){nameInput.value='';phoneInput.value='';}};
+  checkbox.onchange=sync;
+  noneChoices.push({title,primary,phoneField,checkbox,nameInput,phoneInput});
+ }
  const controls=document.createElement('div');controls.style.cssText='display:flex;gap:10px;flex-wrap:wrap;margin:12px 0';
  const reviewBtn=document.createElement('button');reviewBtn.type='button';reviewBtn.textContent='Review Completed Form';
  const closeBtn=document.createElement('button');closeBtn.type='button';closeBtn.className='secondary';closeBtn.textContent='Close';closeBtn.onclick=()=>wrap.remove();controls.append(reviewBtn,closeBtn);wrap.append(controls);
@@ -277,6 +291,7 @@ async function openEditableAssignedPdf(template,assignment){
  const fillPdf=async(signature)=>{
   const doc=await PDFLib.PDFDocument.load(bytes);const form=doc.getForm();
   for(const [name,input] of values)setField(form,name,input.type==='date'?formatDate(input.value):input.value.trim());
+  for(const choice of noneChoices)if(choice.checkbox.checked){setField(form,choice.primary,'None');setField(form,choice.phoneField,'None');}
   if(signature){
    setField(form,'ParentSign',signature);
    setField(form,'DateSigned_1',new Date().toLocaleDateString('en-US'));
@@ -289,6 +304,13 @@ async function openEditableAssignedPdf(template,assignment){
  reviewBtn.onclick=async()=>{
   const missing=required.find(x=>!x.input.value.trim());
   if(missing){alert('Please complete '+missing.label+'.');missing.input.focus();return;}
+  for(const choice of noneChoices){
+   if(!choice.checkbox.checked&&(!choice.nameInput.value.trim()||!choice.phoneInput.value.trim())){
+    alert('Complete the '+choice.title+' name and clinic phone number, or select None.');
+    (!choice.nameInput.value.trim()?choice.nameInput:choice.phoneInput).focus();return;
+   }
+   if(!choice.checkbox.checked&&choice.phoneInput.value.replace(/\\D/g,'').length<10){alert('Enter a valid clinic phone number for '+choice.title+', or select None.');choice.phoneInput.focus();return;}
+  }
   if(values.get('Telephone_1').value.replace(/\D/g,'').length<10){alert('Enter a valid parent cell phone number.');values.get('Telephone_1').focus();return;}
   reviewBtn.disabled=true;
   try{
