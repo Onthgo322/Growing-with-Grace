@@ -238,7 +238,7 @@ async function openEditableAssignedPdf(template,assignment){
  const entries=[];let unsupported=0;
  const fieldSection=document.createElement('details');fieldSection.style.margin='12px 0';
  const fieldSummary=document.createElement('summary');fieldSummary.textContent='Optional separate field editor (not on the PDF)';fieldSummary.style.cssText='cursor:pointer;font-weight:700;padding:10px';fieldSection.append(fieldSummary);
- const fieldHelp=document.createElement('p');fieldHelp.className='muted';fieldHelp.textContent='Only recognizable parent-entry fields are shown. Some fields in this PDF still need administrator mapping before this form is ready for production use.';fieldSection.append(fieldHelp);
+ const fieldHelp=document.createElement('p');fieldHelp.className='muted';fieldHelp.textContent='Unlabeled and numbered PDF fields are hidden because their meaning cannot be verified. The form is not ready for complete online submission until all required boxes are mapped to their printed questions.';fieldSection.append(fieldHelp);
  const fieldGrid=document.createElement('div');fieldGrid.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;padding:10px';fieldSection.append(fieldGrid);wrap.append(fieldSection);
  for(const field of fields){
   const name=field.getName(),kind=field instanceof PDFLib.PDFTextField?'PDFTextField':field instanceof PDFLib.PDFCheckBox?'PDFCheckBox':field instanceof PDFLib.PDFDropdown?'PDFDropdown':field instanceof PDFLib.PDFRadioGroup?'PDFRadioGroup':'unsupported';
@@ -248,8 +248,9 @@ async function openEditableAssignedPdf(template,assignment){
   // Hide PDF metadata and signature widgets: signing is collected once below.
   if(/^(?:DFS_|Produced(?:\d+)?$|Signature(?:\d+)?$|Sig(?:\d+)?$|FormType$|Form_Type$)/i.test(name)){continue;}
   const readable=name.replace(/^(?:DFS_)?(?:TextField|Field)_?/i,'').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').trim();
-  // Unmapped PDF identifiers cannot be safely presented as parent questions.
-  if(/^(?:TX|Button|Picture)\d*_?\d*$/i.test(name)){continue;}
+  // Hide ambiguous numbered/technical fields until they are mapped to the printed form.
+  // Never guess that a numbered field is optional or required.
+  if(/^(?:TX|Button|Picture)\d*_?\d*$/i.test(name)||/^(?:Entry|Telephone|Relationship|Produced|Signature|Parent|Address|Employment|Date|Name|Clinic No)\s*\d+$/i.test(readable)||/^(?:DFS|Form Type|FormType|PDF|Meta|Hidden|Calc|Print|Reset)(?:\b|[_\d])/i.test(readable)){continue;}
   const item=document.createElement('div');const label=document.createElement('label');label.textContent=readable.replace(/^Clinic No(?:\s|$)/i,'Clinic phone number ').trim();item.append(label);fieldGrid.append(item);
   if(kind==='PDFTextField'){
    const input=document.createElement('input');input.value=field.getText()||'';input.maxLength=2000;item.append(input);entries.push({field,input,kind});
