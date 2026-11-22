@@ -110,19 +110,27 @@ async function saveCompletedHandbookPdf(item){
  // The saved typed signature remains the legally recorded value.
  const stampSignature=async(value,x,y,width)=>{
   if(!value)return;
+  // Load an actual script font before drawing; avoid silent system-font fallback.
+  if(!document.getElementById('signatureFontStylesheet')){
+   const link=document.createElement('link');
+   link.id='signatureFontStylesheet';link.rel='stylesheet';
+   link.href='https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap';
+   document.head.appendChild(link);
+   await new Promise((resolve,reject)=>{link.onload=resolve;link.onerror=()=>reject(new Error('Could not load cursive signature font.'));});
+  }
+  await document.fonts.load('76px "Great Vibes"');
+  if(!document.fonts.check('76px "Great Vibes"'))throw new Error('Cursive signature font did not load. Please retry with internet access.');
   const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
   if(!ctx)throw new Error('Signature rendering is unavailable.');
-  canvas.width=1200;canvas.height=130;
+  canvas.width=1200;canvas.height=160;
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='#201f20';
-  ctx.textBaseline='middle';
-  ctx.font='italic 76px "Brush Script MT","Segoe Script","Lucida Handwriting",cursive';
-  const t=String(value);
-  const measured=ctx.measureText(t).width;
+  ctx.fillStyle='#201f20';ctx.textBaseline='middle';
+  ctx.font='76px "Great Vibes"';
+  const t=String(value),measured=ctx.measureText(t).width;
   const scale=Math.min(1,1130/Math.max(1,measured));
-  ctx.save();ctx.translate(12,0);ctx.scale(scale,1);ctx.fillText(t,0,68);ctx.restore();
+  ctx.save();ctx.translate(12,0);ctx.scale(scale,1);ctx.fillText(t,0,86);ctx.restore();
   const png=await pdf.embedPng(canvas.toDataURL('image/png'));
-  page.drawImage(png,{x:x+2,y:y-3,width,height:22});
+  page.drawImage(png,{x:x+2,y:y-5,width,height:26});
  };
  const stamp=(value,x,y,width,size=10)=>{
   if(!value)return;
@@ -133,8 +141,8 @@ async function saveCompletedHandbookPdf(item){
  stamp(item.parent_phone,218,792-269,150,11);
  const date=new Date(item.signed_at).toLocaleDateString('en-US');
  await stampSignature(item.parent1_signature,278,792-653,145);
- stamp(date,466,792-653,70,10);
- if(item.parent2_signature){await stampSignature(item.parent2_signature,278,792-707,145);stamp(date,466,792-707,70,10);}
+ stamp(date,446,792-653,90,10);
+ if(item.parent2_signature){await stampSignature(item.parent2_signature,278,792-707,145);stamp(date,446,792-707,90,10);}
  const bytes=await pdf.save();
  const digest=await crypto.subtle.digest('SHA-256',bytes);
  const sha=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
