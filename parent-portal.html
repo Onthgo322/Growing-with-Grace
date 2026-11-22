@@ -243,7 +243,7 @@ async function openEditableAssignedPdf(template,assignment){
   const name=field.getName(),kind=field instanceof PDFLib.PDFTextField?'PDFTextField':field instanceof PDFLib.PDFCheckBox?'PDFCheckBox':field instanceof PDFLib.PDFDropdown?'PDFDropdown':field instanceof PDFLib.PDFRadioGroup?'PDFRadioGroup':'unsupported';
   // XFA/AcroForm hybrid PDFs often expose decorative DFS_* fields and TX_* placeholders.
   // Never show these internal identifiers to parents as questions.
-  if(kind==='unsupported'){unsupported++;continue;}
+  if(kind==='unsupported'){if(window.PDFLib.PDFButton && field instanceof PDFLib.PDFButton){continue;}unsupported++;continue;}
   if(/^DFS_(Background|Title)_/i.test(name)){continue;}
   const readable=name.replace(/^(?:DFS_)?(?:TextField|Field)_?/i,'').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').trim();
   const item=document.createElement('div');const label=document.createElement('label');label.textContent=/^(?:TX|Button|Picture)\d*_?\d*$/i.test(name)?'Form field':readable;item.append(label);fieldGrid.append(item);
