@@ -797,6 +797,50 @@ async function openAdditionalConsentPdf(bytes,template,assignment,type){
   if(c.decisions&&(!fields.decision.value|| (fields.parent2.value.trim()&&(!fields.signer2.value.trim()||!fields.decision2.value)))){alert('Please complete the necessary parent decisions and signatures.');return false;}
   if(!agree.checked){alert('Please confirm the electronic submission.');return false;}return true;};
  const make=async()=>{
+  if(type==='media'){
+   // Build the completed version as a clean one-page document.
+   // The published source PDF is unchanged; this avoids inconsistent source-template coordinates.
+   const pdf=await PDFLib.PDFDocument.create(),page=pdf.addPage([612,792]),font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),bold=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
+   const ink=PDFLib.rgb(.16,.16,.16),maroon=PDFLib.rgb(.57,.22,.22),w=612;
+   const line=(x1,y1,x2,y2)=>page.drawLine({start:{x:x1,y:792-y1},end:{x:x2,y:792-y2},thickness:.7,color:ink});
+   const txt=(str,x,y,size=10,ft=font,color=ink)=>page.drawText(String(str),{x,y:792-y,size,font:ft,color});
+   const center=(str,y,size=14,ft=bold,color=maroon)=>txt(str,(w-ft.widthOfTextAtSize(str,size))/2,y,size,ft,color);
+   const fit=(val,x,y,max,size=10)=>{val=String(val||'').trim();if(!val)return;let fs=size;while(fs>6&&font.widthOfTextAtSize(val,fs)>max)fs-=.5;txt(val,x,y,fs);};
+   const row=(label,k,y,x=77,endX=366,max=210,required=false)=>{txt(label,77,y,10);line(x,y+4,endX,y+4);fit(fields[k]?.value,x+4,y,max,9.5);};
+   const box=(x,y,checked,label)=>{page.drawRectangle({x,y:792-y-12,width:12,height:12,borderColor:ink,borderWidth:1});if(checked)txt('X',x+2,y+10,10,bold);txt(label,x+18,y+10,10);};
+   center('GROWING WITH GRACE CHRISTIAN LEARNING CENTER, LLC',91,13);
+   center('MEDIA CONSENT FORM',119,16);
+   txt('Dear Parent/Guardian,',143,10);
+   txt('As the parent of a child/children at Growing With Grace Christian Learning Center LLC,',165,9.4);
+   txt('I agree to the following:',178,9.4);
+   txt('I understand that my child(ren) may be photographed or recorded during normal child care activities.',202,9.1);
+   txt('These images may be used for promotional purposes in print or electronic formats.',215,9.1);
+   txt('Photos/videos will NOT be posted to social media or shared outside parents/guardians.',228,9.1);
+   txt('Child identity may be referenced as:',253,11,bold,maroon);
+   box(79,267,checks.full.checked,'First and Last Name');
+   box(247,267,checks.first.checked,'First Name Only');
+   box(387,267,checks.town.checked,'Town/State');
+   const twoRow=(y,pk,rk)=>{txt('Parent/Guardian Name:',77,y,10);line(192,y+3,358,y+3);fit(fields[pk].value,195,y,157);
+    txt('Relationship to Child:',372,y,10);line(482,y+3,556,y+3);fit(fields[rk].value,484,y,70,9);};
+   twoRow(311,'parent1','relation1');twoRow(335,'parent2','relation2');
+   for(const [i,k] of ['child1','child2','child3'].entries()){const y=359+i*24;txt('Child '+(i+1)+' Name:',77,y,10);line(153,y+3,369,y+3);fit(fields[k].value,157,y,207);}
+   txt('Address:',77,436,10);line(122,439,555,439);fit(fields.address.value,126,436,419);
+   txt('City:',77,461,10);line(106,464,260,464);fit(fields.city.value,110,461,146);
+   txt('State:',279,461,10);line(311,464,382,464);fit(fields.state.value,315,461,63,9);
+   txt('Zip:',400,461,10);line(423,464,555,464);fit(fields.zip.value,427,461,124);
+   center('*Both parents/guardians must sign consent*',492,10,bold,maroon);
+   txt('I give permission for my child(ren) to be photographed or recorded for program use and',514,9.5);
+   txt('promotion. I understand I may update this consent at any time and no payment is provided.',527,9.5);
+   txt('Parent/Guardian Signature:',77,564,9.5);line(211,567,360,567);txt('Date:',368,564,9.5);line(396,567,456,567);
+   txt('Parent/Guardian Signature:',77,596,9.5);line(211,599,360,599);txt('Date:',368,596,9.5);line(396,599,456,599);
+   const sig=async(k,x,y,max)=>{const value=(fields[k]?.value||'').trim();if(!value)return;const cv=document.createElement('canvas'),ctx=cv.getContext('2d');ctx.font='italic 57px "Segoe Script","Brush Script MT","Lucida Handwriting",cursive';const width=Math.ceil(ctx.measureText(value).width)+24;cv.width=Math.max(50,width);cv.height=90;const pen=cv.getContext('2d');pen.font='italic 57px "Segoe Script","Brush Script MT","Lucida Handwriting",cursive';pen.fillStyle='#151515';pen.textBaseline='alphabetic';pen.fillText(value,9,64);const png=await pdf.embedPng(cv.toDataURL('image/png'));page.drawImage(png,{x,y:792-y-17,width:Math.min(max,width*.32),height:20});};
+   await sig('signer',213,562,145);if(fields.signer2.value.trim())await sig('signer2',213,594,145);
+   fit(new Date().toLocaleDateString('en-US'),398,564,57,9);
+   if(fields.signer2.value.trim())fit(new Date().toLocaleDateString('en-US'),398,596,57,9);
+   const decision=(v,y)=>{box(464,y,v==='agree','Agree');box(530,y,v==='disagree','Disagree');};
+   decision(fields.decision.value,552);decision(fields.decision2.value,584);
+   return pdf.save();
+  }
   const pdf=await PDFLib.PDFDocument.load(bytes),page=pdf.getPages()[0],height=page.getSize().height,font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),ink=PDFLib.rgb(0,0,0),white=PDFLib.rgb(1,1,1);
   const put=(v,x,top,w,size=9)=>{v=(v||'').trim();if(!v)return;let fs=size;while(fs>5&&font.widthOfTextAtSize(v,fs)>w)fs-=0.5;page.drawText(v,{x,y:height-top,size:fs,font,color:ink});};
   if(type==='noSunscreen'||type==='nonPrescription'){
