@@ -610,14 +610,15 @@ async function openInfantInformationPdf(bytes,template,assignment){
   put('naps',130,396,19);put('napLength',213,396,19);
   put('sleeper',178,421,111);put('swaddling',135,446,111);
   put('powder',165,495,111);put('rash',164,520,111);
-  // Original [ ] boxes are retained; no extra rectangles or small boxes.
-  // Keep Blanket fixed. Move the other marks right as requested.
-  for(const x of [78,137.6,197.8,258.6,312.3,374.9])boxX(x,569,true);
-  for(const x of [83,124.7,177.9])boxX(x,594,true);
-  boxX(225.1,594,!!checks.bringFormula?.checked);
-  // Parent-selectable Breastmilk / Formula option; no additional rectangle.
-  page.drawText('[  ] Breastmilk / Formula',{x:282,y:height-594,size:10,font,color:PDFLib.rgb(0,0,0)});
-  boxX(297,594,!!checks.bringBreastmilk?.checked);
+  // The original PDF uses literal [ ] glyphs. Their positions were measured
+  // from the original PDF, so put the X between the brackets only.
+  for(const left of [78,127.6,177.8,228.6,272.3,324.9])page.drawText('X',{x:left+3.5,y:height-569,size:9,font,color:PDFLib.rgb(0,0,0)});
+  for(const left of [78,124.7,167.9])page.drawText('X',{x:left+3.5,y:height-594,size:9,font,color:PDFLib.rgb(0,0,0)});
+  // Formula is parent-selectable, with its original box at x=225.1.
+  if(checks.bringFormula?.checked)page.drawText('X',{x:228.6,y:height-594,size:9,font,color:PDFLib.rgb(0,0,0)});
+  // A single new breastmilk choice to the right of the existing Formula word.
+  page.drawText('[ ] Breastmilk/Formula',{x:280,y:height-594,size:10,font,color:PDFLib.rgb(0,0,0)});
+  if(checks.bringBreastmilk?.checked)page.drawText('X',{x:283.5,y:height-594,size:9,font,color:PDFLib.rgb(0,0,0)});
   // Parent confirmation is captured by the submission record, without an extra PDF page.
   return pdf.save();
  };
