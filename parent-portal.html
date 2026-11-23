@@ -22,7 +22,7 @@
 <p id="hbStatus" role="status"></p>
 <h3>Previously Submitted</h3><div id="hbHistory" class="muted">No submissions loaded.</div>
 </section>
-<p id="status" role="status"></p></main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script><script>
+<p id="status" role="status"></p></main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script><script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script><script>
 (()=>{'use strict';const URL='https://qiypwbokgzlkvdydxpsk.supabase.co',E=id=>document.getElementById(id);let sb=null,family=null,currentUser=null,messageView="inbox";const seenKey=()=>currentUser&&family?'gwg_parent_seen_'+currentUser.id+'_'+family:null;const status=s=>E('status').textContent=s;const show=id=>['setup','login','messages','resetPasswordPanel'].forEach(x=>E(x).classList.toggle('hidden',x!==id));const keyName='gwg_parent_publishable_key';const publicKey='sb_publishable_IoTLyDKSP5xpXSVmaVeSbQ_iGZZQbHy';
 async function start(key){
  if(!key||!window.supabase){status('The secure connection is not available yet.');return;}
@@ -339,7 +339,15 @@ async function openEditableAssignedPdf(template,assignment){
   for(const [name,input] of values)setField(form,name,input.type==='date'?formatDate(input.value):input.value.trim());
   for(const choice of noneChoices)if(choice.checkbox.checked){setField(form,choice.primary,'None');setField(form,choice.phoneField,'None');}
   if(signature){
-   setField(form,'ParentSign',signature);
+   if(!window.fontkit)throw new Error('Cursive signature font support is unavailable. Please reload before signing.');
+   doc.registerFontkit(window.fontkit);
+   const fontResponse=await fetch('https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/greatvibes/GreatVibes-Regular.ttf');
+   if(!fontResponse.ok)throw new Error('Could not load the cursive signature font. Please try again.');
+   const cursive=await doc.embedFont(await fontResponse.arrayBuffer());
+   const sigField=form.getTextField('ParentSign');
+   sigField.setText(signature);
+   sigField.setFontSize(15);
+   sigField.updateAppearances(cursive);
    setField(form,'DateSigned_1',new Date().toLocaleDateString('en-US'));
   }
   return new Uint8Array(await doc.save());
