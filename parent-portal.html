@@ -500,10 +500,11 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
   if(signed){
    await document.fonts.load('42px "Great Vibes"');
    if(!document.fonts.check('42px "Great Vibes"'))throw Error('Signature font unavailable. Check connection.');
-   const canvas=document.createElement('canvas');canvas.width=1100;canvas.height=190;const ctx=canvas.getContext('2d');
-   ctx.fillStyle='#171717';ctx.font='110px "Great Vibes"';ctx.fillText(fields['Parent/guardian printed name'].value,15,125,1050);
+   const canvas=document.createElement('canvas');canvas.width=1100;canvas.height=110;const ctx=canvas.getContext('2d');
+   ctx.fillStyle='#171717';ctx.font='88px "Great Vibes"';ctx.fillText(fields['Parent/guardian printed name'].value,12,83,1060);
    const img=await pdf.embedPng(canvas.toDataURL('image/png'));
-   page.drawImage(img,{x:165,y:size.height-718,width:155,height:27});
+   // Printed name ends at top=705; signature belongs on the separate line below.
+   page.drawImage(img,{x:165,y:size.height-730,width:155,height:17});
   }
   return pdf.save();
  };
