@@ -288,7 +288,19 @@ async function openHealthStatementPdf(bytes,template,assignment){
  const careSection=Array.from(area.children).find(el=>el.querySelector('h4')?.textContent==='Medical Treatment and Care');
  if(careSection&&additionalSection)additionalSection.after(careSection);
  const healthcareChoice=Array.from(area.querySelectorAll('fieldset')).find(el=>el.querySelector('legend')?.textContent==='Health care plan attached?');
- if(healthcareChoice&&careSection)careSection.after(healthcareChoice);
+ if(healthcareChoice&&careSection)careSection.querySelector('div')?.after(healthcareChoice);
+ // Keep each yes/no question with the information it applies to.
+ const findChoice=label=>Array.from(area.querySelectorAll('fieldset')).find(el=>el.querySelector('legend')?.textContent===label);
+ const allergyQuestion=findChoice('Food, medication, or environmental allergies?');
+ if(allergyQuestion&&allergySection)allergySection.querySelector('h4')?.after(allergyQuestion);
+ const treatmentQuestion=findChoice('Under current medical treatment?');
+ const medicationQuestion=findChoice('Takes medications daily?');
+ if(careSection){
+  const treatmentCell=fields.get('TreatList')?.parentElement;
+  const medicationCell=fields.get('MedicationList')?.parentElement;
+  if(treatmentQuestion&&treatmentCell)treatmentCell.before(treatmentQuestion);
+  if(medicationQuestion&&medicationCell)medicationCell.before(medicationQuestion);
+ }
  // Keep the explanation directly beneath the conditions it describes.
  const explanationInput=fields.get('Explain2');
  if(explanationInput){
