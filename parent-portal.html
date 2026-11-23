@@ -495,17 +495,17 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
    page.drawLine({start:{x,y},end:{x:x+5.5,y:y-5.5},thickness:1.1,color:c});
    page.drawLine({start:{x:x+5.5,y},end:{x,y:y-5.5},thickness:1.1,color:c});
   };
-  put(fields['Provider/program name'].value,253,238,190);
-  put(fields['Infant name'].value,218,256,185);
-  put(fields['Infant date of birth'].value,157,274,180);
+  put(fields['Provider/program name'].value,253,233,190);
+  put(fields['Infant name'].value,218,251,185);
+  put(fields['Infant date of birth'].value,157,270,180);
   tick(checks['One infant blanket'].checked,14.1,288);
   tick(swaddle.value==='Yes',201.7,352.9);tick(swaddle.value==='No',246.5,352.9);
   tick(checks['Sleep sack'].checked,14.1,466.6);
   tick(checks['Pacifier'].checked,14.1,595.2);
   tick(checks['Security item'].checked,14.1,620.2);
   if(checks['Security item'].checked)put(security.value,200,627,220);
-  put(fields['Parent/guardian printed name'].value,210,708,185);
-  put(new Date().toLocaleDateString('en-US'),351,721,53);
+  put(fields['Parent/guardian printed name'].value,210,703,185);
+  put(new Date().toLocaleDateString('en-US'),351,715,53);
   if(signed){
    await document.fonts.load('42px "Great Vibes"');
    if(!document.fonts.check('42px "Great Vibes"'))throw Error('Signature font unavailable. Check connection.');
@@ -513,7 +513,7 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
    ctx.fillStyle='#171717';ctx.font='88px "Great Vibes"';ctx.fillText(fields['Parent/guardian printed name'].value,12,83,1060);
    const img=await pdf.embedPng(canvas.toDataURL('image/png'));
    // Printed name ends at top=705; signature belongs on the separate line below.
-   page.drawImage(img,{x:190,y:size.height-722,width:92,height:11});
+   page.drawImage(img,{x:190,y:size.height-718,width:92,height:10});
   }
   return pdf.save();
  };
