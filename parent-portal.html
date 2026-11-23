@@ -732,7 +732,7 @@ async function openSunscreenConsentPdf(bytes,template,assignment){
   put(fields.provider.value,360,166,140,8);
   for(const [key,top] of [['noAllergies',215],['staffChoice',239],['ownBrand',263]])if(checks[key].checked)page.drawText('X',{x:81,y:height-top-10,size:13,font,color:ink});
   if(checks.ownBrand.checked)put(fields.brand.value,80,299,450);
-  put(fields.printed.value,305,322,245);
+  put(fields.printed.value,245,322,245);
   // Draw the typed electronic signature in a handwritten script style, scaled to its line.
   const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
   canvas.width=1200;canvas.height=130;
