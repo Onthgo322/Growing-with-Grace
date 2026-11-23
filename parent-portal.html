@@ -245,6 +245,18 @@ async function openHealthStatementPdf(bytes,template,assignment){
   }
   area.append(sec);
  }
+ const stateInput=fields.get('State');
+ if(stateInput){
+  stateInput.maxLength=2;
+  stateInput.placeholder='ND';
+  const normalizeState=()=>{
+   const raw=stateInput.value.trim();
+   if(/^north\s*dakota$/i.test(raw)||/^n\.?d\.?$/i.test(raw))stateInput.value='ND';
+   else if(raw.length===2)stateInput.value=raw.toUpperCase();
+  };
+  stateInput.addEventListener('blur',normalizeState);
+  stateInput.addEventListener('change',normalizeState);
+ }
  const choices=[
  ['Education','Care Schedule',['Full Time','Part Time','Drop-in','Before/After School']],
  ['Yes','Food, medication, or environmental allergies?',['Yes','No']],
@@ -320,9 +332,9 @@ async function openHealthStatementPdf(bytes,template,assignment){
  let pdfUrl=null;
  const fill=async(signature)=>{
   const doc=await PDFLib.PDFDocument.load(bytes);const form=doc.getForm();
-  for(const [key,input] of fields){try{form.getTextField(key).setText(input.value.trim());}catch(e){console.warn('PDF field',key,e);}}
+  for(const [key,input] of fields){try{const value=key==='State'&&/^north\\s*dakota$/i.test(input.value.trim())?'ND':input.value.trim();form.getTextField(key).setText(value);}catch(e){console.warn('PDF field',key,e);}}
   for(const [key,input] of checked){if(input.checked){try{form.getCheckBox(key).check();}catch(e){console.warn('Checkbox',key,e);}}}
-  for(const [key,input] of selected){if(input.value){try{const radio=form.getRadioGroup(key);const options=radio.getOptions();const idx=key==='Education'?['Full Time','Part Time','Drop-in','Before/After School'].indexOf(input.value):input.value==='Yes'?0:1;if(options[idx])radio.select(options[idx]);}catch(e){console.warn('Radio',key,e);}}}
+  for(const [key,input] of selected){if(input.value){try{const radio=form.getRadioGroup(key);const options=radio.getOptions();const idx=key==='Education'?['Full Time','Part Time','Drop-in','Before/After School'].indexOf(input.value):input.value==='Yes'?0:1;const exportValue=String(idx);if(options.includes(exportValue))radio.select(exportValue);else throw new Error('Unexpected PDF choice values for '+key+': '+options.join(', '));}catch(e){console.warn('Radio',key,e);}}}
   if(signature){
    const page=doc.getPages()[0];const {height}=page.getSize();
    const font=await doc.embedFont(PDFLib.StandardFonts.HelveticaOblique);
@@ -340,8 +352,8 @@ async function openHealthStatementPdf(bytes,template,assignment){
    if(pdfUrl)window.URL.revokeObjectURL(pdfUrl);pdfUrl=window.URL.createObjectURL(new Blob([data],{type:'application/pdf'}));
    area.style.display='none';controls.style.display='none';reviewArea.replaceChildren();
    const title=document.createElement('h4');title.textContent='Review the original SFN 847 before signing';reviewArea.append(title);
-   const open=document.createElement('button');open.textContent='Open PDF Full Size';open.onclick=()=>window.open(pdfUrl,'_blank');reviewArea.append(open);
-   const frame=document.createElement('iframe');frame.src=pdfUrl;frame.title='SFN 847 review';frame.style.cssText='width:100%;height:75vh;min-height:550px;border:1px solid #bbb';reviewArea.append(frame);
+   const open=document.createElement('button');open.textContent='Open PDF Full Size (Best for Reading)';open.onclick=()=>window.open(pdfUrl,'_blank');reviewArea.append(open);
+   const frame=document.createElement('iframe');frame.src=pdfUrl;frame.title='SFN 847 review';frame.style.cssText='display:block;width:100%;height:110vh;min-height:900px;border:1px solid #bbb';reviewArea.append(frame);
    const back=document.createElement('button');back.textContent='Make Corrections';back.className='secondary';back.onclick=()=>{area.style.display='block';controls.style.display='flex';reviewArea.replaceChildren();};reviewArea.append(back);
    const confirm=document.createElement('label');confirm.style.cssText='display:block;margin:16px 0';const check=document.createElement('input');check.type='checkbox';check.style.width='auto';confirm.append(check,document.createTextNode(' I reviewed this form and certify the information is correct.'));reviewArea.append(confirm);
    const sigLabel=document.createElement('label');sigLabel.textContent='Parent or Guardian Full Legal Name (electronic signature)';const signer=document.createElement('input');signer.style.width='100%';sigLabel.append(signer);reviewArea.append(sigLabel);
