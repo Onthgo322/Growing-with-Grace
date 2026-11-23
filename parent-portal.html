@@ -216,6 +216,109 @@ async function loadAssignedForms(){
   if(!host.children.length)host.textContent='No published PDF forms are available yet.';
  }catch(e){host.textContent='Could not load assigned forms: '+(e.message||String(e));}
 }
+
+async function openHealthStatementPdf(bytes,template,assignment){
+ E('assignedPdfEditor')?.remove();
+ const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
+ const h=document.createElement('h3');h.textContent="Parent's Statement on Health of Child — SFN 847";wrap.append(h);
+ const p=document.createElement('p');p.textContent='Complete this annual form for the assigned child. Review the original PDF before signing and submitting.';wrap.append(p);
+ const groups=[
+ ['Child and Parent Information',[['Name_1','Full Legal Name of Child',1],['BirthDate','Birth Date',1],['EnrollDate','Enrollment Date',1],['Parents','Full Legal Name(s) of Parent or Guardian',1],['Relationship','Relationship',1],['Address','Address',1],['City_1','City',1],['State','State',1],['ZIP','ZIP Code',1],['Telephone','Home Telephone'],['Telephone_1','Work Telephone']]],
+ ['Medical Providers',[['Dentist','Family Dentist'],['Physician','Family Physician'],['Clinic','Clinic'],['Telephone_2','Physician/Clinic Telephone'],['Hospital','Hospital'],['Telephone_3','Hospital Telephone']]],
+ ['Health Details',[['LastVisit','Last Visit to Doctor'],['Height',"Child's Height"],['Weight',"Child's Weight"],['AllergyList','List Allergies'],['AllergyReaction','Describe Allergy Reaction'],['Treatment','Usual Allergy Treatment'],['Other','Other Conditions (specify)'],['Explain2','Explain All Checked Conditions'],['TreatList','Current Medical Treatment (if yes)'],['MedicationList','Daily Medications (if yes)'],['Limits','Limitations on Participation']]]
+ ];
+ const area=document.createElement('div');wrap.append(area);
+ const fields=new Map(),required=[];
+ for(const [heading,entries] of groups){
+  const sec=document.createElement('section');sec.style.cssText='margin:12px 0;padding:12px;border:1px solid #ddd;border-radius:8px';
+  const title=document.createElement('h4');title.textContent=heading;sec.append(title);
+  const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px';sec.append(grid);
+  for(const [key,label,mandatory] of entries){
+   const cell=document.createElement('label');cell.style.display='block';cell.textContent=label+(mandatory?' *':'');
+   const input=(['AllergyList','AllergyReaction','Treatment','Explain2','TreatList','MedicationList','Limits'].includes(key)?document.createElement('textarea'):document.createElement('input'));
+   input.style.cssText='display:block;width:100%;min-width:0;margin-top:4px';input.maxLength=key==='Limits'?900:400;
+   if(['BirthDate','EnrollDate','LastVisit'].includes(key))input.placeholder='MM/DD/YYYY';
+   cell.append(input);grid.append(cell);fields.set(key,input);if(mandatory)required.push([label,input]);
+  }
+  area.append(sec);
+ }
+ const choices=[
+ ['Education','Care Schedule',['Full Time','Part Time','Drop-in','Before/After School']],
+ ['Yes','Food, medication, or environmental allergies?',['Yes','No']],
+ ['Yes_2','Under current medical treatment?',['Yes','No']],
+ ['Yes_5','Takes medications daily?',['Yes','No']],
+ ['Yes_8','Health care plan attached?',['Yes','No']]
+ ];
+ const selected=new Map();
+ for(const [key,label,options] of choices){
+  const box=document.createElement('fieldset');box.style.cssText='margin:10px 0;padding:10px;border:1px solid #ddd';
+  const legend=document.createElement('legend');legend.textContent=label;box.append(legend);
+  const sel=document.createElement('select');sel.style.width='100%';
+  const blank=document.createElement('option');blank.value='';blank.textContent='Select an answer';sel.append(blank);
+  for(const option of options){const opt=document.createElement('option');opt.value=option;opt.textContent=option;sel.append(opt);}
+  box.append(sel);area.append(box);selected.set(key,sel);
+ }
+ const conditions=[['Cond1','Asthma'],['Cond1_1','Diabetes'],['Cond1_2','Vision Impairment'],['Cond1_3','Heart Condition'],['Cond1_11','Seizure Disorder'],['Cond1_5','Hearing Impairment'],['Cond1_6','Frequent Earaches'],['Cond1_7','Behavioral Issues'],['Cond1_4','Other Conditions']];
+ const conditionBox=document.createElement('fieldset');conditionBox.style.cssText='padding:10px;margin:10px 0;border:1px solid #ddd';
+ const legend=document.createElement('legend');legend.textContent='Check all conditions that apply';conditionBox.append(legend);
+ const checked=new Map();
+ for(const [key,label] of conditions){const item=document.createElement('label');item.style.cssText='display:inline-flex;align-items:center;gap:5px;margin:5px 14px 5px 0';const cb=document.createElement('input');cb.type='checkbox';cb.style.width='auto';item.append(cb,document.createTextNode(label));conditionBox.append(item);checked.set(key,cb);}
+ area.append(conditionBox);
+ const draftKey='gwg_health_draft_'+(currentUser?.id||'guest')+'_'+assignment.id;
+ const save=()=>{try{localStorage.setItem(draftKey,JSON.stringify({fields:Object.fromEntries([...fields].map(([k,v])=>[k,v.value])),choices:Object.fromEntries([...selected].map(([k,v])=>[k,v.value])),conditions:Object.fromEntries([...checked].map(([k,v])=>[k,v.checked]))}));}catch(e){}};
+ try{const draft=JSON.parse(localStorage.getItem(draftKey)||'null');if(draft){for(const [k,v] of Object.entries(draft.fields||{}))if(fields.has(k))fields.get(k).value=v;for(const [k,v] of Object.entries(draft.choices||{}))if(selected.has(k))selected.get(k).value=v;for(const [k,v] of Object.entries(draft.conditions||{}))if(checked.has(k))checked.get(k).checked=v;}}catch(e){}
+ area.addEventListener('input',save);area.addEventListener('change',save);
+ const controls=document.createElement('div');controls.style.cssText='display:flex;gap:8px;margin:12px 0;flex-wrap:wrap';
+ const review=document.createElement('button');review.textContent='Review Completed Original PDF';
+ const close=document.createElement('button');close.textContent='Close';close.className='secondary';close.onclick=()=>wrap.remove();controls.append(review,close);wrap.append(controls);
+ const reviewArea=document.createElement('div');wrap.append(reviewArea);
+ let pdfUrl=null;
+ const fill=async(signature)=>{
+  const doc=await PDFLib.PDFDocument.load(bytes);const form=doc.getForm();
+  for(const [key,input] of fields){try{form.getTextField(key).setText(input.value.trim());}catch(e){console.warn('PDF field',key,e);}}
+  for(const [key,input] of checked){if(input.checked){try{form.getCheckBox(key).check();}catch(e){console.warn('Checkbox',key,e);}}}
+  for(const [key,input] of selected){if(input.value){try{const radio=form.getRadioGroup(key);const options=radio.getOptions();const idx=key==='Education'?['Full Time','Part Time','Drop-in','Before/After School'].indexOf(input.value):input.value==='Yes'?0:1;if(options[idx])radio.select(options[idx]);}catch(e){console.warn('Radio',key,e);}}}
+  if(signature){
+   const page=doc.getPages()[0];const {height}=page.getSize();
+   const font=await doc.embedFont(PDFLib.StandardFonts.HelveticaOblique);
+   page.drawText(signature.slice(0,75),{x:38,y:height-765,size:13,font,color:PDFLib.rgb(0.05,0.05,0.05)});
+   try{form.getTextField('DateSigned_1').setText(new Date().toLocaleDateString('en-US'));}catch(e){}
+  }
+  return new Uint8Array(await doc.save());
+ };
+ review.onclick=async()=>{
+  const missing=required.find(([label,input])=>!input.value.trim());if(missing){alert('Please complete '+missing[0]);missing[1].focus();return;}
+  if(!selected.get('Education').value||!selected.get('Yes').value||!selected.get('Yes_2').value||!selected.get('Yes_5').value||!selected.get('Yes_8').value){alert('Please answer each selection question.');return;}
+  review.disabled=true;
+  try{
+   const data=await fill('');
+   if(pdfUrl)URL.revokeObjectURL(pdfUrl);pdfUrl=URL.createObjectURL(new Blob([data],{type:'application/pdf'}));
+   area.style.display='none';controls.style.display='none';reviewArea.replaceChildren();
+   const title=document.createElement('h4');title.textContent='Review the original SFN 847 before signing';reviewArea.append(title);
+   const open=document.createElement('button');open.textContent='Open PDF Full Size';open.onclick=()=>window.open(pdfUrl,'_blank');reviewArea.append(open);
+   const frame=document.createElement('iframe');frame.src=pdfUrl;frame.title='SFN 847 review';frame.style.cssText='width:100%;height:75vh;min-height:550px;border:1px solid #bbb';reviewArea.append(frame);
+   const back=document.createElement('button');back.textContent='Make Corrections';back.className='secondary';back.onclick=()=>{area.style.display='block';controls.style.display='flex';reviewArea.replaceChildren();};reviewArea.append(back);
+   const confirm=document.createElement('label');confirm.style.cssText='display:block;margin:16px 0';const check=document.createElement('input');check.type='checkbox';check.style.width='auto';confirm.append(check,document.createTextNode(' I reviewed this form and certify the information is correct.'));reviewArea.append(confirm);
+   const sigLabel=document.createElement('label');sigLabel.textContent='Parent or Guardian Full Legal Name (electronic signature)';const signer=document.createElement('input');signer.style.width='100%';sigLabel.append(signer);reviewArea.append(sigLabel);
+   const submit=document.createElement('button');submit.textContent='Sign and Submit';submit.disabled=assignment.status!=='sent';
+   submit.onclick=async()=>{
+    if(!check.checked||!signer.value.trim())return alert('Confirm your review and enter your signature.');
+    if(!confirm('Submit this signed health statement?'))return;
+    submit.disabled=true;
+    try{
+     const signed=await fill(signer.value.trim());
+     const path=currentUser.id+'/'+assignment.id+'/'+crypto.randomUUID()+'.pdf';
+     const {error:up}=await sb.storage.from('completed-parent-forms').upload(path,new Blob([signed],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});if(up)throw up;
+     const {error:db}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:signer.value.trim(),parent_phone:fields.get('Telephone').value.trim()||fields.get('Telephone_1').value.trim(),signature_consent:true,completed_pdf_path:path});
+     if(db)throw new Error('PDF saved, but submission record failed. Contact the center before retrying: '+db.message);
+     localStorage.removeItem(draftKey);if(pdfUrl)URL.revokeObjectURL(pdfUrl);wrap.remove();alert('Health statement submitted successfully.');await loadAssignedForms();
+    }catch(e){alert('Could not submit: '+e.message);submit.disabled=false;}
+   };reviewArea.append(submit);
+  }catch(e){alert('Could not prepare PDF: '+e.message);}finally{review.disabled=false;}
+ };
+ E('assignedFormsList').prepend(wrap);wrap.scrollIntoView({block:'start'});
+}
+
 async function openEditableAssignedPdf(template,assignment){
  const {data,error}=await sb.storage.from('parent-forms').createSignedUrl(template.file_path,120);
  if(error)throw error;
@@ -226,6 +329,9 @@ async function openEditableAssignedPdf(template,assignment){
  const initial=await PDFLib.PDFDocument.load(bytes);
  const names=new Set(initial.getForm().getFields().map(f=>f.getName()));
  const isChildSheet=names.has('ChildName')&&names.has('DateEnrolled')&&names.has('DOB')&&names.has('Entry_9');
+ const isHealth=names.has('Name_1')&&names.has('BirthDate')&&names.has('AllergyList')&&names.has('DateSigned_1');
+ if(isHealth){await openHealthStatementPdf(bytes,template,assignment);return;}
+
  if(!isChildSheet){alert('This form needs its own question mapping before it can be submitted online. The Child Information Sheet is supported first.');return;}
  E('assignedPdfEditor')?.remove();
  const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
