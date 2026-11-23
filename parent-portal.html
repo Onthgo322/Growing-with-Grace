@@ -381,7 +381,25 @@ async function openHealthStatementPdf(bytes,template,assignment){
      const {error:up}=await sb.storage.from('completed-parent-forms').upload(path,new Blob([signed],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});if(up)throw up;
      const {error:db}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:signer.value.trim(),parent_phone:fields.get('Telephone').value.trim()||fields.get('Telephone_1').value.trim(),signature_consent:true,completed_pdf_path:path});
      if(db)throw new Error('PDF saved, but submission record failed. Contact the center before retrying: '+db.message);
-     localStorage.removeItem(draftKey);if(pdfUrl)window.URL.revokeObjectURL(pdfUrl);wrap.remove();alert('Health statement submitted successfully.');await loadAssignedForms();
+     localStorage.removeItem(draftKey);
+     if(pdfUrl)window.URL.revokeObjectURL(pdfUrl);
+     // Show an unmistakable submitted state immediately, even if refreshing the list fails.
+     reviewArea.replaceChildren();
+     const success=document.createElement('div');
+     success.setAttribute('role','status');
+     success.style.cssText='padding:18px;background:#e5f4e9;border:2px solid #247341;border-radius:10px;color:#164b2a;font-weight:700;font-size:1.15rem';
+     success.textContent='✓ Form submitted successfully. No further action is needed.';
+     reviewArea.append(success);
+     area.style.display='none';controls.style.display='none';
+     submit.disabled=true;
+     const card=wrap;
+     try{await loadAssignedForms();}catch(refreshError){console.warn('Could not refresh forms after submission',refreshError);}
+     if(card.isConnected)card.replaceChildren(success);
+     // Never allow this completed form to be submitted twice from the current page.
+     const submittedButtons=Array.from(E('assignedFormsList')?.querySelectorAll('button')||[]);
+     for(const btn of submittedButtons){
+      if(btn.textContent==='Sign and Submit'){btn.disabled=true;btn.textContent='Already Submitted';}
+     }
     }catch(e){alert('Could not submit: '+e.message);submit.disabled=false;submit.textContent='Sign and Submit';}
    };reviewArea.append(submit);
   }catch(e){alert('Could not prepare PDF: '+e.message);}finally{review.disabled=false;}
