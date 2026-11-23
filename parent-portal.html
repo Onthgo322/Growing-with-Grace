@@ -613,12 +613,7 @@ async function openInfantInformationPdf(bytes,template,assignment){
   page.drawRectangle({x:389,y:height-591,width:10,height:10,borderWidth:0.7,borderColor:PDFLib.rgb(0,0,0)});
   page.drawText('Breastmilk',{x:405,y:height-590,size:9,font,color:PDFLib.rgb(0,0,0)});
   mark('bringBreastmilk',390,590);
-  // Original form has no signature line; append a separate acknowledgement page.
-  const ack=pdf.addPage([612,792]);ack.drawText('INFANT INFORMATION - PARENT ACKNOWLEDGEMENT',{x:55,y:735,size:14,font});
-  ack.drawText('Child: '+fields.name.value.trim(),{x:55,y:690,size:11,font});
-  ack.drawText('Parent/guardian: '+fields.signer.value.trim(),{x:55,y:665,size:11,font});
-  ack.drawText('I confirm that the information provided is accurate.',{x:55,y:625,size:11,font});
-  ack.drawText('Electronically acknowledged on '+new Date().toLocaleString('en-US'),{x:55,y:600,size:10,font});
+  // Parent confirmation is captured by the submission record, without an extra PDF page.
   return pdf.save();
  };
  const preview=document.createElement('button');preview.textContent='Review Completed PDF';wrap.append(preview);
