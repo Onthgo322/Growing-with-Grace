@@ -625,7 +625,8 @@ async function openInfantInformationPdf(bytes,template,assignment){
   };
   for(const [x,label] of [[78,'Blanket'],[147,'Clothes'],[216,'Diapers'],[285,'Wipes'],[354,'Kleenex'],[423,'Pacifier']])bringBox(x,571,label,true);
   for(const [x,label] of [[78,'Bottles'],[147,'Liners'],[216,'Ointment']])bringBox(x,596,label,true);
-  bringBox(285,596,'Breastmilk/formula',!!(checks.bringBreastmilk?.checked||checks.bringFormula?.checked));
+  bringBox(285,596,'Formula',!!checks.bringFormula?.checked);
+  bringBox(379,596,'Breastmilk',!!checks.bringBreastmilk?.checked);
   // Parent confirmation is captured by the submission record, without an extra PDF page.
   return pdf.save();
  };
