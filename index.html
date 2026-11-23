@@ -3419,8 +3419,9 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
     const fresh=[];const toRelease=[];let skipped=0;
     for(const row of rows){
      const matches=grouped.get(key(row))||[];
-     if(matches.some(x=>x.status!=='draft')){skipped++;continue;}
-     if(matches.length){toRelease.push(matches[0].id);continue;}
+     if(matches.some(x=>['sent','pending','submitted','completed'].includes(x.status))){skipped++;continue;}
+     const draft=matches.find(x=>x.status==='draft');
+     if(draft){toRelease.push(draft.id);continue;}
      fresh.push(row);
     }
     for(const id of toRelease){
@@ -3428,7 +3429,7 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
      if(error)throw error;
     }
     if(fresh.length){const {error}=await sb.from('parent_form_assignments').insert(fresh);if(error)throw error;}
-    sendStatus.textContent=(fresh.length+toRelease.length)+' assignments released ('+toRelease.length+' existing drafts activated). '+skipped+' already released assignments skipped.';
+    sendStatus.textContent=(fresh.length+toRelease.length)+' assignments released ('+toRelease.length+' existing drafts activated). '+skipped+' active assignments skipped; approved forms remain in history.';
    }catch(e){sendStatus.textContent='Could not release forms: '+(e.message||String(e));}
    finally{btn.disabled=false;}
   };
