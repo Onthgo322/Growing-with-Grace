@@ -608,7 +608,7 @@ async function openInfantInformationPdf(bytes,template,assignment){
   for(const [k,x] of [['Bottles',79],['Liners',126],['Ointment',169]])page.drawText('X',{x,y:height-592,size:10,font,color:PDFLib.rgb(0,0,0)});
   mark('bringFormula',226,592);
   // Breastmilk is an added choice alongside Formula; the original PDF has no Breastmilk box.
-  page.drawRect({x:307,y:height-592,width:9,height:9,borderWidth:0.7,borderColor:PDFLib.rgb(0,0,0)});
+  page.drawRectangle({x:307,y:height-592,width:9,height:9,borderWidth:0.7,borderColor:PDFLib.rgb(0,0,0)});
   page.drawText('Breastmilk',{x:321,y:height-590,size:9,font,color:PDFLib.rgb(0,0,0)});
   mark('bringBreastmilk',308,591);
   // Original form has no signature line; append a separate acknowledgement page.
