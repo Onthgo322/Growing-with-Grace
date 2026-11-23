@@ -834,7 +834,7 @@ async function openAdditionalConsentPdf(bytes,template,assignment,type){
    txt('Parent/Guardian Signature:',77,564,9.5);line(211,567,360,567);txt('Date:',368,564,9.5);line(396,567,456,567);
    txt('Parent/Guardian Signature:',77,596,9.5);line(211,599,360,599);txt('Date:',368,596,9.5);line(396,599,456,599);
    const sig=async(k,x,y,max)=>{const value=(fields[k]?.value||'').trim();if(!value)return;const cv=document.createElement('canvas'),ctx=cv.getContext('2d');ctx.font='italic 57px "Segoe Script","Brush Script MT","Lucida Handwriting",cursive';const width=Math.ceil(ctx.measureText(value).width)+24;cv.width=Math.max(50,width);cv.height=90;const pen=cv.getContext('2d');pen.font='italic 57px "Segoe Script","Brush Script MT","Lucida Handwriting",cursive';pen.fillStyle='#151515';pen.textBaseline='alphabetic';pen.fillText(value,9,64);const png=await pdf.embedPng(cv.toDataURL('image/png'));page.drawImage(png,{x,y:792-y-17,width:Math.min(max,width*.32),height:20});};
-   await sig('signer',213,562,145);if(fields.signer2.value.trim())await sig('signer2',213,594,145);
+   await sig('signer',213,556,145);if(fields.signer2.value.trim())await sig('signer2',213,594,145);
    fit(new Date().toLocaleDateString('en-US'),398,564,57,9);
    if(fields.signer2.value.trim())fit(new Date().toLocaleDateString('en-US'),398,596,57,9);
    const decision=(v,y)=>{box(464,y,v==='agree','Agree');box(530,y,v==='disagree','Disagree');};
