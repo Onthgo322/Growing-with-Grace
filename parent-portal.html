@@ -421,14 +421,14 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
  add('Infant date of birth','date',true);
  const checks={};
  for(const label of ['One infant blanket','Sleep sack','Pacifier','Security item']){
-  const l=document.createElement('label');l.style.cssText='display:block;margin:10px 0';
-  const el=document.createElement('input');el.type='checkbox';l.append(el,document.createTextNode(' '+label));wrap.append(l);checks[label]=el;
+  const l=document.createElement('label');l.style.cssText='display:flex;align-items:center;justify-content:flex-start;gap:10px;margin:10px 0;max-width:480px;cursor:pointer';
+  const el=document.createElement('input');el.type='checkbox';el.style.cssText='width:18px;height:18px;flex:0 0 18px;margin:0;position:static';l.append(el,document.createTextNode(label));wrap.append(l);checks[label]=el;
  }
  const security=add('Specify security item (if checked)');
  const sw=document.createElement('label');sw.textContent='Request infant to be swaddled * ';const swaddle=document.createElement('select');
  swaddle.innerHTML='<option value="">Choose Yes or No</option><option>Yes</option><option>No</option>';sw.append(swaddle);wrap.append(sw);
  add('Parent/guardian printed name','text',true);
- const consent=document.createElement('label');consent.style.cssText='display:block;margin:14px 0';const agree=document.createElement('input');agree.type='checkbox';consent.append(agree,document.createTextNode(' I have read the entire Infant Sleep Consent Form and authorize only the selected items.'));wrap.append(consent);
+ const consent=document.createElement('label');consent.style.cssText='display:flex;align-items:flex-start;justify-content:flex-start;gap:10px;margin:14px 0;max-width:480px;cursor:pointer';const agree=document.createElement('input');agree.type='checkbox';agree.style.cssText='width:18px;height:18px;flex:0 0 18px;margin:2px 0 0;position:static';consent.append(agree,document.createTextNode('I have read the entire Infant Sleep Consent Form and authorize only the selected items.'));wrap.append(consent);
  const preview=document.createElement('button');preview.textContent='Review Completed PDF';wrap.append(preview);
  const review=document.createElement('div');wrap.append(review);
  let pdfUrl=null;
