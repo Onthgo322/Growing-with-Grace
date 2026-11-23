@@ -223,7 +223,7 @@ async function openHealthStatementPdf(bytes,template,assignment){
  const h=document.createElement('h3');h.textContent="Parent's Statement on Health of Child — SFN 847";wrap.append(h);
  const p=document.createElement('p');p.textContent='Complete this annual form for the assigned child. Review the original PDF before signing and submitting.';wrap.append(p);
  const groups=[
- ['Child and Parent Information',[['Name_1','Full Legal Name of Child',1],['BirthDate','Birth Date',1],['EnrollDate','Enrollment Date',1],['Parents','Full Legal Name(s) of Parent or Guardian',1],['Relationship','Relationship',1],['Address','Address',1],['City_1','City',1],['State','State',1],['ZIP','ZIP Code',1],['Telephone','Home Telephone'],['Telephone_1','Work Telephone']]],
+ ['Child and Parent Information',[['Name_1','Full Legal Name of Child',1],['BirthDate','Birth Date',1],['EnrollDate','Enrollment Date',1],['Parents','Parent or Guardian Full Legal Name',1],['Relationship','Relationship',1],['Address','Address',1],['City_1','City',1],['State','State',1],['ZIP','ZIP Code',1],['Telephone','Home Telephone'],['Telephone_1','Work Telephone']]],
  ['Medical Providers',[['Dentist','Family Dentist'],['Physician','Family Physician'],['Clinic','Clinic'],['Telephone_2','Physician/Clinic Telephone'],['Hospital','Hospital'],['Telephone_3','Hospital Telephone']]],
  ['Health Details',[['LastVisit','Last Visit to Doctor'],['Height',"Child's Height"],['Weight',"Child's Weight"],['AllergyList','List Allergies'],['AllergyReaction','Describe Allergy Reaction'],['Treatment','Usual Allergy Treatment'],['Other','Other Conditions (specify)'],['Explain2','Explain All Checked Conditions'],['TreatList','Current Medical Treatment (if yes)'],['MedicationList','Daily Medications (if yes)'],['Limits','Limitations on Participation']]]
  ];
@@ -264,6 +264,14 @@ async function openHealthStatementPdf(bytes,template,assignment){
  const checked=new Map();
  for(const [key,label] of conditions){const item=document.createElement('label');item.style.cssText='display:inline-flex;align-items:center;gap:5px;margin:5px 14px 5px 0';const cb=document.createElement('input');cb.type='checkbox';cb.style.width='auto';item.append(cb,document.createTextNode(label));conditionBox.append(item);checked.set(key,cb);}
  area.append(conditionBox);
+ // Keep the explanation directly beneath the conditions it describes.
+ const explanationInput=fields.get('Explain2');
+ if(explanationInput){
+  const explanationLabel=explanationInput.parentElement;
+  explanationLabel.style.cssText='display:block;margin:10px 0 14px';
+  explanationInput.style.width='100%';
+  conditionBox.after(explanationLabel);
+ }
  const draftKey='gwg_health_draft_'+(currentUser?.id||'guest')+'_'+assignment.id;
  const save=()=>{try{localStorage.setItem(draftKey,JSON.stringify({fields:Object.fromEntries([...fields].map(([k,v])=>[k,v.value])),choices:Object.fromEntries([...selected].map(([k,v])=>[k,v.value])),conditions:Object.fromEntries([...checked].map(([k,v])=>[k,v.checked]))}));}catch(e){}};
  try{const draft=JSON.parse(localStorage.getItem(draftKey)||'null');if(draft){for(const [k,v] of Object.entries(draft.fields||{}))if(fields.has(k))fields.get(k).value=v;for(const [k,v] of Object.entries(draft.choices||{}))if(selected.has(k))selected.get(k).value=v;for(const [k,v] of Object.entries(draft.conditions||{}))if(checked.has(k))checked.get(k).checked=v;}}catch(e){}
