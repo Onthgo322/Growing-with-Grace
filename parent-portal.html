@@ -370,7 +370,7 @@ async function openHealthStatementPdf(bytes,template,assignment){
    const submit=document.createElement('button');submit.textContent='Sign and Submit';submit.disabled=false;
    submit.onclick=async()=>{
     if(!check.checked||!signer.value.trim())return alert('Confirm your review and enter your signature.');
-    if(!confirm('Submit this signed health statement?'))return;
+    if(!window.confirm('Submit this signed health statement?'))return;
     submit.disabled=true;submit.textContent='Signing and submitting…';
     try{
      const {data:existing,error:existingError}=await sb.from('parent_form_submissions').select('assignment_id').eq('assignment_id',assignment.id).limit(1);
