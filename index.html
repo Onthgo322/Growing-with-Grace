@@ -3192,14 +3192,14 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   for(const host of Object.values(hosts))host.querySelectorAll('[data-form-assignment-section]').forEach(el=>el.remove());
   const submissionByAssignment=new Map((submissions.data||[]).map(x=>[x.assignment_id,x]));
   const submittedIds=new Set((submissions.data||[]).map(x=>x.assignment_id));
-  const isSubmitted=x=>submittedIds.has(x.id)||['submitted','completed'].includes(x.status);
+  const isSubmitted=x=>!['approved','rejected','archived'].includes(x.status)&&(submittedIds.has(x.id)||['submitted','completed'].includes(x.status));
   if(submissions.error){const warning=document.createElement('p');warning.textContent='Unable to check completed PDF submissions: '+submissions.error.message;hosts.submitted.prepend(warning);}
   const render=(host,items,heading)=>{
    const section=document.createElement('section');section.dataset.formAssignmentSection='true';section.style.marginBottom='14px';
    const title=document.createElement('h4');title.textContent=heading+' ('+items.length+')';section.append(title);
-   for(const x of items){const p=document.createElement('p');p.style.cssText='padding:7px;border-bottom:1px solid #ddd5e6;margin:0';p.textContent=(templates.get(x.template_id)||'Form')+' · '+(families.get(x.family_id)||'Family')+(x.child_id?' · '+(children.get(x.child_id)||'Child'):'')+' · '+(submittedIds.has(x.id)?'submitted':x.status);section.append(p);
+   for(const x of items){const p=document.createElement('p');p.style.cssText='padding:7px;border-bottom:1px solid #ddd5e6;margin:0';p.textContent=(templates.get(x.template_id)||'Form')+' · '+(families.get(x.family_id)||'Family')+(x.child_id?' · '+(children.get(x.child_id)||'Child'):'')+' · '+(['approved','rejected'].includes(x.status)?x.status:(submittedIds.has(x.id)?'submitted':x.status));section.append(p);
     const submission=submissionByAssignment.get(x.id);
-    if(host===hosts.submitted&&submission?.completed_pdf_path){
+    if((host===hosts.submitted||host===hosts.history)&&submission?.completed_pdf_path){
      const btn=document.createElement('button');btn.type='button';btn.textContent='View / Print Signed PDF';btn.style.margin='6px 0 10px';
      btn.onclick=async()=>{btn.disabled=true;const previous=btn.textContent;btn.textContent='Opening PDF…';try{
       const {data:link,error:linkError}=await sb.storage.from('completed-parent-forms').createSignedUrl(submission.completed_pdf_path,300);
@@ -3207,6 +3207,17 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
       const tab=window.open(link.signedUrl,'_blank');if(!tab){const a=document.createElement('a');a.href=link.signedUrl;a.target='_blank';a.rel='noopener noreferrer';a.click();}
      }catch(e){alert('Unable to open signed PDF: '+e.message);}finally{btn.disabled=false;btn.textContent=previous;}};
      section.append(btn);
+    }
+    if(host===hosts.submitted&&submission){
+     const approve=document.createElement('button');approve.type='button';approve.textContent='Approve Form';approve.style.margin='6px 8px';
+     approve.onclick=async()=>{
+      if(!confirm('Approve this signed form and move it to Approved / History?'))return;
+      approve.disabled=true;
+      const {data:changed,error:changeError}=await sb.from('parent_form_assignments').update({status:'approved'}).eq('id',x.id).select('id');
+      if(changeError||!changed?.length){alert('Could not approve form: '+(changeError?.message||'No permission to update this assignment.'));approve.disabled=false;return;}
+      await loadFormAssignmentOverview();
+     };
+     section.append(approve);
     }
    }
    if(!items.length){const p=document.createElement('p');p.className='muted';p.textContent='No assigned forms in this section.';section.append(p);}
