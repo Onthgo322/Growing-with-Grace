@@ -334,7 +334,7 @@ async function openHealthStatementPdf(bytes,template,assignment){
   const doc=await PDFLib.PDFDocument.load(bytes);const form=doc.getForm();
   for(const [key,input] of fields){try{const value=key==='State'&&/^north\s*dakota$/i.test(input.value.trim())?'ND':input.value.trim();form.getTextField(key).setText(value);}catch(e){console.warn('PDF field',key,e);}}
   for(const [key,input] of checked){if(input.checked){try{form.getCheckBox(key).check();}catch(e){console.warn('Checkbox',key,e);}}}
-  for(const [key,input] of selected){if(input.value){try{const radio=form.getRadioGroup(key);const options=radio.getOptions();const idx=key==='Education'?['Full Time','Part Time','Drop-in','Before/After School'].indexOf(input.value):input.value==='Yes'?0:1;const exportValue=String(idx);if(options.includes(exportValue))radio.select(exportValue);else throw new Error('Unexpected PDF choice values for '+key+': '+options.join(', '));}catch(e){throw new Error('Could not set '+key+' on the original PDF: '+e.message);}}}
+  for(const [key,input] of selected){if(input.value){try{const radio=form.getRadioGroup(key);const options=radio.getOptions();const idx=key==='Education'?['Full Time','Part Time','Drop-in','Before/After School'].indexOf(input.value):input.value==='Yes'?0:1;if(idx<0)throw new Error('Invalid selection for '+key);radio.acroField.setValue(PDFLib.PDFName.of(String(idx)));}catch(e){throw new Error('Could not set '+key+' on the original PDF: '+e.message);}}}
   if(signature){
    const page=doc.getPages()[0];const {height}=page.getSize();
    const font=await doc.embedFont(PDFLib.StandardFonts.HelveticaOblique);
