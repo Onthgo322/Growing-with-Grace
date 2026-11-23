@@ -225,7 +225,10 @@ async function openHealthStatementPdf(bytes,template,assignment){
  const groups=[
  ['Child and Parent Information',[['Name_1','Full Legal Name of Child',1],['BirthDate','Birth Date',1],['EnrollDate','Enrollment Date',1],['Parents','Parent or Guardian Full Legal Name',1],['Relationship','Relationship',1],['Address','Address',1],['City_1','City',1],['State','State',1],['ZIP','ZIP Code',1],['Telephone','Home Telephone'],['Telephone_1','Work Telephone']]],
  ['Medical Providers',[['Dentist','Family Dentist'],['Physician','Family Physician'],['Clinic','Clinic'],['Telephone_2','Physician/Clinic Telephone'],['Hospital','Hospital'],['Telephone_3','Hospital Telephone']]],
- ['Health Details',[['LastVisit','Last Visit to Doctor'],['Height',"Child's Height"],['Weight',"Child's Weight"],['AllergyList','List Allergies'],['AllergyReaction','Describe Allergy Reaction'],['Treatment','Usual Allergy Treatment'],['Other','Other Conditions (specify)'],['Explain2','Explain All Checked Conditions'],['TreatList','Current Medical Treatment (if yes)'],['MedicationList','Daily Medications (if yes)'],['Limits','Limitations on Participation']]]
+ ['General Health',[['LastVisit','Last Visit to Doctor'],['Height',"Child's Height"],['Weight',"Child's Weight"]]],
+ ['Allergies',[['AllergyList','List Allergies'],['AllergyReaction','Describe Allergy Reaction'],['Treatment','Usual Allergy Treatment']]],
+ ['Additional Conditions',[['Other','Other Conditions (specify)'],['Explain2','Explain All Checked Conditions']]],
+ ['Medical Treatment and Care',[['TreatList','Current Medical Treatment'],['MedicationList','Medications Child Takes Daily'],['Limits','Any Limitations on Participation']]]
  ];
  const area=document.createElement('div');wrap.append(area);
  const fields=new Map(),required=[];
@@ -264,6 +267,20 @@ async function openHealthStatementPdf(bytes,template,assignment){
  const checked=new Map();
  for(const [key,label] of conditions){const item=document.createElement('label');item.style.cssText='display:inline-flex;align-items:center;gap:5px;margin:5px 14px 5px 0';const cb=document.createElement('input');cb.type='checkbox';cb.style.width='auto';item.append(cb,document.createTextNode(label));conditionBox.append(item);checked.set(key,cb);}
  area.append(conditionBox);
+ // Put the conditions immediately after allergies, followed by explanation and care.
+ const allergySection=Array.from(area.children).find(el=>el.querySelector('h4')?.textContent==='Allergies');
+ if(allergySection)allergySection.after(conditionBox);
+ const additionalSection=Array.from(area.children).find(el=>el.querySelector('h4')?.textContent==='Additional Conditions');
+ if(additionalSection){
+  conditionBox.after(additionalSection);
+  const other=fields.get('Other')?.parentElement;
+  const explain=fields.get('Explain2')?.parentElement;
+  if(other&&explain)additionalSection.querySelector('div')?.append(other,explain);
+ }
+ const careSection=Array.from(area.children).find(el=>el.querySelector('h4')?.textContent==='Medical Treatment and Care');
+ if(careSection&&additionalSection)additionalSection.after(careSection);
+ const healthcareChoice=Array.from(area.querySelectorAll('fieldset')).find(el=>el.querySelector('legend')?.textContent==='Health care plan attached?');
+ if(healthcareChoice&&careSection)careSection.after(healthcareChoice);
  // Keep the explanation directly beneath the conditions it describes.
  const explanationInput=fields.get('Explain2');
  if(explanationInput){
