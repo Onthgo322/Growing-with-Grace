@@ -231,6 +231,7 @@ async function loadAssignedForms(){
    wrap.append(btn);
    const edit=document.createElement('button');edit.type='button';edit.className='secondary';edit.style.margin='8px 0 0 8px';edit.textContent='Fill PDF Fields';
    edit.disabled=submittedIds.has(a.id);edit.textContent=submittedIds.has(a.id)?'Already Submitted':'Fill PDF Fields';
+   if(/birth\s*certificate/i.test(t.title||''))edit.textContent=submittedIds.has(a.id)?'Already Submitted':'Upload Certificate';
    edit.onclick=async()=>{edit.disabled=true;try{await openEditableAssignedPdf(t,a);}catch(e){alert('Could not edit form: '+(e.message||String(e)));}finally{edit.disabled=false;}};
    wrap.append(edit);host.append(wrap);
   }
@@ -947,7 +948,58 @@ async function openAdditionalConsentPdf(bytes,template,assignment,type){
  E('assignedFormsList').after(wrap);wrap.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+async function openBirthCertificateUpload(template,assignment){
+ E('assignedPdfEditor')?.remove();
+ const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
+ const h=document.createElement('h3');h.textContent='Upload Birth Certificate';wrap.append(h);
+ const p=document.createElement('p');p.textContent='Please provide a clear copy of your child’s birth certificate. Upload a PDF, JPG, or PNG. No signature is required. This document is submitted privately to Growing With Grace for review.';wrap.append(p);
+ const label=document.createElement('label');label.textContent='Select the birth certificate file *';label.style.cssText='display:block;margin:10px 0';const input=document.createElement('input');input.type='file';input.accept='.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';input.style.cssText='display:block;margin:8px 0;width:100%;max-width:460px';label.append(input);wrap.append(label);
+ const warning=document.createElement('p');warning.className='muted';warning.textContent='Use a clear full-page scan or photo. Maximum 15 MB. Only upload a document for the child assigned to this request.';wrap.append(warning);
+ const preview=document.createElement('button');preview.type='button';preview.textContent='Review Selected Certificate';wrap.append(preview);
+ const review=document.createElement('div');wrap.append(review);const notice=document.createElement('p');notice.className='muted';wrap.append(notice);
+ let url=null;
+ const validate=()=>{const file=input.files?.[0];if(!file){notice.textContent='Choose a birth certificate first.';return null;}if(file.size>15*1024*1024){notice.textContent='File must be 15 MB or smaller.';return null;}const allowed=/\.(pdf|jpe?g|png)$/i.test(file.name)||['application/pdf','image/jpeg','image/png'].includes(file.type);if(!allowed){notice.textContent='Choose a PDF, JPG, or PNG file.';return null;}return file;};
+ const convert=async file=>{
+  const name=file.name.toLowerCase(),bytes=await file.arrayBuffer();
+  if(name.endsWith('.pdf')||file.type==='application/pdf'){await PDFLib.PDFDocument.load(bytes);return bytes;}
+  const pdf=await PDFLib.PDFDocument.create();
+  const photo=name.endsWith('.png')||file.type==='image/png'?await pdf.embedPng(bytes):await pdf.embedJpg(bytes);
+  const page=pdf.addPage([612,792]),maxW=576,maxH=756,scale=Math.min(maxW/photo.width,maxH/photo.height);
+  page.drawImage(photo,{x:(612-photo.width*scale)/2,y:(792-photo.height*scale)/2,width:photo.width*scale,height:photo.height*scale});
+  return await pdf.save();
+ };
+ preview.onclick=async()=>{
+  const file=validate();if(!file)return;preview.disabled=true;notice.textContent='Preparing secure preview…';
+  try{
+   const bytes=await convert(file);if(url)window.URL.revokeObjectURL(url);
+   url=window.URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+   review.replaceChildren();
+   const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent='Open birth certificate PDF for review';review.append(link);
+   const submit=document.createElement('button');submit.type='button';submit.textContent='Confirm and Upload Certificate';submit.style.margin='10px';review.append(submit);
+   notice.textContent='Review the image and confirm that the full certificate is readable before uploading.';
+   submit.onclick=async()=>{
+    if(!validate()||!confirm('Submit this birth certificate securely to Growing With Grace?'))return;
+    submit.disabled=true;notice.textContent='Uploading birth certificate securely…';
+    const filePath=currentUser.id+'/'+assignment.id+'/'+crypto.randomUUID()+'.pdf';
+    try{
+     const {data:prior,error:priorError}=await sb.from('parent_form_submissions').select('id').eq('assignment_id',assignment.id).limit(1);
+     if(priorError)throw priorError;
+     if(prior?.length){notice.textContent='This birth certificate has already been submitted. Please contact the center to replace it.';return;}
+     const {error:uploadError}=await sb.storage.from('completed-parent-forms').upload(filePath,new Blob([bytes],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});
+     if(uploadError)throw uploadError;
+     const {error:dbError}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:'Birth certificate document upload',signature_consent:false,completed_pdf_path:filePath});
+     if(dbError)throw dbError;
+     review.textContent='Birth certificate uploaded successfully. Awaiting administrator review.';notice.textContent='Your document has been received. No signature is needed.';preview.disabled=true;await loadAssignedForms();
+    }catch(e){notice.textContent='Upload was not completed: '+(e.message||String(e));submit.disabled=false;}
+   };
+  }catch(e){notice.textContent='Could not review this file: '+(e.message||String(e));}
+  finally{preview.disabled=false;}
+ };
+ E('assignedFormsList').after(wrap);wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 async function openEditableAssignedPdf(template,assignment){
+ if(/birth\s*certificate/i.test(template.title||'')){await openBirthCertificateUpload(template,assignment);return;}
  const {data,error}=await sb.storage.from('parent-forms').createSignedUrl(template.file_path,120);
  if(error)throw error;
  const response=await fetch(data.signedUrl);
