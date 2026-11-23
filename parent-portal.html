@@ -561,10 +561,10 @@ async function openInfantInformationPdf(bytes,template,assignment){
  wrap.innerHTML='<h3>Infant Information</h3><p>Complete the infant information below. Review the original completed PDF before submitting. This form is for the assigned infant only.</p>';
  const fields={},checks={};
  const add=(key,label,kind='text',required=false)=>{
-  const l=document.createElement('label');l.style.cssText='display:block;margin:9px 0';l.textContent=label+(required?' *':'');
+  const l=document.createElement('label');l.style.cssText='display:block;margin:9px 0';l.textContent=kind==='checkbox'?'':label+(required?' *':'');
   const el=document.createElement('input');el.type=kind;el.required=required;
-  el.style.cssText=kind==='checkbox'?'margin-left:12px':'display:block;width:100%;max-width:460px;padding:8px';
-  l.append(el);wrap.append(l);(kind==='checkbox'?checks:fields)[key]=el;return el;
+  el.style.cssText=kind==='checkbox'?'width:18px;height:18px;flex:0 0 18px;margin:0 8px 0 0;position:static':'display:block;width:100%;max-width:460px;padding:8px';
+  if(kind==='checkbox'){l.style.cssText='display:flex;align-items:center;justify-content:flex-start;gap:0;margin:8px 0;max-width:460px';l.append(el,document.createTextNode(label));}else l.append(el);wrap.append(l);(kind==='checkbox'?checks:fields)[key]=el;return el;
  };
  const section=t=>{const h=document.createElement('h4');h.textContent=t;wrap.append(h);};
  section('Infant');add('name',"Child's name",'text',true);add('dob','Birth date','date',true);
@@ -574,10 +574,10 @@ async function openInfantInformationPdf(bytes,template,assignment){
  section('Sleeping');
  for(const [k,l] of [['pacifier','Pacifier?'],['rocked','Rocked?'],['naps','Naps/day'],['napLength','Nap length'],['sleeper','Light/sound sleeper'],['swaddling','Swaddling']])add(k,l);
  section('Diapering');add('powder','Powder/ointment');add('rash','Diaper rash care');
- section('Items to bring');for(const k of ['Blanket','Clothes','Diapers','Wipes','Kleenex','Pacifier','Bottles','Liners','Ointment','Formula'])add('bring'+k,k,'checkbox');
+ section('Items to bring');for(const k of ['Blanket','Clothes','Diapers','Wipes','Kleenex','Pacifier','Bottles','Liners','Ointment','Formula'])add('bring'+k,k,'checkbox').checked=true;
  section('Parent acknowledgement');add('signer','Parent/guardian printed name','text',true);
- const consent=document.createElement('label');consent.style.cssText='display:block;margin:14px 0';
- const agree=document.createElement('input');agree.type='checkbox';consent.append(agree,document.createTextNode(' I confirm the information is accurate and authorize electronic submission.'));wrap.append(consent);
+ const consent=document.createElement('label');consent.style.cssText='display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:14px 0';
+ const agree=document.createElement('input');agree.type='checkbox';agree.style.cssText='width:18px;height:18px;flex:0 0 18px;margin:0;position:static';consent.append(agree,document.createTextNode(' I confirm the information is accurate and authorize electronic submission.'));wrap.append(consent);
  const draftKey='gwg_infant_information_'+(currentUser?.id||'guest')+'_'+assignment.id;
  const snapshot=()=>JSON.stringify({fields:Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value])),checks:Object.fromEntries(Object.entries(checks).map(([k,v])=>[k,v.checked])),agree:agree.checked});
  const status=document.createElement('p');status.className='muted';wrap.append(status);
@@ -595,15 +595,15 @@ async function openInfantInformationPdf(bytes,template,assignment){
   put('preference',151,197,135);put('formula',389,197,145);
   put('frequency',218,222,95);put('amount',386,222,95);
   put('temperature',282,247,220);
-  for(const [k,x] of [['Fruits',132],['Vegetables',203],['Cereals',304],['Meats',397],['Juices',476]])mark(k,x,272);
+  for(const [k,x] of [['Fruits',113],['Vegetables',154],['Cereals',221],['Meats',272],['Juices',315]])mark(k,x,270);
   put('burping',145,297,50);put('burpOften',291,297,55);
   put('allergies',224,322,290);
   put('pacifier',145,371,48);put('rocked',253,371,48);
   put('naps',145,396,46);put('napLength',286,396,75);
   put('sleeper',236,421,240);put('swaddling',168,446,245);
   put('powder',231,495,250);put('rash',202,520,270);
-  for(const [k,x] of [['Blanket',80],['Clothes',171],['Diapers',262],['Wipes',354],['Kleenex',433],['Pacifier',524]])mark('bring'+k,x,569);
-  for(const [k,x] of [['Bottles',80],['Liners',171],['Ointment',261],['Formula',363]])mark('bring'+k,x,594);
+  for(const [k,x] of [['Blanket',79],['Clothes',129],['Diapers',179],['Wipes',230],['Kleenex',274],['Pacifier',326]])mark('bring'+k,x,567);
+  for(const [k,x] of [['Bottles',79],['Liners',126],['Ointment',169],['Formula',226]])mark('bring'+k,x,592);
   // Original form has no signature line; append a separate acknowledgement page.
   const ack=pdf.addPage([612,792]);ack.drawText('INFANT INFORMATION - PARENT ACKNOWLEDGEMENT',{x:55,y:735,size:14,font});
   ack.drawText('Child: '+fields.name.value.trim(),{x:55,y:690,size:11,font});
