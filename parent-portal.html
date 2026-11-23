@@ -602,7 +602,7 @@ async function openInfantInformationPdf(bytes,template,assignment){
   // PDF text extraction: exact opening-bracket x coordinates, plus a centered inset.
   const pdfBox=(x,top,checked)=>{const c=PDFLib.rgb(0,0,0);page.drawRectangle({x:x-0.6,y:height-top-0.5,width:11.2,height:13,color:PDFLib.rgb(1,1,1)});page.drawRectangle({x,y:height-top+1,width:9,height:9,borderWidth:0.8,borderColor:c});if(checked)page.drawText('X',{x:x+1.5,y:height-top+2.1,size:7,font,color:c});};
   for(const [k,x] of [['Fruits',112.4],['Vegetables',153.3],['Cereals',220.4],['Meats',271.2],['Juices',314.4]])pdfBox(x,272,!!checks[k]?.checked);
-  put('burping',125,297,19);put('burpOften',207,297,19);
+  put('burping',125,297,19);put('burpOften',207,297,115);
   put('allergies',181,322,111);
   put('pacifier',124,371,19);put('rocked',195,371,19);
   put('naps',130,396,19);put('napLength',213,396,19);
