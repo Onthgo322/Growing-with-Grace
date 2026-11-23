@@ -3618,6 +3618,7 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   }catch(e){$r('reminderUpdated').textContent='Could not load reminders: '+(e.message||String(e));}
   finally{busy=false;}
  }
+ window.gwgRefreshReminders=refresh;
  $r('reminderRefresh').addEventListener('click',refresh);
  $r('reminderCategory').addEventListener('change',render);
  document.querySelector('#mainNavigation [data-tab="reminders"]').addEventListener('click',refresh);
@@ -3627,6 +3628,30 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
  // Wait for sign-in and load, without changing any existing authentication handlers.
  const poll=setInterval(()=>{if(sb&&user&&Date.now()-lastLoaded>15*60*1000)refresh();},60*1000);
  setTimeout(refresh,1200);
+})();
+</script>
+<script>
+// Navigation fallback: main-section buttons must work even if an older ledger handler fails.
+(function(){
+ document.addEventListener('click',function(event){
+  const button=event.target.closest?.('#mainNavigation [data-tab="employees"], #mainNavigation [data-tab="reminders"]');
+  if(!button)return;
+  event.preventDefault();
+  event.stopPropagation();
+  const section=button.dataset.tab;
+  const page=document.getElementById('page-'+section);
+  if(!page)return;
+  document.querySelectorAll('.tabpage').forEach(p=>p.classList.toggle('hidden',p!==page));
+  document.getElementById('ledgerNavigation')?.classList.add('hidden');
+  document.querySelectorAll('#mainNavigation .tab').forEach(b=>b.classList.toggle('primary',b===button));
+  document.getElementById('mainLedger')?.classList.remove('primary');
+  if(section==='employees'){
+   document.getElementById('empRefresh')?.click();
+   document.getElementById('trainRefresh')?.click();
+  }else if(typeof window.gwgRefreshReminders==='function'){
+   window.gwgRefreshReminders();
+  }
+ },true);
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
