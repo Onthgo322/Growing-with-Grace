@@ -599,11 +599,15 @@ async function openInfantInformationPdf(bytes,template,assignment){
   put('preference',138,197,112);put('formula',325,197,111);
   put('frequency',173,222,54);put('amount',276,222,54);
   put('temperature',215,247,112);
-  // PDF text extraction: exact opening-bracket x coordinates, plus a centered inset.
-  // The original PDF already has [ ] checkboxes. Draw X only, centered between brackets.
-  const boxX=(left,top,checked)=>{if(checked)page.drawText('X',{x:left+3.8,y:height-top,size:9,font,color:PDFLib.rgb(0,0,0)});};
-  // Horizontal offsets requested during PDF review: +4, +8, +12, +18 points.
-  for(const [k,x] of [['Fruits',116.4],['Vegetables',161.3],['Cereals',232.4],['Meats',289.2],['Juices',332.4]])boxX(x,272,!!checks[k]?.checked);
+  // Redraw only the solids choices as a clean row; retain the original Solids label.
+  // Checked state is read from each parent's saved form choices.
+  const solidsInk=PDFLib.rgb(0,0,0);
+  page.drawRectangle({x:110,y:height-281,width:397,height:26,color:PDFLib.rgb(1,1,1)});
+  for(const [x,label] of [[112,'Fruits'],[185,'Vegetables'],[290,'Cereals'],[371,'Meats'],[444,'Juices']]){
+   page.drawRectangle({x,y:height-273,width:12,height:12,borderWidth:0.9,borderColor:solidsInk});
+   if(checks[label]?.checked)page.drawText('X',{x:x+2.5,y:height-271,size:9,font,color:solidsInk});
+   page.drawText(label,{x:x+17,y:height-271,size:9,font,color:solidsInk});
+  }
   put('burping',125,297,19);put('burpOften',207,297,115);
   put('allergies',181,322,111);
   put('pacifier',124,371,19);put('rocked',195,371,19);
