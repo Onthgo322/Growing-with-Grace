@@ -729,12 +729,21 @@ async function openSunscreenConsentPdf(bytes,template,assignment){
   const pdf=await PDFLib.PDFDocument.load(bytes),page=pdf.getPages()[0],height=page.getSize().height,font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),ink=PDFLib.rgb(0,0,0);
   const put=(value,x,top,max,size=10)=>{value=value.trim();if(!value)return;let fs=size;while(fs>6&&font.widthOfTextAtSize(value,fs)>max)fs-=0.5;page.drawText(value,{x,y:height-top,size:fs,font,color:ink});};
   put(fields.child.value,169,142,330);
-  put(fields.provider.value,394,166,180,8);
+  put(fields.provider.value,360,166,140,8);
   for(const [key,top] of [['noAllergies',215],['staffChoice',239],['ownBrand',263]])if(checks[key].checked)page.drawText('X',{x:81,y:height-top-10,size:13,font,color:ink});
   if(checks.ownBrand.checked)put(fields.brand.value,80,299,450);
   put(fields.printed.value,305,322,245);
-  put(fields.signer.value,256,346,165);
-  put(new Date().toLocaleDateString('en-US'),467,346,85);
+  // Draw the typed electronic signature in a handwritten script style, scaled to its line.
+  const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+  canvas.width=1200;canvas.height=130;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#111111';ctx.textBaseline='alphabetic';
+  ctx.font='italic 67px "Segoe Script", "Brush Script MT", "Lucida Handwriting", cursive';
+  ctx.fillText(fields.signer.value.trim(),8,91);
+  const img=await pdf.embedPng(canvas.toDataURL('image/png'));
+  const iw=Math.min(143,img.width*0.12);
+  page.drawImage(img,{x:203,y:height-350,width:iw,height:18});
+  put(new Date().toLocaleDateString('en-US'),379,346,52,8);
   return pdf.save();
  };
  const preview=document.createElement('button');preview.textContent='Review Completed PDF';wrap.append(preview);
