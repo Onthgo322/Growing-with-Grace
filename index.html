@@ -3208,6 +3208,19 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
      }catch(e){alert('Unable to open signed PDF: '+e.message);}finally{btn.disabled=false;btn.textContent=previous;}};
      section.append(btn);
     }
+    if(host===hosts.pending&&!submission&&['draft','sent','pending'].includes(x.status)){
+     const remove=document.createElement('button');remove.type='button';remove.textContent='Remove Assignment';remove.style.cssText='margin:6px 0 10px;color:#9b2020';
+     remove.onclick=async()=>{
+      const description=(templates.get(x.template_id)||'Form')+' for '+(families.get(x.family_id)||'Family')+(x.child_id?' / '+(children.get(x.child_id)||'Child'):'');
+      if(!confirm('Remove this pending assignment?\\n'+description+'\\n\\nThis does not delete the form template or any signed submissions.'))return;
+      remove.disabled=true;
+      const {data:existing,error:checkError}=await sb.from('parent_form_submissions').select('id').eq('assignment_id',x.id).limit(1);
+      if(checkError||existing?.length){alert('Cannot remove: '+(checkError?.message||'A signed submission already exists.'));remove.disabled=false;return;}
+      const {data:deleted,error:deleteError}=await sb.from('parent_form_assignments').delete().eq('id',x.id).in('status',['draft','sent','pending']).select('id');
+      if(deleteError||!deleted?.length){alert('Could not remove assignment: '+(deleteError?.message||'Permission denied or assignment already changed.'));remove.disabled=false;return;}
+      await loadFormAssignmentOverview();
+     };section.append(remove);
+    }
     if(host===hosts.submitted&&submission){
      const approve=document.createElement('button');approve.type='button';approve.textContent='Approve Form';approve.style.margin='6px 8px';
      approve.onclick=async()=>{
