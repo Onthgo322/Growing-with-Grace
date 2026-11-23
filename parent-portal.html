@@ -252,6 +252,9 @@ async function openHealthStatementPdf(bytes,template,assignment){
  ['Yes_5','Takes medications daily?',['Yes','No']],
  ['Yes_8','Health care plan attached?',['Yes','No']]
  ];
+ // Display care schedule beside enrollment date at the top of the form.
+ const enrollmentInput=fields.get('EnrollDate');
+ const enrollmentCell=enrollmentInput?.parentElement;
  const selected=new Map();
  for(const [key,label,options] of choices){
   const box=document.createElement('fieldset');box.style.cssText='margin:10px 0;padding:10px;border:1px solid #ddd';
@@ -259,7 +262,12 @@ async function openHealthStatementPdf(bytes,template,assignment){
   const sel=document.createElement('select');sel.style.width='100%';
   const blank=document.createElement('option');blank.value='';blank.textContent='Select an answer';sel.append(blank);
   for(const option of options){const opt=document.createElement('option');opt.value=option;opt.textContent=option;sel.append(opt);}
-  box.append(sel);area.append(box);selected.set(key,sel);
+  box.append(sel);
+  if(key==='Education'&&enrollmentCell){
+   box.style.cssText='margin:0;padding:4px 8px;border:1px solid #ddd;border-radius:6px;min-width:0';
+   enrollmentCell.after(box);
+  }else area.append(box);
+  selected.set(key,sel);
  }
  const conditions=[['Cond1','Asthma'],['Cond1_1','Diabetes'],['Cond1_2','Vision Impairment'],['Cond1_3','Heart Condition'],['Cond1_11','Seizure Disorder'],['Cond1_5','Hearing Impairment'],['Cond1_6','Frequent Earaches'],['Cond1_7','Behavioral Issues'],['Cond1_4','Other Conditions']];
  const conditionBox=document.createElement('fieldset');conditionBox.style.cssText='padding:10px;margin:10px 0;border:1px solid #ddd';
