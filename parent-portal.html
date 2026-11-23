@@ -337,7 +337,7 @@ async function openHealthStatementPdf(bytes,template,assignment){
   review.disabled=true;
   try{
    const data=await fill('');
-   if(pdfUrl)URL.revokeObjectURL(pdfUrl);pdfUrl=URL.createObjectURL(new Blob([data],{type:'application/pdf'}));
+   if(pdfUrl)window.URL.revokeObjectURL(pdfUrl);pdfUrl=window.URL.createObjectURL(new Blob([data],{type:'application/pdf'}));
    area.style.display='none';controls.style.display='none';reviewArea.replaceChildren();
    const title=document.createElement('h4');title.textContent='Review the original SFN 847 before signing';reviewArea.append(title);
    const open=document.createElement('button');open.textContent='Open PDF Full Size';open.onclick=()=>window.open(pdfUrl,'_blank');reviewArea.append(open);
@@ -356,7 +356,7 @@ async function openHealthStatementPdf(bytes,template,assignment){
      const {error:up}=await sb.storage.from('completed-parent-forms').upload(path,new Blob([signed],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});if(up)throw up;
      const {error:db}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:signer.value.trim(),parent_phone:fields.get('Telephone').value.trim()||fields.get('Telephone_1').value.trim(),signature_consent:true,completed_pdf_path:path});
      if(db)throw new Error('PDF saved, but submission record failed. Contact the center before retrying: '+db.message);
-     localStorage.removeItem(draftKey);if(pdfUrl)URL.revokeObjectURL(pdfUrl);wrap.remove();alert('Health statement submitted successfully.');await loadAssignedForms();
+     localStorage.removeItem(draftKey);if(pdfUrl)window.URL.revokeObjectURL(pdfUrl);wrap.remove();alert('Health statement submitted successfully.');await loadAssignedForms();
     }catch(e){alert('Could not submit: '+e.message);submit.disabled=false;}
    };reviewArea.append(submit);
   }catch(e){alert('Could not prepare PDF: '+e.message);}finally{review.disabled=false;}
