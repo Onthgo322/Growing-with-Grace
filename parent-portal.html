@@ -478,25 +478,33 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
  let pdfUrl=null;
  const make=async(signed)=>{
   const pdf=await PDFLib.PDFDocument.load(bytes),page=pdf.getPages()[0],size=page.getSize();
-  // Coordinates below are measured directly on the original 612 × 792 point PDF.
+  // Original CCA PDF, 612x792 pt. Positions measured from the actual PDF artwork.
   const font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
-  const put=(value,x,top,max=260)=>{
+  const put=(value,x,baseline,max=260)=>{
    const str=String(value||'').trim();if(!str)return;
    let fontSize=9;while(fontSize>6&&font.widthOfTextAtSize(str,fontSize)>max)fontSize-=0.5;
-   page.drawText(str,{x,y:size.height-top,size:fontSize,font,color:PDFLib.rgb(0.08,0.08,0.08)});
+   page.drawText(str,{x,y:size.height-baseline,size:fontSize,font,color:PDFLib.rgb(0.08,0.08,0.08)});
   };
-  const tick=(yes,x,top)=>{if(yes)page.drawText('X',{x,y:size.height-top+5,size:9,font,color:PDFLib.rgb(0,0,0)});};
-  put(fields['Provider/program name'].value,275,234,145);
-  put(fields['Infant name'].value,220,259,190);
-  put(fields['Infant date of birth'].value,145,278,180);
-  tick(checks['One infant blanket'].checked,34,295);
-  tick(swaddle.value==='Yes',251,359);tick(swaddle.value==='No',290,359);
-  tick(checks['Sleep sack'].checked,34,474);
-  tick(checks['Pacifier'].checked,34,601);
-  tick(checks['Security item'].checked,34,627);
+  // Actual checkbox rectangles: blanket (14,288)-(23,297);
+  // swaddle Yes (202,353)-(211,362), No (247,353)-(256,362);
+  // sleep sack (14,467)-(23,476), pacifier (14,595)-(23,604),
+  // security item (14,620)-(23,629).
+  const tick=(yes,left,top)=>{
+   if(!yes)return;
+   const x=left+1.6,y=size.height-(top+7.7);
+   page.drawText('X',{x,y,size:8,font,color:PDFLib.rgb(0,0,0)});
+  };
+  put(fields['Provider/program name'].value,270,240,155);
+  put(fields['Infant name'].value,228,258,160);
+  put(fields['Infant date of birth'].value,145,277,180);
+  tick(checks['One infant blanket'].checked,14.1,288);
+  tick(swaddle.value==='Yes',201.7,352.9);tick(swaddle.value==='No',246.5,352.9);
+  tick(checks['Sleep sack'].checked,14.1,466.6);
+  tick(checks['Pacifier'].checked,14.1,595.2);
+  tick(checks['Security item'].checked,14.1,620.2);
   if(checks['Security item'].checked)put(security.value,200,627,220);
-  put(fields['Parent/guardian printed name'].value,194,705,185);
-  put(new Date().toLocaleDateString('en-US'),370,723,55);
+  put(fields['Parent/guardian printed name'].value,230,710,170);
+  put(new Date().toLocaleDateString('en-US'),372,722,60);
   if(signed){
    await document.fonts.load('42px "Great Vibes"');
    if(!document.fonts.check('42px "Great Vibes"'))throw Error('Signature font unavailable. Check connection.');
@@ -504,7 +512,7 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
    ctx.fillStyle='#171717';ctx.font='88px "Great Vibes"';ctx.fillText(fields['Parent/guardian printed name'].value,12,83,1060);
    const img=await pdf.embedPng(canvas.toDataURL('image/png'));
    // Printed name ends at top=705; signature belongs on the separate line below.
-   page.drawImage(img,{x:165,y:size.height-730,width:155,height:17});
+   page.drawImage(img,{x:180,y:size.height-728,width:115,height:17});
   }
   return pdf.save();
  };
