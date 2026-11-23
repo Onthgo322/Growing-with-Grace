@@ -3228,12 +3228,15 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   render(hosts.history,rows.filter(x=>['approved','rejected'].includes(x.status)),'Reviewed form assignments');
  }
  async function loadHandbookAcknowledgements(){
-  const host=document.getElementById('pfHandbookList'),notice=document.getElementById('pfHandbookStatus');
+  const host=document.getElementById('pfHandbookList'),notice=document.getElementById('pfHandbookStatus'),history=document.getElementById('pfHistoryList');
+  history.querySelectorAll('[data-handbook-approved]').forEach(el=>el.remove());
   if(!sb||!user){notice.textContent='Sign in as an administrator to view acknowledgments.';return;}
   notice.textContent='Loading handbook acknowledgments…';host.replaceChildren();
-  const {data,error}=await sb.from('parent_handbook_acknowledgements').select('id,child_name,parent_phone,parent1_name,parent1_signature,parent2_name,parent2_signature,handbook_version,signed_at').order('signed_at',{ascending:false}).limit(200);
+  const {data,error}=await sb.from('parent_handbook_acknowledgements').select('id,child_name,parent_phone,parent1_name,parent1_signature,parent2_name,parent2_signature,handbook_version,signed_at,approval_status').order('signed_at',{ascending:false}).limit(200);
   if(error){notice.textContent='Unable to view handbook acknowledgments: '+error.message+'. Administrator read permissions may need to be configured.';return;}
-  notice.textContent=(data||[]).length+' handbook acknowledgment(s) found.';
+  notice.textContent=(data||[]).filter(x=>x.approval_status!=='approved').length+' handbook acknowledgment(s) awaiting approval.';
+  const approvedSection=document.createElement('section');approvedSection.dataset.handbookApproved='true';approvedSection.style.margin='18px 0';
+  const approvedHeading=document.createElement('h4');approvedHeading.textContent='Approved Parent Handbook Acknowledgments ('+(data||[]).filter(x=>x.approval_status==='approved').length+')';approvedSection.append(approvedHeading);history.append(approvedSection);
   if(!data?.length){host.textContent='No handbook acknowledgments are visible to this account.';return;}
   for(const item of data){
    const card=document.createElement('div');card.style.cssText='border:1px solid #ddd5e6;border-radius:9px;padding:12px;margin:9px 0';
@@ -3280,7 +3283,19 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
     }catch(e){notice.textContent='Could not create completed handbook PDF: '+(e.message||String(e));}
     finally{print.disabled=false;}
    };
-   card.append(print);host.append(card);
+   card.append(print);
+   if(item.approval_status==='approved'){
+    const status=document.createElement('p');status.textContent='Approved — available to print anytime';status.style.fontWeight='bold';card.prepend(status);approvedSection.append(card);
+   }else{
+    const approve=document.createElement('button');approve.type='button';approve.textContent='Approve Handbook';approve.style.marginLeft='10px';
+    approve.onclick=async()=>{
+     if(!confirm('Approve the signed Parent Handbook acknowledgment for '+(item.child_name||'this child')+'?'))return;
+     approve.disabled=true;
+     const {data:updated,error:updateError}=await sb.from('parent_handbook_acknowledgements').update({approval_status:'approved'}).eq('id',item.id).select('id');
+     if(updateError||!updated?.length){alert('Could not approve handbook: '+(updateError?.message||'Update permission may be missing.'));approve.disabled=false;return;}
+     await loadHandbookAcknowledgements();
+    };card.append(approve);host.append(card);
+   }
   }
  }
  document.getElementById('pfHandbookRefresh').addEventListener('click',loadHandbookAcknowledgements);
