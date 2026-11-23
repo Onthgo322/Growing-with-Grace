@@ -229,7 +229,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <label for="pfUploadFile" style="margin-top:10px">Choose PDF or Word file</label><input id="pfUploadFile" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
 <button id="pfUploadButton" type="button" class="primary" style="margin-top:10px">Upload Form</button>
 <p id="pfUploadStatus" role="status" class="muted"></p>
-<h3>Uploaded Forms</h3><button id="pfReloadTemplates" type="button">Refresh Form Library</button><div id="pfUploadedList" style="margin-top:10px"></div>
+<h3>Uploaded Forms</h3><button id="pfAddBirthNotice" type="button" class="primary">Add Birth Certificate Notice to Templates</button><p id="pfBirthNoticeStatus" role="status" class="muted"></p><button id="pfReloadTemplates" type="button">Refresh Form Library</button><div id="pfUploadedList" style="margin-top:10px"></div>
 </div><div style="border:1px solid #ddd5e6;border-radius:10px;padding:12px"><strong>Parent Contact Information Update</strong><p>Parents can request changes to guardian names, email addresses, and phone numbers. All requests will need approval before changing a child's saved contacts.</p><p class="muted">Template setup is next. No forms have been sent yet.</p></div></div>
 <div data-pf-pane="send" hidden>
 <h3 style="margin:5px 0">Assign Forms</h3>
@@ -3441,6 +3441,47 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   document.getElementById('pfSaveDraftAssignments').onclick=async()=>{if(!chosenFamilies.size||!chosenForms.size){sendStatus.textContent='Select at least one family and one form.';return;}const rows=[];for(const f of pfFamilies.filter(x=>chosenFamilies.has(x.id))){const ids=new Set(pfLinks.filter(x=>x.family_id===f.id).map(x=>x.child_id));if(f.child_id)ids.add(f.child_id);const kids=pfChildren.filter(x=>ids.has(x.id)&&x.active!==false);for(const t of pfTemplates.filter(x=>chosenForms.has(x.id))){const k=formKind(t);if(k==='family')rows.push({family_id:f.id,template_id:t.id,form_type:'family',status:'draft'});else for(const ch of kids)if((k!=='infant'||isUnder12Months(ch))&&(k!=='infant_sleep'||isUnder12Months(ch)))rows.push({family_id:f.id,child_id:ch.id,template_id:t.id,form_type:k,status:'draft'});}}if(!rows.length){sendStatus.textContent='No assignments to save. Select children for child-specific forms; infant forms require a child under 12 months.';return;}if(!confirm('Save '+rows.length+' draft assignment(s)? Nothing will be sent to parents.'))return;const btn=document.getElementById('pfSaveDraftAssignments');btn.disabled=true;try{const {data:existing,error:readError}=await sb.from('parent_form_assignments').select('family_id,child_id,template_id,status').in('family_id',[...chosenFamilies]).in('template_id',[...chosenForms]).limit(3000);if(readError)throw readError;const key=x=>[x.family_id,x.child_id||'',x.template_id].join('|');const known=new Set((existing||[]).filter(x=>x.status==='draft').map(key));const fresh=rows.filter(x=>!known.has(key(x)));if(!fresh.length){sendStatus.textContent='Draft assignments already saved. No duplicates created.';return;}const {error}=await sb.from('parent_form_assignments').insert(fresh);if(error)throw error;sendStatus.textContent=fresh.length+' draft assignments saved. '+(rows.length-fresh.length)+' existing drafts skipped. Nothing was sent.';}catch(e){sendStatus.textContent='Not saved: '+(e.message||String(e));}finally{btn.disabled=false;}};
  root.querySelector('[data-pf-tab="send"]').addEventListener('click',loadAssignmentChoices);
 
+ document.getElementById('pfAddBirthNotice').onclick=async()=>{
+  const btn=document.getElementById('pfAddBirthNotice'),note=document.getElementById('pfBirthNoticeStatus');
+  if(!sb||!user){note.textContent='Sign in as an administrator first.';return;}
+  btn.disabled=true;note.textContent='Checking existing Birth Certificate Request templates…';
+  try{
+   const {data:existing,error:lookupError}=await sb.from('parent_form_templates').select('id,title,status').ilike('title','Birth Certificate Request').limit(20);
+   if(lookupError)throw lookupError;
+   if(existing?.length){note.textContent='Birth Certificate Request is already in Form Templates ('+existing[0].status+'). No duplicate created.';await loadTemplates();return;}
+   if(!window.PDFLib)throw new Error('PDF generator did not load. Refresh your browser.');
+   const pdf=await PDFLib.PDFDocument.create(),page=pdf.addPage([612,792]);
+   const thick=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold),plain=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+   const ink=PDFLib.rgb(0.07,0.07,0.07),mx=306;
+   const draw=(str,y,size,font=thick)=>page.drawText(str,{x:mx-font.widthOfTextAtSize(str,size)/2,y,size,font,color:ink});
+   // Single-page printable black-and-white reminder.
+   const border={x:28,y:23,width:556,height:746};
+   page.drawRectangle({...border,borderWidth:3,borderColor:ink});
+   page.drawRectangle({x:39,y:34,width:534,height:724,borderWidth:1.5,borderColor:ink});
+   draw('PLEASE',638,69);
+   draw('provide a copy of the',572,25);
+   draw('BIRTH',476,78);
+   draw('CERTIFICATE',402,58);
+   draw('when returning papers.',342,22);
+   const paper={x:161,y:114,width:290,height:187};
+   page.drawRectangle({...paper,borderWidth:4,borderColor:ink});
+   draw('BIRTH CERTIFICATE',266,24);
+   for(const [x,y,w] of [[193,245,221],[193,224,221],[193,203,221],[193,182,130]]){
+    page.drawLine({start:{x,y},end:{x:x+w,y},thickness:2.5,color:ink});
+   }
+   draw('PLEASE INCLUDE A LEGIBLE COPY',83,12,plain);
+   const bytes=await pdf.save();
+   const path=user.id+'/'+crypto.randomUUID()+'.pdf';
+   note.textContent='Uploading Birth Certificate Request to Form Templates…';
+   const {error:uploadError}=await sb.storage.from('parent-forms').upload(path,new Blob([bytes],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});
+   if(uploadError)throw uploadError;
+   const {error:insertError}=await sb.from('parent_form_templates').insert({title:'Birth Certificate Request',file_path:path,file_name:'Birth_Certificate_Request.pdf',file_type:'application/pdf',status:'published',created_by:user.id});
+   if(insertError)throw insertError;
+   note.textContent='Birth Certificate Request added and published! Go to Send Forms, choose all families, select this request, and release it to parents.';
+   await loadTemplates();
+  }catch(e){note.textContent='Could not add Birth Certificate Request: '+(e.message||String(e));}
+  finally{btn.disabled=false;}
+ };
  document.getElementById('pfReloadTemplates').addEventListener('click',loadTemplates);
  root.querySelector('[data-pf-tab="templates"]').addEventListener('click',loadTemplates);
  uploadBtn.addEventListener('click',async()=>{
