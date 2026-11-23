@@ -797,6 +797,43 @@ async function openAdditionalConsentPdf(bytes,template,assignment,type){
   if(c.decisions&&(!fields.decision.value|| (fields.parent2.value.trim()&&(!fields.signer2.value.trim()||!fields.decision2.value)))){alert('Please complete the necessary parent decisions and signatures.');return false;}
   if(!agree.checked){alert('Please confirm the electronic submission.');return false;}return true;};
  const make=async()=>{
+  if(type==='repellent'){
+   // Completed form is composed against the visible source wording, rather than
+   // stamping guessed points into PDFs that can differ from the original upload.
+   const pdf=await PDFLib.PDFDocument.create(),page=pdf.addPage([612,792]);
+   const font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),bold=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
+   const ink=PDFLib.rgb(.16,.16,.16),maroon=PDFLib.rgb(.57,.22,.22);
+   const txt=(value,x,top,size=10,ft=font,color=ink)=>page.drawText(String(value),{x,y:792-top,size,font:ft,color});
+   const center=(value,top,size=14,ft=bold,color=maroon)=>txt(value,(612-ft.widthOfTextAtSize(value,size))/2,top,size,ft,color);
+   const line=(x1,top1,x2,top2)=>page.drawLine({start:{x:x1,y:792-top1},end:{x:x2,y:792-top2},thickness:.7,color:ink});
+   const fit=(value,x,top,width,size=10)=>{value=String(value||'').trim();if(!value)return;let fs=size;while(fs>6&&font.widthOfTextAtSize(value,fs)>width)fs-=.5;txt(value,x,top,fs);};
+   const box=(checked,x,top,label)=>{page.drawRectangle({x,y:792-top-12,width:12,height:12,borderColor:ink,borderWidth:1});if(checked)txt('X',x+2,top+10,10,bold);txt(label,x+21,top+10,9.5);};
+   center('GROWING WITH GRACE CHRISTIAN LEARNING CENTER, LLC',93,13);
+   center('CONSENT TO APPLY INSECT REPELLENT TO CHILD',124,15);
+   txt("Child's Name:",73,171,10);line(153,175,535,175);fit(fields.child.value,159,171,370);
+   txt('As the parent/guardian of the above child, I give permission for',73,209,10);
+   line(407,213,539,213);fit(fields.provider.value,410,209,126,7.6);
+   txt('to apply insect repellent when my child is playing outside.',73,228,10);
+   txt('I have checked all applicable boxes regarding insect repellent use:',73,266,10,bold,maroon);
+   box(checks.allergies.checked,77,284,'I do not know of any allergies my child has to insect repellent');
+   box(checks.staff.checked,77,313,'Staff may use insect repellent of their choice following instructions on the bottle');
+   box(checks.own.checked,77,342,'I have provided the following brand/type of insect repellent:');
+   line(77,391,536,391);if(checks.own.checked)fit(fields.brand.value,81,387,450);
+   txt('Parent/Guardian Name (Printed):',77,440,10);line(265,444,536,444);fit(fields.printed.value,270,440,260);
+   txt('Parent/Guardian Signature:',77,488,10);line(229,492,404,492);
+   txt('Date:',414,488,10);line(445,492,537,492);
+   const value=fields.signer.value.trim();if(value){
+    const cv=document.createElement('canvas'),ctx=cv.getContext('2d');
+    ctx.font='italic 59px "Segoe Script","Brush Script MT","Lucida Handwriting",cursive';
+    const px=Math.max(50,Math.ceil(ctx.measureText(value).width)+24);cv.width=px;cv.height=90;
+    const pen=cv.getContext('2d');pen.font='italic 59px "Segoe Script","Brush Script MT","Lucida Handwriting",cursive';
+    pen.fillStyle='#111';pen.textBaseline='alphabetic';pen.fillText(value,8,65);
+    const img=await pdf.embedPng(cv.toDataURL('image/png'));
+    page.drawImage(img,{x:231,y:792-491,width:Math.min(171,px*.29),height:22});
+   }
+   fit(new Date().toLocaleDateString('en-US'),449,488,86,9);
+   return pdf.save();
+  }
   if(type==='media'){
    // Build the completed version as a clean one-page document.
    // The published source PDF is unchanged; this avoids inconsistent source-template coordinates.
