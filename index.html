@@ -3194,6 +3194,11 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   const submittedIds=new Set((submissions.data||[]).map(x=>x.assignment_id));
   const isSubmitted=x=>!['approved','rejected','archived'].includes(x.status)&&(submittedIds.has(x.id)||['submitted','completed'].includes(x.status));
   if(submissions.error){const warning=document.createElement('p');warning.textContent='Unable to check completed PDF submissions: '+submissions.error.message;hosts.submitted.prepend(warning);}
+  if(!submissions.error&&!submittedIds.size&&rows.some(x=>['sent','pending'].includes(x.status))){
+   const notice=document.createElement('p');notice.className='muted';
+   notice.textContent='No signed submissions are visible to the admin account. If a parent received a successful submission confirmation, the database permissions or submission visibility may need checking.';
+   hosts.submitted.prepend(notice);
+  }
   const render=(host,items,heading)=>{
    const section=document.createElement('section');section.dataset.formAssignmentSection='true';section.style.marginBottom='14px';
    const title=document.createElement('h4');title.textContent=heading+' ('+items.length+')';section.append(title);
