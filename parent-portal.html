@@ -475,7 +475,7 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
   tick(checks['Pacifier'].checked,19,601);
   tick(checks['Security item'].checked,19,627);
   if(checks['Security item'].checked)put(security.value,235,627,210);
-  put(fields['Parent/guardian printed name'].value,315,709,155);
+  put(fields['Parent/guardian printed name'].value,245,709,200);
   put(new Date().toLocaleDateString('en-US'),373,722,80);
   if(signed){
    await document.fonts.load('42px "Great Vibes"');
@@ -483,7 +483,7 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
    const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=130;const ctx=canvas.getContext('2d');
    ctx.fillStyle='#171717';ctx.font='70px "Great Vibes"';ctx.fillText(fields['Parent/guardian printed name'].value,12,85,1150);
    const img=await pdf.embedPng(canvas.toDataURL('image/png'));
-   page.drawImage(img,{x:185,y:size.height-728,width:170,height:18});
+   page.drawImage(img,{x:182,y:size.height-724,width:165,height:21});
   }
   return pdf.save();
  };
@@ -499,11 +499,11 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
   if(!validate())return;
   preview.disabled=true;
   try{
-   const draft=await make(false);if(pdfUrl)window.URL.revokeObjectURL(pdfUrl);
+   const draft=await make(true);if(pdfUrl)window.URL.revokeObjectURL(pdfUrl);
    pdfUrl=window.URL.createObjectURL(new Blob([draft],{type:'application/pdf'}));
    review.replaceChildren();
-   const a=document.createElement('a');a.href=pdfUrl;a.target='_blank';a.rel='noopener';a.textContent='Open completed PDF for review';review.append(a);
-   const sign=document.createElement('button');sign.textContent='Sign and Submit';sign.style.margin='10px';review.append(sign);
+   const a=document.createElement('a');a.href=pdfUrl;a.target='_blank';a.rel='noopener';a.textContent='Open completed PDF with signature preview';review.append(a);
+   const sign=document.createElement('button');sign.textContent='Confirm Signature and Submit';sign.style.margin='10px';review.append(sign);
    sign.onclick=async()=>{
     if(!validate()||!window.confirm('Have you reviewed the completed PDF and want to sign and submit it?'))return;
     sign.disabled=true;
