@@ -16,6 +16,13 @@ nav .tab.primary{background:var(--purple)!important;color:#fff!important}button,
 .panel{background:white;border:1px solid var(--line);border-radius:13px;padding:14px;margin:12px 0;box-shadow:0 2px 8px #25102a0a}
 h2{font-size:1.12rem;margin:0 0 12px}h3{font-size:1rem;margin:16px 0 8px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.reminder-badge{display:inline-block;background:#b42318;color:#fff;border-radius:99px;padding:2px 7px;font-size:12px;font-weight:800;margin-left:3px;vertical-align:middle}
+.reminder-alert{padding:11px 12px;border:1px solid #e6dbea;border-left:5px solid #6f4a8e;border-radius:9px;margin:9px 0;background:#fff}
+.reminder-alert.overdue{border-left-color:#b42318;background:#fff5f4}.reminder-alert.soon{border-left-color:#b16d00;background:#fff9e9}.reminder-alert.missing{border-left-color:#9560a9}
+.reminder-alert strong{display:block}.reminder-alert .muted{margin-top:3px}
+.reminder-counters{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:9px}
+.reminder-counters .metric strong{font-size:1.5rem}
+@media print{#page-reminders button{display:none!important}}
 /* Show the two essential dashboard totals. */
 #page-dashboard .dashboard-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 #page-dashboard .dashboard-metrics .metric{min-width:0;padding:10px 8px}
@@ -203,7 +210,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected · Auto-sync every 15 seconds</div><div class="muted" id="gwgSyncStatus"></div></div><button onclick="printTransactions()">Print Transactions</button></div></div>
 <nav class="noprint" id="mainNavigation" aria-label="Main sections">
 <button type="button" class="tab primary" id="mainLedger">Ledger</button>
-<button type="button" class="tab" data-tab="employees">Employees</button><button type="button" class="tab" data-tab="parentmessages">Parent Messages</button><button type="button" class="tab" data-tab="parentforms">Parent Forms</button>
+<button type="button" class="tab" data-tab="employees">Employees</button><button type="button" class="tab" data-tab="reminders">Reminders <span id="reminderNavBadge" class="reminder-badge hidden" aria-label="Alerts needing attention">0</span></button><button type="button" class="tab" data-tab="parentmessages">Parent Messages</button><button type="button" class="tab" data-tab="parentforms">Parent Forms</button>
 </nav>
 <nav class="noprint" id="ledgerNavigation" aria-label="Ledger sections">
 <button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="transfers">Transfers</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
@@ -211,8 +218,22 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <button class="tab" data-tab="deleted">Deleted Transactions</button><button class="tab" data-tab="allaudit">All-Children Audit</button>
 
 </nav>
-<section class="panel tabpage" id="page-dashboard"><h2>Dashboard</h2><div class="grid dashboard-metrics"><div class="metric"><span class="muted">Active children</span><strong id="countChildren">0</strong></div><div class="metric"><span class="muted">Combined ending ledger balances</span><strong id="balance">$0.00</strong></div></div><p class="muted">All-time totals from saved transactions plus each child's saved beginning balance. Combined ending ledger balances add each child's ending balance, including negative credit balances. CCAP charges and payments are included.</p><h3>Balance breakdown by child</h3><p class="muted small">Read-only, all-time balances including each child’s beginning balance. A positive balance is not necessarily overdue. CCAP payments may be included in individual child totals. Transfer debits increase balances; credits reduce balances.</p><div class="tablewrap"><table><thead><tr><th>Child</th><th>Beginning balance</th><th>Charges</th><th>Payments</th><th>Credits / adjustments</th><th>Net balance</th></tr></thead><tbody id="childBalanceRows"></tbody></table></div></section>
+<section class="panel tabpage" id="page-dashboard"><h2>Dashboard</h2><div class="grid dashboard-metrics"><div class="metric"><span class="muted">Active children</span><strong id="countChildren">0</strong></div><div class="metric"><span class="muted">Combined ending ledger balances</span><strong id="balance">$0.00</strong></div></div><p class="muted">All-time totals from saved transactions plus each child's saved beginning balance. Combined ending ledger balances add each child's ending balance, including negative credit balances. CCAP charges and payments are included.</p><div id="dashboardReminderBox" class="metric" style="margin:12px 0"><strong>Reminders</strong><div id="dashboardReminderText" class="muted">Loading alerts…</div><button type="button" id="openRemindersFromDashboard" style="margin-top:8px">View Reminders</button></div><h3>Balance breakdown by child</h3><p class="muted small">Read-only, all-time balances including each child’s beginning balance. A positive balance is not necessarily overdue. CCAP payments may be included in individual child totals. Transfer debits increase balances; credits reduce balances.</p><div class="tablewrap"><table><thead><tr><th>Child</th><th>Beginning balance</th><th>Charges</th><th>Payments</th><th>Credits / adjustments</th><th>Net balance</th></tr></thead><tbody id="childBalanceRows"></tbody></table></div></section>
 
+<section class="panel tabpage hidden" id="page-reminders">
+<h2>Reminders</h2>
+<p class="muted">Alerts are calculated from saved employee certifications, training records, and Parent Information Forms. Due-soon alerts begin 30 days before a documented deadline. Missing dates are shown for review, not treated as expired. This screen does not send emails or parent messages.</p>
+<div class="reminder-counters">
+<div class="metric"><span class="muted">Needs attention</span><strong id="reminderTotal">—</strong></div>
+<div class="metric"><span class="muted">Overdue / expired</span><strong id="reminderOverdue">—</strong></div>
+<div class="metric"><span class="muted">Due within 30 days</span><strong id="reminderSoon">—</strong></div>
+<div class="metric"><span class="muted">Missing information</span><strong id="reminderMissing">—</strong></div>
+</div>
+<div class="row" style="margin:12px 0"><button type="button" id="reminderRefresh">Refresh reminders</button><span id="reminderUpdated" class="muted" role="status" aria-live="polite">Sign in to load reminders.</span></div>
+<div class="field"><label for="reminderCategory">Show category</label><select id="reminderCategory"><option value="all">All reminders</option><option value="forms">Parent forms</option><option value="cpr">Employee CPR</option><option value="firstaid">Employee First Aid</option><option value="training">Employee education and training</option></select></div>
+<div id="reminderList" aria-live="polite">Loading…</div>
+<p class="muted small">Parent Information Form renewals use July 1 as a planning date only when the most recent form submission is recorded in this portal; confirm individual renewal dates and earlier paper forms before relying on alerts. Training hour targets follow your current employee setup and must be checked against applicable licensing rules. Immunization alerts will appear here once the immunization module is built.</p>
+</section>
 <section class="panel tabpage hidden" id="page-parentforms">
 <h2>Parent Forms</h2><p class="muted">Manage forms submitted by daycare families. Contact changes require administrator review and are never applied automatically.</p>
 <div class="row noprint" id="pfTabs" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">
@@ -2688,13 +2709,14 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
  const ledger=document.getElementById('mainLedger');
  const employees=document.querySelector('#mainNavigation [data-tab="employees"]');
  const messages=document.querySelector('#mainNavigation [data-tab="parentmessages"]');
+ const reminders=document.querySelector('#mainNavigation [data-tab="reminders"]');
  const subnav=document.getElementById('ledgerNavigation');
  if(!ledger||!employees||!subnav)return;
  function showSection(isLedger){
    subnav.classList.toggle('hidden',!isLedger);
    ledger.classList.toggle('primary',isLedger);
    employees.classList.toggle('primary',!isLedger && !messages?.classList.contains('primary'));
-   if(isLedger)messages?.classList.remove('primary');
+   if(isLedger){messages?.classList.remove('primary');reminders?.classList.remove('primary');}
  }
  ledger.addEventListener('click',function(){
    showSection(true);
@@ -2702,10 +2724,11 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    if(current)current.click();
  });
  employees.addEventListener('click',function(){showSection(false);});
- messages?.addEventListener('click',function(){subnav.classList.add('hidden');ledger.classList.remove('primary');employees.classList.remove('primary');messages.classList.add('primary');});
+ messages?.addEventListener('click',function(){subnav.classList.add('hidden');ledger.classList.remove('primary');employees.classList.remove('primary');reminders?.classList.remove('primary');messages.classList.add('primary');});
+ reminders?.addEventListener('click',function(){subnav.classList.add('hidden');ledger.classList.remove('primary');employees.classList.remove('primary');messages?.classList.remove('primary');reminders.classList.add('primary');});
  const forms=document.querySelector('#mainNavigation [data-tab="parentforms"]');
- forms?.addEventListener('click',function(){subnav.classList.add('hidden');ledger.classList.remove('primary');employees.classList.remove('primary');messages?.classList.remove('primary');forms.classList.add('primary');});
- [ledger,employees,messages].filter(Boolean).forEach(btn=>btn.addEventListener('click',()=>forms?.classList.remove('primary')));
+ forms?.addEventListener('click',function(){subnav.classList.add('hidden');ledger.classList.remove('primary');employees.classList.remove('primary');messages?.classList.remove('primary');reminders?.classList.remove('primary');forms.classList.add('primary');});
+ [ledger,employees,messages,reminders].filter(Boolean).forEach(btn=>btn.addEventListener('click',()=>forms?.classList.remove('primary')));
  subnav.querySelectorAll('[data-tab]').forEach(function(tab){
    tab.addEventListener('click',function(){showSection(true);});
  });
@@ -3510,6 +3533,100 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
  });
  setTab('templates');
  loadTemplates();
+})();
+</script>
+<script>
+// Read-only reminders: uses existing records, never modifies ledger or parent submissions.
+(function(){
+ const $r=id=>document.getElementById(id);
+ const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const iso=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+ const today=()=>iso(new Date());
+ const daysUntil=(date,now)=>Math.round((new Date(date+'T12:00:00')-new Date(now+'T12:00:00'))/86400000);
+ const pretty=d=>d?new Date(d+'T12:00:00').toLocaleDateString('en-US'):'Not recorded';
+ let alerts=[],busy=false,lastLoaded=0;
+ function target(e){
+  if(e.annual_hours_override!==null&&e.annual_hours_override!==undefined&&e.annual_hours_override!=='')return Number(e.annual_hours_override);
+  if(['substitute','emergency'].includes(e.employee_classification))return 0;
+  if(e.employee_classification==='director')return 10;
+  if(e.weekly_hours===null||e.weekly_hours===undefined||e.weekly_hours==='')return null;
+  const h=Number(e.weekly_hours);return h>=30?8:h>=20?6:h>=10?4:2;
+ }
+ function make(category,person,title,due,detail,now,missing=false){
+  const days=due?daysUntil(due,now):null;
+  if(!missing&&days!==null&&days>30)return;
+  alerts.push({category,person,title,due,detail,kind:missing?'missing':days<0?'overdue':'soon',days});
+ }
+ function render(){
+  const total=alerts.length,overdue=alerts.filter(x=>x.kind==='overdue').length,soon=alerts.filter(x=>x.kind==='soon').length,missing=alerts.filter(x=>x.kind==='missing').length;
+  $r('reminderTotal').textContent=total;$r('reminderOverdue').textContent=overdue;$r('reminderSoon').textContent=soon;$r('reminderMissing').textContent=missing;
+  const badge=$r('reminderNavBadge');badge.textContent=total;badge.classList.toggle('hidden',!total);
+  $r('dashboardReminderText').textContent=total?total+' item(s) need attention: '+overdue+' overdue/expired, '+soon+' due soon, '+missing+' missing information.':'No upcoming or overdue reminders from the records currently tracked.';
+  const selected=$r('reminderCategory').value;
+  const rows=alerts.filter(x=>selected==='all'||x.category===selected).sort((a,b)=>({overdue:0,soon:1,missing:2}[a.kind]-{overdue:0,soon:1,missing:2}[b.kind])||String(a.due||'').localeCompare(String(b.due||''))||a.person.localeCompare(b.person));
+  $r('reminderList').innerHTML=rows.map(x=>'<div class="reminder-alert '+x.kind+'"><strong>'+safe(x.person)+' — '+safe(x.title)+'</strong><div>'+safe(x.kind==='missing'?'Information needed':x.days<0?'Overdue by '+Math.abs(x.days)+' day(s)':x.days===0?'Due today':'Due in '+x.days+' day(s)')+' · '+safe(pretty(x.due))+'</div><div class="muted">'+safe(x.detail)+'</div></div>').join('')||'<p class="muted">No reminders in this category right now.</p>';
+ }
+ async function refresh(){
+  if(busy)return;
+  if(!sb||!user){$r('reminderUpdated').textContent='Sign in to view reminders.';return;}
+  busy=true;$r('reminderUpdated').textContent='Checking saved records…';
+  try{
+   const [employees,history,families,assignments,submissions,templates]=await Promise.all([
+    sb.from('daycare_employees').select('id,name,cpr_expires_on,employee_classification,weekly_hours,annual_hours_override').eq('user_id',user.id),
+    sb.from('daycare_employee_training_history').select('employee_id,course_name,completed_on,clock_hours,counts_toward_annual,expires_on').eq('user_id',user.id),
+    sb.from('parent_families').select('id,display_name'),
+    sb.from('parent_form_assignments').select('id,family_id,template_id'),
+    sb.from('parent_form_submissions').select('assignment_id,signed_at,created_at'),
+    sb.from('parent_form_templates').select('id,title')
+   ]);
+   if(employees.error)throw employees.error;
+   if(history.error)throw history.error;
+   alerts=[];const now=today(),year=now.slice(0,4),end=year+'-12-31',trainingWarn=daysUntil(end,now)<=30;
+   const histories=history.data||[];
+   for(const e of employees.data||[]){
+    const records=histories.filter(h=>h.employee_id===e.id);
+    make('cpr',e.name,'CPR certification',e.cpr_expires_on||null,'Update the CPR expiration date in Employees.',now,!e.cpr_expires_on);
+    const firstAid=records.filter(h=>/first\s*[- ]?\s*aid/i.test(h.course_name||'')).sort((a,b)=>String(b.completed_on||'').localeCompare(String(a.completed_on||'')))[0];
+    if(!firstAid)make('firstaid',e.name,'First Aid certification',null,'No First Aid training record found. Add the course and expiration date under Employees.',now,true);
+    else if(!firstAid.expires_on)make('firstaid',e.name,'First Aid expiration date',null,'First Aid was recorded, but no expiration date was entered.',now,true);
+    else make('firstaid',e.name,'First Aid certification',firstAid.expires_on,'Update the training record when renewed.',now);
+    for(const h of records.filter(h=>h.expires_on&&!/first\s*[- ]?\s*aid/i.test(h.course_name||''))){
+     make('training',e.name,h.course_name||'Training certificate',h.expires_on,'Training or certificate expiration.',now);
+    }
+    const required=target(e);
+    const completed=records.filter(h=>String(h.completed_on||'').startsWith(year)&&h.counts_toward_annual).reduce((sum,h)=>sum+Number(h.clock_hours||0),0);
+    if(required===null)make('training',e.name,'Annual training hours not configured',null,'Set classification, weekly hours or a verified annual hours override in Employees.',now,true);
+    else if(required>completed&&trainingWarn)make('training',e.name,'Annual training hours',end,completed.toFixed(2)+' of '+required.toFixed(2)+' hours recorded for '+year+'. Confirm the required target with your licensor.',now);
+   }
+   // Form reminders only for families with actual portal form assignments.
+   // July 1 is a proposed annual review date, not proof of compliance.
+   if(!families.error&&!assignments.error&&!submissions.error&&!templates.error){
+    const ids=new Set((templates.data||[]).filter(t=>/parent\s+information\s+(form|sheet)/i.test(t.title||'')).map(t=>t.id));
+    const familyMap=new Map((families.data||[]).map(f=>[f.id,f.display_name||'Family']));
+    const byFamily=new Map();
+    const signedByAssignment=new Map();
+    for(const s of submissions.data||[]){const d=String(s.signed_at||s.created_at||'').slice(0,10);if(!d)continue;const prev=signedByAssignment.get(s.assignment_id);if(!prev||d>prev)signedByAssignment.set(s.assignment_id,d);}
+    for(const a of assignments.data||[]){if(!ids.has(a.template_id))continue;const name=familyMap.get(a.family_id);if(!name||/\btest\b/i.test(name))continue;const signed=signedByAssignment.get(a.id)||'';const prev=byFamily.get(a.family_id);if(!prev||signed>prev)byFamily.set(a.family_id,signed);}
+    for(const [familyId,signed] of byFamily){
+     const name=familyMap.get(familyId);
+     if(!signed){make('forms',name,'Parent Information Form not recorded',null,'No completed form is recorded for this assigned family. Check paper records before following up.',now,true);continue;}
+     const due=(Number(signed.slice(0,4))+1)+'-07-01';
+     make('forms',name,'Parent Information Form annual review',due,'Most recent portal submission: '+pretty(signed)+'. July 1 is a provisional renewal date; confirm the family’s actual deadline.',now);
+    }
+   }
+   render();lastLoaded=Date.now();$r('reminderUpdated').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+'. Alerts update when you open this tab.';
+  }catch(e){$r('reminderUpdated').textContent='Could not load reminders: '+(e.message||String(e));}
+  finally{busy=false;}
+ }
+ $r('reminderRefresh').addEventListener('click',refresh);
+ $r('reminderCategory').addEventListener('change',render);
+ document.querySelector('#mainNavigation [data-tab="reminders"]').addEventListener('click',refresh);
+ $r('openRemindersFromDashboard').addEventListener('click',()=>$r('mainNavigation').querySelector('[data-tab="reminders"]').click());
+ document.addEventListener('gwg:employees-changed',refresh);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-lastLoaded>15*60*1000)refresh();});
+ // Wait for sign-in and load, without changing any existing authentication handlers.
+ const poll=setInterval(()=>{if(sb&&user&&Date.now()-lastLoaded>15*60*1000)refresh();},60*1000);
+ setTimeout(refresh,1200);
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
