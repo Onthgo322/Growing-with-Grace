@@ -1160,7 +1160,12 @@ E('showMessages').onclick=()=>switchParentView('messages');
 async function loadHandbookHistory(){
  const host=E('hbHistory');if(!sb||!currentUser||!family)return;
  const {data,error}=await sb.from('parent_handbook_acknowledgements').select('child_name,parent1_name,parent2_name,signed_at').eq('family_id',family).eq('submitted_by',currentUser.id).order('signed_at',{ascending:false}).limit(30);
- if(error){host.textContent='Unable to load acknowledgements: '+error.message;return;}
+ if(error){host.textContent='Unable to load acknowledgements: '+error.message;E('hbSubmit').disabled=true;E('hbSubmit').textContent='Checking submission status unavailable';return;}
+ const alreadySigned=!!data?.length,handbookButton=E('hbSubmit');
+ handbookButton.disabled=alreadySigned;
+ handbookButton.textContent=alreadySigned?'Already Submitted':'Submit Signed Acknowledgement';
+ handbookButton.style.opacity=alreadySigned?'0.55':'';
+ E('hbStatus').textContent=alreadySigned?'Your Parent Handbook acknowledgement has already been submitted. You do not need to sign it again.':'';
  host.replaceChildren();
  if(!data?.length){host.textContent='No acknowledgements submitted yet.';return;}
  for(const item of data){const p=document.createElement('p');p.textContent=item.child_name+' — '+new Date(item.signed_at).toLocaleString()+' — signed by '+item.parent1_name+(item.parent2_name?' and '+item.parent2_name:'');host.append(p);}
@@ -1175,8 +1180,12 @@ E('hbSubmit').onclick=async()=>{
  if(!E('hbAgree').checked){notice.textContent='Please confirm you have read and agree to the handbook.';return;}
  if(!E('hbESignConsent').checked){notice.textContent='Please consent to using your typed electronic signature before submitting.';return;}
  if(!sb||!family||!currentUser){notice.textContent='Please sign in first.';return;}
- const btn=E('hbSubmit');btn.disabled=true;notice.textContent='Submitting…';
+ const btn=E('hbSubmit');if(btn.disabled)return;btn.disabled=true;notice.textContent='Checking existing acknowledgements…';
  try{
+  const {data:existing,error:existingError}=await sb.from('parent_handbook_acknowledgements').select('id').eq('family_id',family).eq('submitted_by',currentUser.id).limit(1);
+  if(existingError)throw existingError;
+  if(existing?.length){await loadHandbookHistory();return;}
+  notice.textContent='Submitting…';
   const {data:record,error}=await sb.from('parent_handbook_acknowledgements').insert({family_id:family,submitted_by:currentUser.id,child_name:child,parent_phone:phone,parent1_name:p1,parent1_signature:s1,parent2_name:p2||null,parent2_signature:s2||null,handbook_version:'2026-04-09',electronic_signature_consent:true,consent_statement:'I consent to signing this acknowledgment electronically. I understand that typing my full name in the electronic signature field and submitting this form is my electronic signature. I can review the handbook before signing.'}).select('id,child_name,parent_phone,parent1_signature,parent2_signature,signed_at').single();
   if(error)throw error;
   try{notice.textContent='Acknowledgment recorded. Saving the completed PDF…';await saveCompletedHandbookPdf(record);notice.textContent='Acknowledgment and completed PDF saved successfully.';}
@@ -1184,7 +1193,7 @@ E('hbSubmit').onclick=async()=>{
   ['hbPhone','hbParent1','hbSign1','hbParent2','hbSign2'].forEach(id=>E(id).value='');E('hbAgree').checked=false;E('hbESignConsent').checked=false;
   await loadHandbookHistory();
  }catch(e){notice.textContent='Submission failed: '+(e.message||String(e));}
- finally{btn.disabled=false;}
+ finally{if(btn.textContent!=='Already Submitted')btn.disabled=false;}
 };
 E('messageInbox').onclick=()=>{messageView='inbox';load();};
 E('messageArchived').onclick=()=>{messageView='archived';load();};
