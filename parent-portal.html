@@ -646,6 +646,63 @@ async function openInfantInformationPdf(bytes,template,assignment){
  E('assignedFormsList').after(wrap);wrap.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+async function openTransportationAgreementPdf(bytes,template,assignment){
+ E('assignedPdfEditor')?.remove();
+ const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
+ const title=document.createElement('h3');title.textContent='Parent–Provider Transportation Agreement';wrap.append(title);
+ const note=document.createElement('p');note.textContent='Complete the agreement for your assigned child. Check each reason you authorize, then review the original completed PDF before submitting. The provider signature is completed by the center.';wrap.append(note);
+ const fields={},checks={};
+ const field=(key,label,required=false)=>{
+  const l=document.createElement('label');l.style.cssText='display:block;margin:10px 0';l.textContent=label+(required?' *':'');
+  const el=document.createElement('input');el.type='text';el.required=required;el.style.cssText='display:block;width:100%;max-width:460px;padding:8px';
+  l.append(el);wrap.append(l);fields[key]=el;
+ };
+ field('parent','Parent/guardian full name',true);field('children','Child(ren) name(s)',true);
+ const h=document.createElement('h4');h.textContent='Reasons for transportation (check all that apply)';wrap.append(h);
+ const choices=['Field Trips','Shopping','Play Dates','Excursions to the Park','Emergency Purposes','Any reason deemed necessary by the program'];
+ for(const choice of choices){
+  const l=document.createElement('label');l.style.cssText='display:flex;align-items:center;gap:9px;margin:9px 0';
+  const el=document.createElement('input');el.type='checkbox';el.style.cssText='width:18px;height:18px;margin:0;position:static';
+  l.append(el,document.createTextNode(choice));wrap.append(l);checks[choice]=el;
+ }
+ const p=document.createElement('p');p.textContent='I have read the five transportation safety agreements on the original form and agree to the selected permissions.';wrap.append(p);
+ field('signer','Parent/guardian signature (type full name)',true);
+ const consent=document.createElement('label');consent.style.cssText='display:flex;align-items:center;gap:8px;margin:12px 0';
+ const agree=document.createElement('input');agree.type='checkbox';agree.style.cssText='width:18px;height:18px;margin:0;position:static';
+ consent.append(agree,document.createTextNode('I agree to electronically sign and submit this transportation agreement.'));wrap.append(consent);
+ const draftKey='gwg_transportation_'+(currentUser?.id||'guest')+'_'+assignment.id;
+ const snapshot=()=>JSON.stringify({fields:Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value])),checks:Object.fromEntries(Object.entries(checks).map(([k,v])=>[k,v.checked])),agree:agree.checked});
+ const status=document.createElement('p');status.className='muted';wrap.append(status);
+ const save=()=>{try{localStorage.setItem(draftKey,snapshot());status.textContent='Answers saved on this browser';}catch(e){status.textContent='Unable to save draft';}};
+ try{const d=JSON.parse(localStorage.getItem(draftKey)||'null');if(d){for(const [k,v] of Object.entries(d.fields||{}))if(fields[k])fields[k].value=v;for(const [k,v] of Object.entries(d.checks||{}))if(checks[k])checks[k].checked=!!v;agree.checked=!!d.agree;}}catch(e){console.warn(e);}
+ wrap.addEventListener('input',save);wrap.addEventListener('change',save);
+ const validate=()=>{for(const k of ['parent','children','signer'])if(!fields[k].value.trim()){alert('Please complete '+k);return false;}if(!Object.values(checks).some(x=>x.checked)){alert('Select at least one transportation reason.');return false;}if(!agree.checked){alert('Please confirm the electronic signature.');return false;}return true;};
+ const make=async()=>{
+  const pdf=await PDFLib.PDFDocument.load(bytes),page=pdf.getPages()[0],height=page.getSize().height,font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),ink=PDFLib.rgb(0,0,0);
+  const put=(value,x,top,max,size=10)=>{let fs=size;while(fs>6&&font.widthOfTextAtSize(value,fs)>max)fs-=0.5;page.drawText(value,{x,y:height-top,size:fs,font,color:ink});};
+  put(fields.parent.value.trim(),92,143,185);
+  put(fields.children.value.trim(),194,179,185);
+  choices.forEach((c,i)=>{if(checks[c].checked)page.drawText('X',{x:81.5,y:height-(226.5+i*24),size:14,font,color:ink});});
+  put(fields.signer.value.trim(),219,551,173);
+  put(new Date().toLocaleDateString('en-US'),443,551,90);
+  return pdf.save();
+ };
+ const preview=document.createElement('button');preview.textContent='Review Completed PDF';wrap.append(preview);
+ const review=document.createElement('div');wrap.append(review);let url=null;
+ preview.onclick=async()=>{if(!validate())return;preview.disabled=true;try{
+  const result=await make();if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(new Blob([result],{type:'application/pdf'}));
+  review.replaceChildren();const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent='Open completed PDF for review';review.append(link);
+  const submit=document.createElement('button');submit.textContent='Confirm and Submit';submit.style.margin='10px';review.append(submit);
+  submit.onclick=async()=>{if(!validate()||!confirm('Have you reviewed the completed transportation agreement and want to submit it?'))return;submit.disabled=true;try{
+   const signed=await make(),filePath=currentUser.id+'/'+assignment.id+'/'+crypto.randomUUID()+'.pdf';
+   const {error:uploadError}=await sb.storage.from('completed-parent-forms').upload(filePath,new Blob([signed],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});if(uploadError)throw uploadError;
+   const {error:dbError}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:fields.signer.value.trim(),signature_consent:true,completed_pdf_path:filePath});if(dbError)throw dbError;
+   localStorage.removeItem(draftKey);review.textContent='Transportation agreement submitted successfully. Awaiting administrator review.';preview.disabled=true;await loadAssignedForms();
+  }catch(e){alert('Submission failed: '+(e.message||e));submit.disabled=false;}};
+ }catch(e){alert('Could not prepare PDF: '+(e.message||e));}finally{preview.disabled=false;}};
+ E('assignedFormsList').after(wrap);wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 async function openEditableAssignedPdf(template,assignment){
  const {data,error}=await sb.storage.from('parent-forms').createSignedUrl(template.file_path,120);
  if(error)throw error;
@@ -660,6 +717,7 @@ async function openEditableAssignedPdf(template,assignment){
  if(isHealth){await openHealthStatementPdf(bytes,template,assignment);return;}
  if(/infant\s*sleep\s*consent/i.test(template.title||'')){await openInfantSleepConsentPdf(bytes,template,assignment);return;}
  if(/infant\s*information|infant\s*info/i.test(template.title||'')){await openInfantInformationPdf(bytes,template,assignment);return;}
+ if(/transportation\s*(agreement|form)?|parent\s*[-–]?\s*provider\s*transportation/i.test(template.title||'')){await openTransportationAgreementPdf(bytes,template,assignment);return;}
 
  if(!isChildSheet){alert('This form needs its own question mapping before it can be submitted online. The Child Information Sheet is supported first.');return;}
  E('assignedPdfEditor')?.remove();
