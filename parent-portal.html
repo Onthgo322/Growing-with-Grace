@@ -952,14 +952,17 @@ async function openBirthCertificateUpload(template,assignment){
  E('assignedPdfEditor')?.remove();
  const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
  const h=document.createElement('h3');h.textContent='Upload Birth Certificate';wrap.append(h);
- const p=document.createElement('p');p.textContent='Please provide a clear copy of the birth certificate for the child on this assignment. Upload a PDF, JPG, or PNG. No signature is required. This document is submitted privately to Growing With Grace for review.';wrap.append(p);
+ const p=document.createElement('p');p.textContent='Please provide a clear copy of the birth certificate for the child on this assignment. Upload a PDF, JPG, or PNG. No handwritten signature is required; confirm that you authorize its secure submission to Growing With Grace for review.';wrap.append(p);
  const label=document.createElement('label');label.textContent='Select the birth certificate file *';label.style.cssText='display:block;margin:10px 0';const input=document.createElement('input');input.type='file';input.accept='.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';input.style.cssText='display:block;margin:8px 0;width:100%;max-width:460px';label.append(input);wrap.append(label);
  const warning=document.createElement('p');warning.className='muted';warning.textContent='Use a clear full-page scan or photo. Maximum 15 MB. Only upload a document for the child assigned to this request.';wrap.append(warning);
  const preview=document.createElement('button');preview.type='button';preview.textContent='Review Selected Certificate';wrap.append(preview);
+ const consentLabel=document.createElement('label');consentLabel.style.cssText='display:flex;align-items:center;gap:9px;margin:12px 0';
+ const consent=document.createElement('input');consent.type='checkbox';consent.style.cssText='width:18px;height:18px;position:static;margin:0';
+ consentLabel.append(consent,document.createTextNode('I authorize submitting this certificate securely to Growing With Grace for my assigned child.'));wrap.append(consentLabel);
  const review=document.createElement('div');wrap.append(review);const notice=document.createElement('p');notice.className='muted';wrap.append(notice);
  let url=null;
  input.onchange=()=>{review.replaceChildren();notice.textContent='Selected file changed. Review this certificate before uploading.';if(url){window.URL.revokeObjectURL(url);url=null;}};
- const validate=()=>{const file=input.files?.[0];if(!file){notice.textContent='Choose a birth certificate first.';return null;}if(file.size>15*1024*1024){notice.textContent='File must be 15 MB or smaller.';return null;}const allowed=/\.(pdf|jpe?g|png)$/i.test(file.name)||['application/pdf','image/jpeg','image/png'].includes(file.type);if(!allowed){notice.textContent='Choose a PDF, JPG, or PNG file.';return null;}return file;};
+ const validate=()=>{if(!consent.checked){notice.textContent='Please authorize the secure document upload first.';return null;}const file=input.files?.[0];if(!file){notice.textContent='Choose a birth certificate first.';return null;}if(file.size>15*1024*1024){notice.textContent='File must be 15 MB or smaller.';return null;}const allowed=/\.(pdf|jpe?g|png)$/i.test(file.name)||['application/pdf','image/jpeg','image/png'].includes(file.type);if(!allowed){notice.textContent='Choose a PDF, JPG, or PNG file.';return null;}return file;};
  const convert=async file=>{
   const name=file.name.toLowerCase(),bytes=await file.arrayBuffer();
   if(name.endsWith('.pdf')||file.type==='application/pdf'){await PDFLib.PDFDocument.load(bytes);return bytes;}
@@ -988,7 +991,7 @@ async function openBirthCertificateUpload(template,assignment){
      if(prior?.length){notice.textContent='This birth certificate has already been submitted. Please contact the center to replace it.';return;}
      const {error:uploadError}=await sb.storage.from('completed-parent-forms').upload(filePath,new Blob([bytes],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});
      if(uploadError)throw uploadError;
-     const {error:dbError}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:'Birth certificate document upload',signature_consent:false,completed_pdf_path:filePath});
+     const {error:dbError}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:'Authorized birth certificate document upload',signature_consent:true,completed_pdf_path:filePath});
      if(dbError)throw dbError;
      review.textContent='Birth certificate uploaded successfully. Awaiting administrator review.';notice.textContent='Your document has been received. No signature is needed.';preview.disabled=true;await loadAssignedForms();
     }catch(e){notice.textContent='Upload was not completed: '+(e.message||String(e));submit.disabled=false;}
