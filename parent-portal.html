@@ -367,19 +367,22 @@ async function openHealthStatementPdf(bytes,template,assignment){
    const previewCaption=document.createElement('p');previewCaption.textContent='Cursive signature preview — this is how your name will appear on the signed PDF.';previewCaption.style.margin='8px 0 4px';
    signer.addEventListener('input',()=>{signaturePreview.textContent=signer.value;});
    reviewArea.append(previewCaption,signaturePreview);
-   const submit=document.createElement('button');submit.textContent='Sign and Submit';submit.disabled=assignment.status!=='sent';
+   const submit=document.createElement('button');submit.textContent='Sign and Submit';submit.disabled=false;
    submit.onclick=async()=>{
     if(!check.checked||!signer.value.trim())return alert('Confirm your review and enter your signature.');
     if(!confirm('Submit this signed health statement?'))return;
-    submit.disabled=true;
+    submit.disabled=true;submit.textContent='Signing and submitting…';
     try{
+     const {data:existing,error:existingError}=await sb.from('parent_form_submissions').select('assignment_id').eq('assignment_id',assignment.id).limit(1);
+     if(existingError)throw existingError;
+     if(existing?.length)throw new Error('This form has already been submitted. Please refresh the forms list.');
      const signed=await fill(signer.value.trim());
      const path=currentUser.id+'/'+assignment.id+'/'+crypto.randomUUID()+'.pdf';
      const {error:up}=await sb.storage.from('completed-parent-forms').upload(path,new Blob([signed],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});if(up)throw up;
      const {error:db}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:signer.value.trim(),parent_phone:fields.get('Telephone').value.trim()||fields.get('Telephone_1').value.trim(),signature_consent:true,completed_pdf_path:path});
      if(db)throw new Error('PDF saved, but submission record failed. Contact the center before retrying: '+db.message);
      localStorage.removeItem(draftKey);if(pdfUrl)window.URL.revokeObjectURL(pdfUrl);wrap.remove();alert('Health statement submitted successfully.');await loadAssignedForms();
-    }catch(e){alert('Could not submit: '+e.message);submit.disabled=false;}
+    }catch(e){alert('Could not submit: '+e.message);submit.disabled=false;submit.textContent='Sign and Submit';}
    };reviewArea.append(submit);
   }catch(e){alert('Could not prepare PDF: '+e.message);}finally{review.disabled=false;}
  };
