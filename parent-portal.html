@@ -458,28 +458,32 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
  let pdfUrl=null;
  const make=async(signed)=>{
   const pdf=await PDFLib.PDFDocument.load(bytes),page=pdf.getPages()[0],size=page.getSize();
-  const X=v=>v*size.width/768,Y=v=>size.height-v*size.height/1024;
+  // Coordinates below are measured directly on the original 612 × 792 point PDF.
   const font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
-  const put=(value,x,y,max=280)=>{const str=String(value||'');page.drawText(str.slice(0,90),{x:X(x),y:Y(y),size:Math.min(10,size.width/65),font,color:PDFLib.rgb(0.08,0.08,0.08),maxWidth:X(max)});};
-  const tick=(yes,x,y)=>{if(yes)page.drawText('X',{x:X(x),y:Y(y),size:12,font,color:PDFLib.rgb(0,0,0)});};
-  put(fields['Provider/program name'].value,305,322,280);
-  put(fields['Infant name'].value,283,345,245);
-  put(fields['Infant date of birth'].value,182,368,300);
-  tick(checks['One infant blanket'].checked,20,383);
-  tick(swaddle.value==='Yes',256,468);tick(swaddle.value==='No',313,468);
-  tick(checks['Sleep sack'].checked,20,594);
-  tick(checks['Pacifier'].checked,20,772);
-  tick(checks['Security item'].checked,20,805);
-  if(checks['Security item'].checked)put(security.value,270,805,260);
-  put(fields['Parent/guardian printed name'].value,255,919,245);
-  put(new Date().toLocaleDateString('en-US'),446,939,90);
+  const put=(value,x,top,max=260)=>{
+   const str=String(value||'').trim();if(!str)return;
+   let fontSize=9;while(fontSize>6&&font.widthOfTextAtSize(str,fontSize)>max)fontSize-=0.5;
+   page.drawText(str,{x,y:size.height-top,size:fontSize,font,color:PDFLib.rgb(0.08,0.08,0.08)});
+  };
+  const tick=(yes,x,top)=>{if(yes)page.drawText('X',{x,y:size.height-top,size:10,font,color:PDFLib.rgb(0,0,0)});};
+  put(fields['Provider/program name'].value,290,242,240);
+  put(fields['Infant name'].value,230,260,180);
+  put(fields['Infant date of birth'].value,128,277,230);
+  tick(checks['One infant blanket'].checked,19,295);
+  tick(swaddle.value==='Yes',226,359);tick(swaddle.value==='No',268,359);
+  tick(checks['Sleep sack'].checked,19,474);
+  tick(checks['Pacifier'].checked,19,601);
+  tick(checks['Security item'].checked,19,627);
+  if(checks['Security item'].checked)put(security.value,235,627,210);
+  put(fields['Parent/guardian printed name'].value,315,709,155);
+  put(new Date().toLocaleDateString('en-US'),373,722,80);
   if(signed){
    await document.fonts.load('42px "Great Vibes"');
    if(!document.fonts.check('42px "Great Vibes"'))throw Error('Signature font unavailable. Check connection.');
    const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=130;const ctx=canvas.getContext('2d');
    ctx.fillStyle='#171717';ctx.font='70px "Great Vibes"';ctx.fillText(fields['Parent/guardian printed name'].value,12,85,1150);
    const img=await pdf.embedPng(canvas.toDataURL('image/png'));
-   page.drawImage(img,{x:X(232),y:Y(943),width:X(235),height:size.height*26/1024});
+   page.drawImage(img,{x:185,y:size.height-728,width:170,height:18});
   }
   return pdf.save();
  };
