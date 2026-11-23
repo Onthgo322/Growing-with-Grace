@@ -495,9 +495,9 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
    page.drawLine({start:{x,y},end:{x:x+5.5,y:y-5.5},thickness:1.1,color:c});
    page.drawLine({start:{x:x+5.5,y},end:{x,y:y-5.5},thickness:1.1,color:c});
   };
-  put(fields['Provider/program name'].value,279,227,190);
+  put(fields['Provider/program name'].value,255,227,190);
   put(fields['Infant name'].value,254,246,185);
-  put(fields['Infant date of birth'].value,157,262,180);
+  put(fields['Infant date of birth'].value,157,264,180);
   tick(checks['One infant blanket'].checked,14.1,282);
   tick(swaddle.value==='Yes',201.7,342.9);tick(swaddle.value==='No',246.5,342.9);
   tick(checks['Sleep sack'].checked,14.1,456.6);
