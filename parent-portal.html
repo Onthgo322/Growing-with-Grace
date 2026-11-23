@@ -619,9 +619,9 @@ async function openInfantInformationPdf(bytes,template,assignment){
    if(checked)page.drawText('X',{x:x+2.5,y:height-top+2.2,size:9,font,color:black});
    page.drawText(label,{x:x+17,y:height-top+2,size:9,font,color:black});
   };
-  for(const [x,label] of [[78,'Blanket'],[158,'Clothes'],[238,'Diapers'],[318,'Wipes'],[398,'Kleenex'],[478,'Pacifier']])bringBox(x,571,label,true);
-  for(const [x,label] of [[78,'Bottles'],[178,'Liners'],[278,'Ointment']])bringBox(x,596,label,true);
-  bringBox(378,596,'Breastmilk/formula',!!(checks.bringBreastmilk?.checked||checks.bringFormula?.checked));
+  for(const [x,label] of [[78,'Blanket'],[149,'Clothes'],[218,'Diapers'],[289,'Wipes'],[353,'Kleenex'],[431,'Pacifier']])bringBox(x,571,label,true);
+  for(const [x,label] of [[78,'Bottles'],[155,'Liners'],[219,'Ointment']])bringBox(x,596,label,true);
+  bringBox(309,596,'Breastmilk/formula',!!(checks.bringBreastmilk?.checked||checks.bringFormula?.checked));
   // Parent confirmation is captured by the submission record, without an extra PDF page.
   return pdf.save();
  };
