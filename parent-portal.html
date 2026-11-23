@@ -554,6 +554,80 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
  E('assignedFormsList').after(wrap);wrap.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+
+async function openInfantInformationPdf(bytes,template,assignment){
+ E('assignedPdfEditor')?.remove();
+ const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
+ wrap.innerHTML='<h3>Infant Information</h3><p>Complete the infant information below. Review the original completed PDF before submitting. This form is for the assigned infant only.</p>';
+ const fields={},checks={};
+ const add=(key,label,kind='text',required=false)=>{
+  const l=document.createElement('label');l.style.cssText='display:block;margin:9px 0';l.textContent=label+(required?' *':'');
+  const el=document.createElement('input');el.type=kind;el.required=required;
+  el.style.cssText=kind==='checkbox'?'margin-left:12px':'display:block;width:100%;max-width:460px;padding:8px';
+  l.append(el);wrap.append(l);(kind==='checkbox'?checks:fields)[key]=el;return el;
+ };
+ const section=t=>{const h=document.createElement('h4');h.textContent=t;wrap.append(h);};
+ section('Infant');add('name',"Child's name",'text',true);add('dob','Birth date','date',true);
+ section('Feeding');
+ for(const [k,l] of [['breast','Breast-fed?'],['milk','Bring milk?'],['supplement','Supplement formula?'],['preference','Preference'],['formula','Formula type'],['frequency','Feeding frequency'],['amount','Amount'],['temperature','Temperature (heated/room)'],['burping','Burping?'],['burpOften','How often?'],['allergies','Allergies/intolerance']])add(k,l);
+ for(const k of ['Fruits','Vegetables','Cereals','Meats','Juices'])add(k,k,'checkbox');
+ section('Sleeping');
+ for(const [k,l] of [['pacifier','Pacifier?'],['rocked','Rocked?'],['naps','Naps/day'],['napLength','Nap length'],['sleeper','Light/sound sleeper'],['swaddling','Swaddling']])add(k,l);
+ section('Diapering');add('powder','Powder/ointment');add('rash','Diaper rash care');
+ section('Items to bring');for(const k of ['Blanket','Clothes','Diapers','Wipes','Kleenex','Pacifier','Bottles','Liners','Ointment','Formula'])add('bring'+k,k,'checkbox');
+ section('Parent acknowledgement');add('signer','Parent/guardian printed name','text',true);
+ const consent=document.createElement('label');consent.style.cssText='display:block;margin:14px 0';
+ const agree=document.createElement('input');agree.type='checkbox';consent.append(agree,document.createTextNode(' I confirm the information is accurate and authorize electronic submission.'));wrap.append(consent);
+ const draftKey='gwg_infant_information_'+(currentUser?.id||'guest')+'_'+assignment.id;
+ const snapshot=()=>JSON.stringify({fields:Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value])),checks:Object.fromEntries(Object.entries(checks).map(([k,v])=>[k,v.checked])),agree:agree.checked});
+ const status=document.createElement('p');status.className='muted';wrap.append(status);
+ const save=()=>{try{localStorage.setItem(draftKey,snapshot());status.textContent='Answers saved on this browser';}catch(e){status.textContent='Unable to save draft on this browser';}};
+ try{const d=JSON.parse(localStorage.getItem(draftKey)||'null');if(d){for(const [k,v] of Object.entries(d.fields||{}))if(fields[k])fields[k].value=v;for(const [k,v] of Object.entries(d.checks||{}))if(checks[k])checks[k].checked=!!v;agree.checked=!!d.agree;}}catch(e){console.warn(e);}
+ wrap.addEventListener('input',save);wrap.addEventListener('change',save);
+ const validate=()=>{for(const k of ['name','dob','signer'])if(!fields[k].value.trim()){alert('Please complete '+k);return false;}if(!agree.checked){alert('Please confirm the parent acknowledgement.');return false;}return true;};
+ const make=async()=>{
+  const pdf=await PDFLib.PDFDocument.load(bytes),page=pdf.getPages()[0],height=page.getSize().height,font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+  const put=(key,x,top,max=120)=>{const val=(fields[key]?.value||'').trim();if(!val)return;let fs=9;while(fs>5.5&&font.widthOfTextAtSize(val,fs)>max)fs-=0.5;page.drawText(val,{x,y:height-top,size:fs,font,color:PDFLib.rgb(0,0,0)});};
+  const mark=(key,x,top)=>{if(!checks[key]?.checked)return;page.drawText('X',{x,y:height-top,size:10,font,color:PDFLib.rgb(0,0,0)});};
+  put('name',175,98,170);put('dob',432,98,105);
+  put('breast',156,147,40);put('milk',280,147,45);
+  put('supplement',225,172,200);
+  put('preference',151,197,135);put('formula',389,197,145);
+  put('frequency',218,222,95);put('amount',386,222,95);
+  put('temperature',282,247,220);
+  for(const [k,x] of [['Fruits',132],['Vegetables',203],['Cereals',304],['Meats',397],['Juices',476]])mark(k,x,272);
+  put('burping',145,297,50);put('burpOften',291,297,55);
+  put('allergies',224,322,290);
+  put('pacifier',145,371,48);put('rocked',253,371,48);
+  put('naps',145,396,46);put('napLength',286,396,75);
+  put('sleeper',236,421,240);put('swaddling',168,446,245);
+  put('powder',231,495,250);put('rash',202,520,270);
+  for(const [k,x] of [['Blanket',80],['Clothes',171],['Diapers',262],['Wipes',354],['Kleenex',433],['Pacifier',524]])mark('bring'+k,x,569);
+  for(const [k,x] of [['Bottles',80],['Liners',171],['Ointment',261],['Formula',363]])mark('bring'+k,x,594);
+  // Original form has no signature line; append a separate acknowledgement page.
+  const ack=pdf.addPage([612,792]);ack.drawText('INFANT INFORMATION - PARENT ACKNOWLEDGEMENT',{x:55,y:735,size:14,font});
+  ack.drawText('Child: '+fields.name.value.trim(),{x:55,y:690,size:11,font});
+  ack.drawText('Parent/guardian: '+fields.signer.value.trim(),{x:55,y:665,size:11,font});
+  ack.drawText('I confirm that the information provided is accurate.',{x:55,y:625,size:11,font});
+  ack.drawText('Electronically acknowledged on '+new Date().toLocaleString('en-US'),{x:55,y:600,size:10,font});
+  return pdf.save();
+ };
+ const preview=document.createElement('button');preview.textContent='Review Completed PDF';wrap.append(preview);
+ const review=document.createElement('div');wrap.append(review);let url=null;
+ preview.onclick=async()=>{if(!validate())return;preview.disabled=true;try{
+  const bytesOut=await make();if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(new Blob([bytesOut],{type:'application/pdf'}));
+  review.replaceChildren();const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent='Open completed PDF for review';review.append(link);
+  const submit=document.createElement('button');submit.textContent='Confirm and Submit';submit.style.margin='10px';review.append(submit);
+  submit.onclick=async()=>{if(!validate()||!confirm('Have you reviewed the completed PDF and want to submit it?'))return;submit.disabled=true;try{
+   const signed=await make(),filePath=currentUser.id+'/'+assignment.id+'/'+crypto.randomUUID()+'.pdf';
+   const {error:uploadError}=await sb.storage.from('completed-parent-forms').upload(filePath,new Blob([signed],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});if(uploadError)throw uploadError;
+   const {error:dbError}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:fields.signer.value.trim(),signature_consent:true,completed_pdf_path:filePath});if(dbError)throw dbError;
+   localStorage.removeItem(draftKey);review.textContent='Infant Information submitted successfully. Awaiting administrator review.';preview.disabled=true;await loadAssignedForms();
+  }catch(e){alert('Submission failed: '+(e.message||e));submit.disabled=false;}};
+ }catch(e){alert('Could not prepare PDF: '+(e.message||e));}finally{preview.disabled=false;}};
+ E('assignedFormsList').after(wrap);wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 async function openEditableAssignedPdf(template,assignment){
  const {data,error}=await sb.storage.from('parent-forms').createSignedUrl(template.file_path,120);
  if(error)throw error;
@@ -567,6 +641,7 @@ async function openEditableAssignedPdf(template,assignment){
  const isHealth=names.has('Name_1')&&names.has('BirthDate')&&names.has('AllergyList')&&names.has('DateSigned_1');
  if(isHealth){await openHealthStatementPdf(bytes,template,assignment);return;}
  if(/infant\s*sleep\s*consent/i.test(template.title||'')){await openInfantSleepConsentPdf(bytes,template,assignment);return;}
+ if(/infant\s*information|infant\s*info/i.test(template.title||'')){await openInfantInformationPdf(bytes,template,assignment);return;}
 
  if(!isChildSheet){alert('This form needs its own question mapping before it can be submitted online. The Child Information Sheet is supported first.');return;}
  E('assignedPdfEditor')?.remove();
