@@ -600,20 +600,22 @@ async function openInfantInformationPdf(bytes,template,assignment){
   put('frequency',173,222,54);put('amount',276,222,54);
   put('temperature',215,247,112);
   // PDF text extraction: exact opening-bracket x coordinates, plus a centered inset.
-  const pdfBox=(x,top,checked)=>{const c=PDFLib.rgb(0,0,0);page.drawRectangle({x:x-0.6,y:height-top-0.5,width:11.2,height:13,color:PDFLib.rgb(1,1,1)});page.drawRectangle({x,y:height-top+1,width:9,height:9,borderWidth:0.8,borderColor:c});if(checked)page.drawText('X',{x:x+1.5,y:height-top+2.1,size:7,font,color:c});};
-  for(const [k,x] of [['Fruits',112.4],['Vegetables',153.3],['Cereals',220.4],['Meats',271.2],['Juices',314.4]])pdfBox(x,272,!!checks[k]?.checked);
+  // The original PDF already has [ ] checkboxes. Draw X only, centered between brackets.
+  const boxX=(left,top,checked)=>{if(checked)page.drawText('X',{x:left+3.8,y:height-top,size:9,font,color:PDFLib.rgb(0,0,0)});};
+  for(const [k,x] of [['Fruits',112.4],['Vegetables',153.3],['Cereals',220.4],['Meats',271.2],['Juices',314.4]])boxX(x,272,!!checks[k]?.checked);
   put('burping',125,297,19);put('burpOften',207,297,115);
   put('allergies',181,322,111);
   put('pacifier',124,371,19);put('rocked',195,371,19);
   put('naps',130,396,19);put('napLength',213,396,19);
   put('sleeper',178,421,111);put('swaddling',135,446,111);
   put('powder',165,495,111);put('rash',164,520,111);
-  // Replace the printed bracket glyphs with actual square boxes to avoid offset X marks.
-  for(const x of [78,127.6,177.8,228.6,272.3,324.9])pdfBox(x,569,true);
-  for(const x of [78,124.7,167.9])pdfBox(x,594,true);
-  pdfBox(225.1,594,!!checks.bringFormula?.checked);
-  pdfBox(282.5,594,!!checks.bringBreastmilk?.checked);
-  page.drawText('Breastmilk',{x:297.5,y:height-594,size:9,font,color:PDFLib.rgb(0,0,0)});
+  // Original [ ] boxes are retained; no extra rectangles or small boxes.
+  for(const x of [78,127.6,177.8,228.6,272.3,324.9])boxX(x,569,true);
+  for(const x of [78,124.7,167.9])boxX(x,594,true);
+  boxX(225.1,594,!!checks.bringFormula?.checked);
+  // The original has no Breastmilk checkbox; draw one bracket pair after Formula.
+  page.drawText('[  ] Breastmilk',{x:282,y:height-594,size:10,font,color:PDFLib.rgb(0,0,0)});
+  boxX(282,594,!!checks.bringBreastmilk?.checked);
   // Parent confirmation is captured by the submission record, without an extra PDF page.
   return pdf.save();
  };
