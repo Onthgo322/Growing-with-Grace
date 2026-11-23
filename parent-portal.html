@@ -703,6 +703,56 @@ async function openTransportationAgreementPdf(bytes,template,assignment){
  E('assignedFormsList').after(wrap);wrap.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+async function openSunscreenConsentPdf(bytes,template,assignment){
+ E('assignedPdfEditor')?.remove();
+ const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
+ const h=document.createElement('h3');h.textContent='Consent to Apply Sunscreen to Child';wrap.append(h);
+ const intro=document.createElement('p');intro.textContent='Complete this consent for the assigned child, review the original PDF, and electronically sign before submitting.';wrap.append(intro);
+ const fields={},checks={};
+ const field=(key,label,required=false)=>{const l=document.createElement('label');l.style.cssText='display:block;margin:10px 0';l.textContent=label+(required?' *':'');const el=document.createElement('input');el.type='text';el.required=required;el.style.cssText='display:block;width:100%;max-width:460px;padding:8px';l.append(el);wrap.append(l);fields[key]=el;};
+ field('child',"Child's name",true);
+ field('provider','Name of child care provider/program',true);fields.provider.value='Growing With Grace Christian Learning Center';
+ const hh=document.createElement('h4');hh.textContent='Sunscreen permissions (check all that apply)';wrap.append(hh);
+ const opts=[['noAllergies','I do not know of any allergies my child has to sunscreen'],['staffChoice','Staff may use sunscreen of their choice following instructions on the bottle'],['ownBrand','I have provided the following brand/type of sunscreen']];
+ for(const [key,label] of opts){const l=document.createElement('label');l.style.cssText='display:flex;align-items:center;gap:9px;margin:9px 0';const el=document.createElement('input');el.type='checkbox';el.style.cssText='width:18px;height:18px;margin:0;position:static';l.append(el,document.createTextNode(label));wrap.append(l);checks[key]=el;}
+ field('brand','Brand/type of sunscreen provided (if selected)');
+ field('printed','Parent/guardian printed name',true);field('signer','Parent/guardian electronic signature (type full name)',true);
+ const consent=document.createElement('label');consent.style.cssText='display:flex;align-items:center;gap:8px;margin:12px 0';const agree=document.createElement('input');agree.type='checkbox';agree.style.cssText='width:18px;height:18px;margin:0;position:static';consent.append(agree,document.createTextNode('I confirm this information is accurate and consent to electronically sign.'));wrap.append(consent);
+ const draftKey='gwg_sunscreen_consent_'+(currentUser?.id||'guest')+'_'+assignment.id;
+ const snapshot=()=>JSON.stringify({fields:Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value])),checks:Object.fromEntries(Object.entries(checks).map(([k,v])=>[k,v.checked])),agree:agree.checked});
+ const status=document.createElement('p');status.className='muted';wrap.append(status);
+ const save=()=>{try{localStorage.setItem(draftKey,snapshot());status.textContent='Answers saved on this browser';}catch(e){status.textContent='Unable to save draft';}};
+ try{const d=JSON.parse(localStorage.getItem(draftKey)||'null');if(d){for(const [k,v] of Object.entries(d.fields||{}))if(fields[k])fields[k].value=v;for(const [k,v] of Object.entries(d.checks||{}))if(checks[k])checks[k].checked=!!v;agree.checked=!!d.agree;}}catch(e){console.warn(e);}
+ wrap.addEventListener('input',save);wrap.addEventListener('change',save);
+ const validate=()=>{for(const k of ['child','provider','printed','signer'])if(!fields[k].value.trim()){alert('Please complete '+k);return false;}if(!Object.values(checks).some(el=>el.checked)){alert('Check at least one sunscreen statement.');return false;}if(checks.ownBrand.checked&&!fields.brand.value.trim()){alert('Enter the brand/type of sunscreen provided.');return false;}if(!agree.checked){alert('Please confirm the electronic signature.');return false;}return true;};
+ const make=async()=>{
+  const pdf=await PDFLib.PDFDocument.load(bytes),page=pdf.getPages()[0],height=page.getSize().height,font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),ink=PDFLib.rgb(0,0,0);
+  const put=(value,x,top,max,size=10)=>{value=value.trim();if(!value)return;let fs=size;while(fs>6&&font.widthOfTextAtSize(value,fs)>max)fs-=0.5;page.drawText(value,{x,y:height-top,size:fs,font,color:ink});};
+  put(fields.child.value,169,142,330);
+  put(fields.provider.value,394,166,180,8);
+  for(const [key,top] of [['noAllergies',215],['staffChoice',239],['ownBrand',263]])if(checks[key].checked)page.drawText('X',{x:81,y:height-top-10,size:13,font,color:ink});
+  if(checks.ownBrand.checked)put(fields.brand.value,80,299,450);
+  put(fields.printed.value,305,322,245);
+  put(fields.signer.value,256,346,165);
+  put(new Date().toLocaleDateString('en-US'),467,346,85);
+  return pdf.save();
+ };
+ const preview=document.createElement('button');preview.textContent='Review Completed PDF';wrap.append(preview);
+ const review=document.createElement('div');wrap.append(review);let url=null;
+ preview.onclick=async()=>{if(!validate())return;preview.disabled=true;try{
+  const result=await make();if(url)window.URL.revokeObjectURL(url);url=window.URL.createObjectURL(new Blob([result],{type:'application/pdf'}));
+  review.replaceChildren();const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent='Open completed PDF for review';review.append(link);
+  const submit=document.createElement('button');submit.textContent='Confirm and Submit';submit.style.margin='10px';review.append(submit);
+  submit.onclick=async()=>{if(!validate()||!confirm('Have you reviewed the completed sunscreen consent and want to submit it?'))return;submit.disabled=true;try{
+   const signed=await make(),filePath=currentUser.id+'/'+assignment.id+'/'+crypto.randomUUID()+'.pdf';
+   const {error:uploadError}=await sb.storage.from('completed-parent-forms').upload(filePath,new Blob([signed],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});if(uploadError)throw uploadError;
+   const {error:dbError}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:fields.signer.value.trim(),signature_consent:true,completed_pdf_path:filePath});if(dbError)throw dbError;
+   localStorage.removeItem(draftKey);review.textContent='Sunscreen consent submitted successfully. Awaiting administrator review.';preview.disabled=true;await loadAssignedForms();
+  }catch(e){alert('Submission failed: '+(e.message||e));submit.disabled=false;}};
+ }catch(e){alert('Could not prepare PDF: '+(e.message||e));}finally{preview.disabled=false;}};
+ E('assignedFormsList').after(wrap);wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 async function openEditableAssignedPdf(template,assignment){
  const {data,error}=await sb.storage.from('parent-forms').createSignedUrl(template.file_path,120);
  if(error)throw error;
@@ -718,6 +768,7 @@ async function openEditableAssignedPdf(template,assignment){
  if(/infant\s*sleep\s*consent/i.test(template.title||'')){await openInfantSleepConsentPdf(bytes,template,assignment);return;}
  if(/infant\s*information|infant\s*info/i.test(template.title||'')){await openInfantInformationPdf(bytes,template,assignment);return;}
  if(/transportation\s*(agreement|form)?|parent\s*[-–]?\s*provider\s*transportation/i.test(template.title||'')){await openTransportationAgreementPdf(bytes,template,assignment);return;}
+ if(/sunscreen\s*consent|consent\s*to\s*apply\s*sunscreen/i.test(template.title||'')){await openSunscreenConsentPdf(bytes,template,assignment);return;}
 
  if(!isChildSheet){alert('This form needs its own question mapping before it can be submitted online. The Child Information Sheet is supported first.');return;}
  E('assignedPdfEditor')?.remove();
