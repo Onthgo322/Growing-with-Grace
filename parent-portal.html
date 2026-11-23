@@ -574,7 +574,7 @@ async function openInfantInformationPdf(bytes,template,assignment){
  section('Sleeping');
  for(const [k,l] of [['pacifier','Pacifier?'],['rocked','Rocked?'],['naps','Naps/day'],['napLength','Nap length'],['sleeper','Light/sound sleeper'],['swaddling','Swaddling']])add(k,l);
  section('Diapering');add('powder','Powder/ointment');add('rash','Diaper rash care');
- section('Items to bring');for(const k of ['Blanket','Clothes','Diapers','Wipes','Kleenex','Pacifier','Bottles','Liners','Ointment','Formula'])add('bring'+k,k,'checkbox').checked=true;
+ section('Items to bring');const bringItems=['Blanket','Clothes','Diapers','Wipes','Kleenex','Pacifier','Bottles','Liners','Ointment','Formula'];for(const k of bringItems){const line=document.createElement('div');line.style.cssText='display:flex;align-items:center;gap:8px;margin:8px 0';line.textContent='✓ '+k+' — required to bring';wrap.append(line);}
  section('Parent acknowledgement');add('signer','Parent/guardian printed name','text',true);
  const consent=document.createElement('label');consent.style.cssText='display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:14px 0';
  const agree=document.createElement('input');agree.type='checkbox';agree.style.cssText='width:18px;height:18px;flex:0 0 18px;margin:0;position:static';consent.append(agree,document.createTextNode(' I confirm the information is accurate and authorize electronic submission.'));wrap.append(consent);
@@ -602,8 +602,8 @@ async function openInfantInformationPdf(bytes,template,assignment){
   put('naps',145,396,46);put('napLength',286,396,75);
   put('sleeper',236,421,240);put('swaddling',168,446,245);
   put('powder',231,495,250);put('rash',202,520,270);
-  for(const [k,x] of [['Blanket',79],['Clothes',129],['Diapers',179],['Wipes',230],['Kleenex',274],['Pacifier',326]])mark('bring'+k,x,567);
-  for(const [k,x] of [['Bottles',79],['Liners',126],['Ointment',169],['Formula',226]])mark('bring'+k,x,592);
+  for(const [k,x] of [['Blanket',79],['Clothes',129],['Diapers',179],['Wipes',230],['Kleenex',274],['Pacifier',326]])page.drawText('X',{x,y:height-567,size:10,font,color:PDFLib.rgb(0,0,0)});
+  for(const [k,x] of [['Bottles',79],['Liners',126],['Ointment',169],['Formula',226]])page.drawText('X',{x,y:height-592,size:10,font,color:PDFLib.rgb(0,0,0)});
   // Original form has no signature line; append a separate acknowledgement page.
   const ack=pdf.addPage([612,792]);ack.drawText('INFANT INFORMATION - PARENT ACKNOWLEDGEMENT',{x:55,y:735,size:14,font});
   ack.drawText('Child: '+fields.name.value.trim(),{x:55,y:690,size:11,font});
