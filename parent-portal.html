@@ -591,28 +591,29 @@ async function openInfantInformationPdf(bytes,template,assignment){
   const pdf=await PDFLib.PDFDocument.load(bytes),page=pdf.getPages()[0],height=page.getSize().height,font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
   const put=(key,x,top,max=120)=>{const val=(fields[key]?.value||'').trim();if(!val)return;let fs=9;while(fs>5.5&&font.widthOfTextAtSize(val,fs)>max)fs-=0.5;page.drawText(val,{x,y:height-top,size:fs,font,color:PDFLib.rgb(0,0,0)});};
   const mark=(key,x,top)=>{if(!checks[key]?.checked)return;page.drawText('X',{x,y:height-top,size:10,font,color:PDFLib.rgb(0,0,0)});};
-  // Coordinates follow the original 612 x 792 point PDF; top values are text baselines.
-  put('name',154,98,145);put('dob',387,98,120);
-  put('breast',145,147,45);put('milk',248,147,65);
-  put('supplement',196,172,185);
-  put('preference',144,197,125);put('formula',362,197,145);
-  put('frequency',195,222,95);put('amount',377,222,80);
-  put('temperature',260,247,205);
-  for(const [k,x] of [['Fruits',114],['Vegetables',184],['Cereals',263],['Meats',342],['Juices',407]])mark(k,x,270);
-  put('burping',129,297,40);put('burpOften',242,297,95);
-  put('allergies',184,322,230);
-  put('pacifier',133,371,45);put('rocked',230,371,45);
-  put('naps',127,396,40);put('napLength',241,396,80);
-  put('sleeper',198,421,220);put('swaddling',140,446,240);
-  put('powder',178,495,210);put('rash',170,520,230);
-  // Permanent ticks must sit inside the original boxes.
-  for(const x of [81,162,244,318,391,473])page.drawText('X',{x,y:height-567,size:9,font,color:PDFLib.rgb(0,0,0)});
-  for(const x of [81,162,236])page.drawText('X',{x,y:height-592,size:9,font,color:PDFLib.rgb(0,0,0)});
-  mark('bringFormula',315,592);
-  // Breastmilk is not printed on the original; add it to the right of Formula.
-  page.drawRectangle({x:389,y:height-591,width:10,height:10,borderWidth:0.7,borderColor:PDFLib.rgb(0,0,0)});
-  page.drawText('Breastmilk',{x:405,y:height-590,size:9,font,color:PDFLib.rgb(0,0,0)});
-  mark('bringBreastmilk',390,590);
+  // Measured against the exact original 612x792 PDF text and checkbox positions.
+  // Values start at the beginning of their underline and are width-limited to its end.
+  put('name',149,98,158);put('dob',368,98,112);
+  put('breast',137,147,20);put('milk',218,147,20);
+  put('supplement',183,172,112);
+  put('preference',138,197,112);put('formula',325,197,111);
+  put('frequency',173,222,54);put('amount',276,222,54);
+  put('temperature',215,247,112);
+  for(const [k,x] of [['Fruits',114],['Vegetables',155],['Cereals',222],['Meats',273],['Juices',316]])mark(k,x,271);
+  put('burping',125,297,19);put('burpOften',207,297,19);
+  put('allergies',181,322,111);
+  put('pacifier',124,371,19);put('rocked',195,371,19);
+  put('naps',130,396,19);put('napLength',213,396,19);
+  put('sleeper',178,421,111);put('swaddling',135,446,111);
+  put('powder',165,495,111);put('rash',164,520,111);
+  // The original boxes are tiny printed [ ] pairs; use an X centered inside each.
+  for(const x of [79.5,129.1,179.3,230.1,273.8,326.4])page.drawText('X',{x,y:height-569,size:7,font,color:PDFLib.rgb(0,0,0)});
+  for(const x of [79.5,126.2,169.4])page.drawText('X',{x,y:height-594,size:7,font,color:PDFLib.rgb(0,0,0)});
+  mark('bringFormula',226.6,594);
+  // Additional parent-selectable Breastmilk option after the existing Formula label.
+  page.drawRectangle({x:286,y:height-594,width:9,height:9,borderWidth:0.8,borderColor:PDFLib.rgb(0,0,0)});
+  page.drawText('Breastmilk',{x:301,y:height-593,size:9,font,color:PDFLib.rgb(0,0,0)});
+  if(checks.bringBreastmilk?.checked)page.drawText('X',{x:287.5,y:height-592,size:7,font,color:PDFLib.rgb(0,0,0)});
   // Parent confirmation is captured by the submission record, without an extra PDF page.
   return pdf.save();
  };
