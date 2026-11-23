@@ -811,7 +811,15 @@ async function openAdditionalConsentPdf(bytes,template,assignment,type){
    put('I will not hold Growing With Grace Christian Learning Center liable for any skin damage related to sunburns.',78,253,495,10);
   }
   for(const [k,,required,x,y,w] of c.fields){if(k==='signer'||k==='signer2')continue;put(fields[k].value,x,y,w);}
-  for(const [k,,x,y] of c.checks)if(checks[k].checked)page.drawText('X',{x:x+1,y:height-y,size:12,font,color:ink});
+  for(const [k,label,x,y] of c.checks){
+   if(type==='noSunscreen'){
+    // The uploaded No Sunscreen PDF has no printed text for these choices.
+    // Draw both boxes and their labels so the options are clear even when unchecked.
+    page.drawRectangle({x:x-1,y:height-y-2,width:12,height:12,borderColor:ink,borderWidth:0.8});
+    page.drawText(label,{x:x+17,y:height-y,size:10,font,color:ink});
+    if(checks[k].checked)page.drawText('X',{x:x+1,y:height-y,size:10,font,color:ink});
+   }else if(checks[k].checked)page.drawText('X',{x:x+1,y:height-y,size:12,font,color:ink});
+  }
   for(const [k,,x,y,w] of c.brands||[])put(fields[k].value,x,y,w,8);
   const sig=async(k,x,y,w)=>{if(!fields[k]?.value.trim())return;const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=120;const ctx=canvas.getContext('2d');ctx.fillStyle='#111';ctx.textBaseline='alphabetic';ctx.font='italic 64px "Segoe Script","Brush Script MT","Lucida Handwriting",cursive';ctx.fillText(fields[k].value.trim(),8,83);const img=await pdf.embedPng(canvas.toDataURL('image/png'));page.drawImage(img,{x,y:height-y-4,width:w,height:18});};
   const signatureSpec=c.fields.find(x=>x[0]==='signer');await sig('signer',signatureSpec[3],signatureSpec[4],signatureSpec[5]);
