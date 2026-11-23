@@ -3184,7 +3184,7 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   const hosts={pending:document.getElementById('pfPendingList'),submitted:document.getElementById('pfSubmittedList'),history:document.getElementById('pfHistoryList')};
   const {data,error}=await sb.from('parent_form_assignments').select('id,family_id,child_id,template_id,status').limit(2000);
   if(error){const p=document.createElement('p');p.textContent='Form assignments unavailable: '+error.message;hosts.pending.prepend(p);return;}
-  const [fs,cs,ts,submissions]=await Promise.all([sb.from('parent_families').select('id,display_name'),sb.from('daycare_children').select('id,name'),sb.from('parent_form_templates').select('id,title'),sb.from('parent_form_submissions').select('id,assignment_id,completed_pdf_path,signer_name,submitted_at').limit(2000)]);
+  const [fs,cs,ts,submissions]=await Promise.all([sb.from('parent_families').select('id,display_name'),sb.from('daycare_children').select('id,name'),sb.from('parent_form_templates').select('id,title'),sb.from('parent_form_submissions').select('id,assignment_id,completed_pdf_path,signer_name,signed_at').limit(2000)]);
   const families=new Map((fs.data||[]).map(x=>[x.id,x.display_name]));
   const children=new Map((cs.data||[]).map(x=>[x.id,x.name]));
   const templates=new Map((ts.data||[]).map(x=>[x.id,x.title]));
