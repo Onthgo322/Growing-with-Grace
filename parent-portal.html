@@ -805,6 +805,11 @@ async function openAdditionalConsentPdf(bytes,template,assignment,type){
    const label='GROWING WITH GRACE CHRISTIAN LEARNING CENTER, LLC';
    const fsize=15;page.drawText(label,{x:(612-font.widthOfTextAtSize(label,fsize))/2,y:height-93,size:fsize,font,color:ink});
   }
+  if(type==='noSunscreen'){
+   // Preprint the current program name in the liability sentence, even if the uploaded template has an empty line.
+   page.drawRectangle({x:77,y:height-258,width:504,height:20,color:white});
+   put('I will not hold Growing With Grace Christian Learning Center liable for any skin damage related to sunburns.',78,253,495,10);
+  }
   for(const [k,,required,x,y,w] of c.fields){if(k==='signer'||k==='signer2')continue;put(fields[k].value,x,y,w);}
   for(const [k,,x,y] of c.checks)if(checks[k].checked)page.drawText('X',{x:x+1,y:height-y,size:12,font,color:ink});
   for(const [k,,x,y,w] of c.brands||[])put(fields[k].value,x,y,w,8);
