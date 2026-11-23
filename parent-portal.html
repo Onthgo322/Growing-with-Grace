@@ -762,6 +762,76 @@ async function openSunscreenConsentPdf(bytes,template,assignment){
  E('assignedFormsList').after(wrap);wrap.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+async function openAdditionalConsentPdf(bytes,template,assignment,type){
+ E('assignedPdfEditor')?.remove();
+ const map={
+  noSunscreen:{title:'Parent Request for No Sunscreen',fields:[['child',"Child's Name",1,168,160,140],['dob','Date of Birth',1,370,160,78],['age','Age',1,487,160,40],['expiration','Expiration Date of Permission',1,278,276,165],['printed','Parent/Guardian Printed Name',1,256,300,140],['signer','Parent/Guardian Signature',1,234,324,150]],checks:[['sixMonths','My child is 6 months or older',78,183],['noApply','Do not apply sunscreen to my child',78,196]],date:[395,324],requiredCheck:'noApply'},
+  repellent:{title:'Insect Repellent Consent',fields:[['child',"Child's Name",1,130,92,295],['provider','Child care program/provider',1,353,119,160],['brand','Provided insect repellent brand/type',0,50,230,290],['printed','Parent/Guardian Printed Name',1,246,255,155],['signer','Parent/Guardian Signature',1,224,277,150]],checks:[['allergies','I do not know of any allergies my child has to insect repellent',47,177],['staff','Staff may use insect repellent of their choice following instructions on bottle',47,195],['own','I have provided the following brand/type of insect repellent',47,211]],date:[404,277],brandCheck:'own'},
+  nonPrescription:{title:'Authorization for Non-Prescription Products',fields:[['child',"Child's Name",1,161,138,139],['dob','Date of Birth',1,359,138,75],['age','Age',1,465,138,55],['parent','Parent(s)/Guardian(s) Name',1,231,159,220],['provider','Program/Provider Name',1,244,180,248],['signer','Parent/Guardian Signature',1,233,466,170]],checks:[['diaper','Diaper ointment/cream',81,294],['lotion','Skin lotion',81,315],['lip','Lip balm',81,336],['sun','Sunscreen',81,357],['bug','Insect repellent',81,378],['firstAid','Antibacterial first aid ointment',81,399],['sanitizer','Hand sanitizer',81,420],['toothpaste','Toothpaste',81,441]],brands:[['diaperBrand','Diaper ointment/cream brand',355,294,181],['lotionBrand','Skin lotion brand',252,315,283],['lipBrand','Lip balm brand',232,336,303],['sunBrand','Sunscreen brand',370,357,165],['bugBrand','Insect repellent brand',393,378,142],['firstAidBrand','First aid ointment brand',347,399,188],['sanitizerBrand','Hand sanitizer brand',414,420,121],['toothpasteBrand','Toothpaste brand',230,441,300]],date:[411,466]},
+  media:{title:'Media Consent Form',fields:[['parent1','Parent/Guardian 1 Name',1,213,274,164],['relation1','Parent 1 Relationship to Child',1,467,274,97],['parent2','Parent/Guardian 2 Name (if applicable)',0,213,296,164],['relation2','Parent 2 Relationship',0,467,296,97],['child1','Child 1 Name',1,166,318,190],['child2','Child 2 Name',0,166,340,190],['child3','Child 3 Name',0,166,362,190],['address','Address',1,140,384,408],['city','City',1,110,406,128],['state','State',1,311,406,54],['zip','ZIP',1,421,406,105],['signer','Parent/Guardian 1 Signature',1,234,484,132],['signer2','Parent/Guardian 2 Signature (if applicable)',0,234,506,132]],checks:[['full','First and Last Name',78,252],['first','First Name Only',244,252],['town','Town/State',389,252]],date:[391,484],date2:[391,506],decisions:true}
+ };
+ const c=map[type];if(!c)throw Error('Unsupported form');
+ const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
+ const h=document.createElement('h3');h.textContent=c.title;wrap.append(h);
+ const p=document.createElement('p');p.textContent='Complete the form, then review the original completed PDF before submitting. Your answers are saved automatically on this browser.';wrap.append(p);
+ if(type==='media'){const warning=document.createElement('p');warning.textContent='The original form requests signatures from both parents/guardians. Complete the second guardian section when applicable.';wrap.append(warning);}
+ const fields={},checks={};
+ function field(k,label,required){const l=document.createElement('label');l.style.cssText='display:block;margin:8px 0';l.textContent=label+(required?' *':'');const e=document.createElement('input');e.type='text';e.required=!!required;e.style.cssText='display:block;width:100%;max-width:460px;padding:8px';l.append(e);wrap.append(l);fields[k]=e;}
+ for(const [k,label,required] of c.fields)field(k,label,required);
+ if(fields.provider)fields.provider.value='Growing With Grace Christian Learning Center';
+ const heading=document.createElement('h4');heading.textContent=type==='nonPrescription'?'Authorized products (check all that apply)':type==='media'?'Child identity may be referenced as':'Permissions (check all that apply)';wrap.append(heading);
+ for(const [k,label] of c.checks){const l=document.createElement('label');l.style.cssText='display:flex;align-items:center;gap:9px;margin:8px 0';const e=document.createElement('input');e.type='checkbox';e.style.cssText='width:18px;height:18px;position:static;margin:0';l.append(e,document.createTextNode(label));wrap.append(l);checks[k]=e;}
+ for(const [k,label] of c.brands||[])field(k,label,false);
+ if(c.decisions){for(const suffix of ['','2']){const l=document.createElement('label');l.style.cssText='display:block;margin:10px 0';l.textContent='Parent/Guardian '+(suffix?'2':'1')+' decision'+(suffix?' (if applicable)':' *');const e=document.createElement('select');for(const [v,t] of [['','Choose'],['agree','Agree'],['disagree','Disagree']]){const o=document.createElement('option');o.value=v;o.textContent=t;e.append(o);}l.append(e);wrap.append(l);fields['decision'+suffix]=e;}}
+ const consent=document.createElement('label');consent.style.cssText='display:flex;align-items:center;gap:8px;margin:14px 0';const agree=document.createElement('input');agree.type='checkbox';agree.style.cssText='width:18px;height:18px;margin:0;position:static';consent.append(agree,document.createTextNode('I confirm these answers and authorize electronic submission.'));wrap.append(consent);
+ const draftKey='gwg_extra_consent_'+type+'_'+(currentUser?.id||'guest')+'_'+assignment.id;
+ const snapshot=()=>JSON.stringify({fields:Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value])),checks:Object.fromEntries(Object.entries(checks).map(([k,v])=>[k,v.checked])),agree:agree.checked});
+ const status=document.createElement('p');status.className='muted';wrap.append(status);
+ const save=()=>{try{localStorage.setItem(draftKey,snapshot());status.textContent='Answers saved on this browser';}catch(e){status.textContent='Draft could not be saved';}};
+ try{const d=JSON.parse(localStorage.getItem(draftKey)||'null');if(d){for(const [k,v] of Object.entries(d.fields||{}))if(fields[k])fields[k].value=v;for(const [k,v] of Object.entries(d.checks||{}))if(checks[k])checks[k].checked=!!v;agree.checked=!!d.agree;}}catch(e){console.warn(e);}
+ wrap.addEventListener('input',save);wrap.addEventListener('change',save);
+ const validate=()=>{for(const [k,label,required] of c.fields)if(required&&!fields[k].value.trim()){alert('Please complete '+label);return false;}
+  if(!Object.values(checks).some(e=>e.checked)){alert('Please check at least one applicable option.');return false;}
+  if(c.requiredCheck&&!checks[c.requiredCheck].checked){alert('Check the no-sunscreen request to authorize this form.');return false;}
+  if(c.brandCheck&&checks[c.brandCheck].checked&&!fields.brand.value.trim()){alert('Please specify the product brand/type.');return false;}
+  if(c.decisions&&(!fields.decision.value|| (fields.parent2.value.trim()&&(!fields.signer2.value.trim()||!fields.decision2.value)))){alert('Please complete the necessary parent decisions and signatures.');return false;}
+  if(!agree.checked){alert('Please confirm the electronic submission.');return false;}return true;};
+ const make=async()=>{
+  const pdf=await PDFLib.PDFDocument.load(bytes),page=pdf.getPages()[0],height=page.getSize().height,font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),ink=PDFLib.rgb(0,0,0),white=PDFLib.rgb(1,1,1);
+  const put=(v,x,top,w,size=9)=>{v=(v||'').trim();if(!v)return;let fs=size;while(fs>5&&font.widthOfTextAtSize(v,fs)>w)fs-=0.5;page.drawText(v,{x,y:height-top,size:fs,font,color:ink});};
+  if(type==='noSunscreen'||type==='nonPrescription'){
+   // Replace the obsolete Gingerbread House heading without changing the rest of the published PDF.
+   page.drawRectangle({x:73,y:height-102,width:468,height:30,color:white});
+   const label='GROWING WITH GRACE CHRISTIAN LEARNING CENTER, LLC';
+   const fsize=15;page.drawText(label,{x:(612-font.widthOfTextAtSize(label,fsize))/2,y:height-93,size:fsize,font,color:ink});
+  }
+  for(const [k,,required,x,y,w] of c.fields){if(k==='signer'||k==='signer2')continue;put(fields[k].value,x,y,w);}
+  for(const [k,,x,y] of c.checks)if(checks[k].checked)page.drawText('X',{x:x+1,y:height-y,size:12,font,color:ink});
+  for(const [k,,x,y,w] of c.brands||[])put(fields[k].value,x,y,w,8);
+  const sig=async(k,x,y,w)=>{if(!fields[k]?.value.trim())return;const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=120;const ctx=canvas.getContext('2d');ctx.fillStyle='#111';ctx.textBaseline='alphabetic';ctx.font='italic 64px "Segoe Script","Brush Script MT","Lucida Handwriting",cursive';ctx.fillText(fields[k].value.trim(),8,83);const img=await pdf.embedPng(canvas.toDataURL('image/png'));page.drawImage(img,{x,y:height-y-4,width:w,height:18});};
+  const signatureSpec=c.fields.find(x=>x[0]==='signer');await sig('signer',signatureSpec[3],signatureSpec[4],signatureSpec[5]);
+  if(c.decisions){const sp=c.fields.find(x=>x[0]==='signer2');await sig('signer2',sp[3],sp[4],sp[5]);
+   const markDecision=(val,y)=>{if(!val)return;page.drawText('X',{x:val==='agree'?471:538,y:height-y,size:10,font,color:ink});};markDecision(fields.decision.value,483);markDecision(fields.decision2.value,505);}
+  put(new Date().toLocaleDateString('en-US'),c.date[0],c.date[1],67,8);
+  if(c.date2&&fields.signer2.value.trim())put(new Date().toLocaleDateString('en-US'),c.date2[0],c.date2[1],67,8);
+  return pdf.save();
+ };
+ const preview=document.createElement('button');preview.textContent='Review Completed PDF';wrap.append(preview);
+ const review=document.createElement('div');wrap.append(review);let url=null;
+ preview.onclick=async()=>{if(!validate())return;preview.disabled=true;try{
+  const out=await make();if(url)window.URL.revokeObjectURL(url);url=window.URL.createObjectURL(new Blob([out],{type:'application/pdf'}));
+  review.replaceChildren();const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent='Open completed PDF for review';review.append(link);
+  const submit=document.createElement('button');submit.textContent='Confirm and Submit';submit.style.margin='10px';review.append(submit);
+  submit.onclick=async()=>{if(!validate()||!confirm('Have you reviewed the completed PDF and want to submit it?'))return;submit.disabled=true;try{
+   const signed=await make(),filePath=currentUser.id+'/'+assignment.id+'/'+crypto.randomUUID()+'.pdf';
+   const {error:ue}=await sb.storage.from('completed-parent-forms').upload(filePath,new Blob([signed],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});if(ue)throw ue;
+   const {error:de}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:fields.signer?.value.trim()||fields.signer2?.value.trim(),signature_consent:true,completed_pdf_path:filePath});if(de)throw de;
+   localStorage.removeItem(draftKey);review.textContent='Form submitted successfully. Awaiting administrator review.';preview.disabled=true;await loadAssignedForms();
+  }catch(e){alert('Submission failed: '+(e.message||e));submit.disabled=false;}};
+ }catch(e){alert('Could not prepare PDF: '+(e.message||e));}finally{preview.disabled=false;}};
+ E('assignedFormsList').after(wrap);wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 async function openEditableAssignedPdf(template,assignment){
  const {data,error}=await sb.storage.from('parent-forms').createSignedUrl(template.file_path,120);
  if(error)throw error;
@@ -778,6 +848,10 @@ async function openEditableAssignedPdf(template,assignment){
  if(/infant\s*information|infant\s*info/i.test(template.title||'')){await openInfantInformationPdf(bytes,template,assignment);return;}
  if(/transportation\s*(agreement|form)?|parent\s*[-–]?\s*provider\s*transportation/i.test(template.title||'')){await openTransportationAgreementPdf(bytes,template,assignment);return;}
  if(/sunscreen\s*consent|consent\s*to\s*apply\s*sunscreen/i.test(template.title||'')){await openSunscreenConsentPdf(bytes,template,assignment);return;}
+ if(/no\s*sunscreen|request\s*for\s*no\s*sunscreen/i.test(template.title||'')){await openAdditionalConsentPdf(bytes,template,assignment,'noSunscreen');return;}
+ if(/non[ -]?prescription|nonprescription|over[ -]?the[ -]?counter/i.test(template.title||'')){await openAdditionalConsentPdf(bytes,template,assignment,'nonPrescription');return;}
+ if(/media\s*consent/i.test(template.title||'')){await openAdditionalConsentPdf(bytes,template,assignment,'media');return;}
+ if(/insect\s*repellent/i.test(template.title||'')){await openAdditionalConsentPdf(bytes,template,assignment,'repellent');return;}
 
  if(!isChildSheet){alert('This form needs its own question mapping before it can be submitted online. The Child Information Sheet is supported first.');return;}
  E('assignedPdfEditor')?.remove();
