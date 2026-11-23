@@ -432,6 +432,27 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
  swaddle.innerHTML='<option value="">Choose Yes or No</option><option>Yes</option><option>No</option>';sw.append(swaddle);wrap.append(sw);
  add('Parent/guardian printed name','text',true);
  const consent=document.createElement('label');consent.style.cssText='display:flex;align-items:flex-start;justify-content:flex-start;gap:10px;margin:14px 0;max-width:480px;cursor:pointer';const agree=document.createElement('input');agree.type='checkbox';agree.style.cssText='width:18px;height:18px;flex:0 0 18px;margin:2px 0 0;position:static';consent.append(agree,document.createTextNode('I have read the entire Infant Sleep Consent Form and authorize only the selected items.'));wrap.append(consent);
+ const draftKey='gwg_infant_sleep_draft_'+(currentUser?.id||'guest')+'_'+assignment.id;
+ const saveDraft=()=>{
+  try{localStorage.setItem(draftKey,JSON.stringify({
+   fields:Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value])),
+   checks:Object.fromEntries(Object.entries(checks).map(([k,v])=>[k,v.checked])),
+   swaddle:swaddle.value,agree:agree.checked
+  }));}catch(e){console.warn('Could not save infant consent draft',e);}
+ };
+ try{
+  const saved=JSON.parse(localStorage.getItem(draftKey)||'null');
+  if(saved){
+   for(const [k,v] of Object.entries(saved.fields||{}))if(fields[k])fields[k].value=v;
+   for(const [k,v] of Object.entries(saved.checks||{}))if(checks[k])checks[k].checked=!!v;
+   if(saved.swaddle)swaddle.value=saved.swaddle;
+   agree.checked=!!saved.agree;
+   if(checks['One infant blanket'].checked&&checks['Sleep sack'].checked)checks['Sleep sack'].checked=false;
+  }
+ }catch(e){console.warn('Could not restore infant consent draft',e);}
+ wrap.addEventListener('input',saveDraft);
+ wrap.addEventListener('change',saveDraft);
+ const savedNotice=document.createElement('p');savedNotice.className='muted';savedNotice.textContent='Your answers save automatically on this device as you type and will be restored when you return.';wrap.append(savedNotice);
  const preview=document.createElement('button');preview.textContent='Review Completed PDF';wrap.append(preview);
  const review=document.createElement('div');wrap.append(review);
  let pdfUrl=null;
@@ -487,6 +508,7 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
      const path=currentUser.id+'/'+assignment.id+'/'+crypto.randomUUID()+'.pdf';
      const {error:up}=await sb.storage.from('completed-parent-forms').upload(path,new Blob([signed],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});if(up)throw up;
      const {error:db}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:fields['Parent/guardian printed name'].value.trim(),signature_consent:true,completed_pdf_path:path});if(db)throw db;
+     localStorage.removeItem(draftKey);
      review.textContent='✓ Infant Sleep Consent Form submitted successfully. Awaiting administrator review.';
      preview.disabled=true;sign.remove();
      try{await loadAssignedForms();}catch(e){console.warn(e);}
