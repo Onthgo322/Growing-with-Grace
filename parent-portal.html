@@ -424,6 +424,9 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
   const l=document.createElement('label');l.style.cssText='display:flex;align-items:center;justify-content:flex-start;gap:10px;margin:10px 0;max-width:480px;cursor:pointer';
   const el=document.createElement('input');el.type='checkbox';el.style.cssText='width:18px;height:18px;flex:0 0 18px;margin:0;position:static';l.append(el,document.createTextNode(label));wrap.append(l);checks[label]=el;
  }
+ checks['One infant blanket'].addEventListener('change',()=>{if(checks['One infant blanket'].checked)checks['Sleep sack'].checked=false;});
+ checks['Sleep sack'].addEventListener('change',()=>{if(checks['Sleep sack'].checked)checks['One infant blanket'].checked=false;});
+ const note=document.createElement('p');note.className='muted';note.textContent='Blanket and sleep sack: choose at most one. Swaddling is a separate Yes/No question on the original form.';wrap.append(note);
  const security=add('Specify security item (if checked)');
  const sw=document.createElement('label');sw.textContent='Request infant to be swaddled * ';const swaddle=document.createElement('select');
  swaddle.innerHTML='<option value="">Choose Yes or No</option><option>Yes</option><option>No</option>';sw.append(swaddle);wrap.append(sw);
@@ -438,24 +441,24 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
   const font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
   const put=(value,x,y,max=280)=>{const str=String(value||'');page.drawText(str.slice(0,90),{x:X(x),y:Y(y),size:Math.min(10,size.width/65),font,color:PDFLib.rgb(0.08,0.08,0.08),maxWidth:X(max)});};
   const tick=(yes,x,y)=>{if(yes)page.drawText('X',{x:X(x),y:Y(y),size:12,font,color:PDFLib.rgb(0,0,0)});};
-  put(fields['Provider/program name'].value,358,332,240);
-  put(fields['Infant name'].value,284,356,245);
-  put(fields['Infant date of birth'].value,177,379,300);
-  tick(checks['One infant blanket'].checked,20,402);
-  tick(swaddle.value==='Yes',256,488);tick(swaddle.value==='No',313,488);
-  tick(checks['Sleep sack'].checked,20,613);
-  tick(checks['Pacifier'].checked,20,793);
-  tick(checks['Security item'].checked,20,828);
-  if(checks['Security item'].checked)put(security.value,270,827,260);
-  put(fields['Parent/guardian printed name'].value,255,939,245);
-  put(new Date().toLocaleDateString('en-US'),446,958,90);
+  put(fields['Provider/program name'].value,305,322,280);
+  put(fields['Infant name'].value,283,345,245);
+  put(fields['Infant date of birth'].value,182,368,300);
+  tick(checks['One infant blanket'].checked,20,383);
+  tick(swaddle.value==='Yes',256,468);tick(swaddle.value==='No',313,468);
+  tick(checks['Sleep sack'].checked,20,594);
+  tick(checks['Pacifier'].checked,20,772);
+  tick(checks['Security item'].checked,20,805);
+  if(checks['Security item'].checked)put(security.value,270,805,260);
+  put(fields['Parent/guardian printed name'].value,255,919,245);
+  put(new Date().toLocaleDateString('en-US'),446,939,90);
   if(signed){
    await document.fonts.load('42px "Great Vibes"');
    if(!document.fonts.check('42px "Great Vibes"'))throw Error('Signature font unavailable. Check connection.');
    const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=130;const ctx=canvas.getContext('2d');
    ctx.fillStyle='#171717';ctx.font='70px "Great Vibes"';ctx.fillText(fields['Parent/guardian printed name'].value,12,85,1150);
    const img=await pdf.embedPng(canvas.toDataURL('image/png'));
-   page.drawImage(img,{x:X(232),y:Y(960),width:X(235),height:size.height*34/1024});
+   page.drawImage(img,{x:X(232),y:Y(943),width:X(235),height:size.height*26/1024});
   }
   return pdf.save();
  };
