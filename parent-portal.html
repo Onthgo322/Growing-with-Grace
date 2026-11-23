@@ -495,17 +495,17 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
    page.drawLine({start:{x,y},end:{x:x+5.5,y:y-5.5},thickness:1.1,color:c});
    page.drawLine({start:{x:x+5.5,y},end:{x,y:y-5.5},thickness:1.1,color:c});
   };
-  put(fields['Provider/program name'].value,253,227,190);
-  put(fields['Infant name'].value,218,245,185);
-  put(fields['Infant date of birth'].value,157,264,180);
+  put(fields['Provider/program name'].value,271,227,190);
+  put(fields['Infant name'].value,236,245,185);
+  put(fields['Infant date of birth'].value,157,258,180);
   tick(checks['One infant blanket'].checked,14.1,282);
-  tick(swaddle.value==='Yes',201.7,346.9);tick(swaddle.value==='No',246.5,346.9);
-  tick(checks['Sleep sack'].checked,14.1,460.6);
-  tick(checks['Pacifier'].checked,14.1,589.2);
+  tick(swaddle.value==='Yes',201.7,338.9);tick(swaddle.value==='No',246.5,338.9);
+  tick(checks['Sleep sack'].checked,14.1,452.6);
+  tick(checks['Pacifier'].checked,14.1,581.2);
   tick(checks['Security item'].checked,14.1,614.2);
   if(checks['Security item'].checked)put(security.value,200,621,220);
-  put(fields['Parent/guardian printed name'].value,210,697,185);
-  put(new Date().toLocaleDateString('en-US'),351,709,53);
+  put(fields['Parent/guardian printed name'].value,210,694,185);
+  put(new Date().toLocaleDateString('en-US'),351,706,53);
   if(signed){
    await document.fonts.load('42px "Great Vibes"');
    if(!document.fonts.check('42px "Great Vibes"'))throw Error('Signature font unavailable. Check connection.');
@@ -513,7 +513,7 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
    ctx.fillStyle='#171717';ctx.font='88px "Great Vibes"';ctx.fillText(fields['Parent/guardian printed name'].value,12,83,1060);
    const img=await pdf.embedPng(canvas.toDataURL('image/png'));
    // Printed name ends at top=705; signature belongs on the separate line below.
-   page.drawImage(img,{x:190,y:size.height-712,width:92,height:10});
+   page.drawImage(img,{x:190,y:size.height-709,width:104,height:12});
   }
   return pdf.save();
  };
