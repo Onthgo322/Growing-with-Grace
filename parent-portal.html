@@ -471,8 +471,8 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
   if(!validate())return;
   preview.disabled=true;
   try{
-   const draft=await make(false);if(pdfUrl)URL.revokeObjectURL(pdfUrl);
-   pdfUrl=URL.createObjectURL(new Blob([draft],{type:'application/pdf'}));
+   const draft=await make(false);if(pdfUrl)window.URL.revokeObjectURL(pdfUrl);
+   pdfUrl=window.URL.createObjectURL(new Blob([draft],{type:'application/pdf'}));
    review.replaceChildren();
    const a=document.createElement('a');a.href=pdfUrl;a.target='_blank';a.rel='noopener';a.textContent='Open completed PDF for review';review.append(a);
    const sign=document.createElement('button');sign.textContent='Sign and Submit';sign.style.margin='10px';review.append(sign);
@@ -507,7 +507,7 @@ async function openEditableAssignedPdf(template,assignment){
  const isChildSheet=names.has('ChildName')&&names.has('DateEnrolled')&&names.has('DOB')&&names.has('Entry_9');
  const isHealth=names.has('Name_1')&&names.has('BirthDate')&&names.has('AllergyList')&&names.has('DateSigned_1');
  if(isHealth){await openHealthStatementPdf(bytes,template,assignment);return;}
- if(/infant\\s*sleep\\s*consent/i.test(template.title||'')){await openInfantSleepConsentPdf(bytes,template,assignment);return;}
+ if(/infant\s*sleep\s*consent/i.test(template.title||'')){await openInfantSleepConsentPdf(bytes,template,assignment);return;}
 
  if(!isChildSheet){alert('This form needs its own question mapping before it can be submitted online. The Child Information Sheet is supported first.');return;}
  E('assignedPdfEditor')?.remove();
