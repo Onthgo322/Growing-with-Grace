@@ -622,7 +622,7 @@ async function openInfantInformationPdf(bytes,template,assignment){
  const preview=document.createElement('button');preview.textContent='Review Completed PDF';wrap.append(preview);
  const review=document.createElement('div');wrap.append(review);let url=null;
  preview.onclick=async()=>{if(!validate())return;preview.disabled=true;try{
-  const bytesOut=await make();if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(new Blob([bytesOut],{type:'application/pdf'}));
+  const bytesOut=await make();if(url)window.URL.revokeObjectURL(url);url=window.URL.createObjectURL(new Blob([bytesOut],{type:'application/pdf'}));
   review.replaceChildren();const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent='Open completed PDF for review';review.append(link);
   const submit=document.createElement('button');submit.textContent='Confirm and Submit';submit.style.margin='10px';review.append(submit);
   submit.onclick=async()=>{if(!validate()||!confirm('Have you reviewed the completed PDF and want to submit it?'))return;submit.disabled=true;try{
