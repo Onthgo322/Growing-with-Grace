@@ -602,7 +602,8 @@ async function openInfantInformationPdf(bytes,template,assignment){
   // PDF text extraction: exact opening-bracket x coordinates, plus a centered inset.
   // The original PDF already has [ ] checkboxes. Draw X only, centered between brackets.
   const boxX=(left,top,checked)=>{if(checked)page.drawText('X',{x:left+3.8,y:height-top,size:9,font,color:PDFLib.rgb(0,0,0)});};
-  for(const [k,x] of [['Fruits',112.4],['Vegetables',153.3],['Cereals',220.4],['Meats',271.2],['Juices',314.4]])boxX(x,272,!!checks[k]?.checked);
+  // Horizontal offsets requested during PDF review: +4, +8, +12, +18 points.
+  for(const [k,x] of [['Fruits',116.4],['Vegetables',161.3],['Cereals',232.4],['Meats',289.2],['Juices',332.4]])boxX(x,272,!!checks[k]?.checked);
   put('burping',125,297,19);put('burpOften',207,297,115);
   put('allergies',181,322,111);
   put('pacifier',124,371,19);put('rocked',195,371,19);
@@ -610,12 +611,13 @@ async function openInfantInformationPdf(bytes,template,assignment){
   put('sleeper',178,421,111);put('swaddling',135,446,111);
   put('powder',165,495,111);put('rash',164,520,111);
   // Original [ ] boxes are retained; no extra rectangles or small boxes.
-  for(const x of [78,127.6,177.8,228.6,272.3,324.9])boxX(x,569,true);
-  for(const x of [78,124.7,167.9])boxX(x,594,true);
+  // Keep Blanket fixed. Move the other marks right as requested.
+  for(const x of [78,137.6,197.8,258.6,312.3,374.9])boxX(x,569,true);
+  for(const x of [83,124.7,177.9])boxX(x,594,true);
   boxX(225.1,594,!!checks.bringFormula?.checked);
-  // The original has no Breastmilk checkbox; draw one bracket pair after Formula.
-  page.drawText('[  ] Breastmilk',{x:282,y:height-594,size:10,font,color:PDFLib.rgb(0,0,0)});
-  boxX(282,594,!!checks.bringBreastmilk?.checked);
+  // Parent-selectable Breastmilk / Formula option; no additional rectangle.
+  page.drawText('[  ] Breastmilk / Formula',{x:282,y:height-594,size:10,font,color:PDFLib.rgb(0,0,0)});
+  boxX(297,594,!!checks.bringBreastmilk?.checked);
   // Parent confirmation is captured by the submission record, without an extra PDF page.
   return pdf.save();
  };
