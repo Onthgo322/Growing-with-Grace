@@ -407,6 +407,94 @@ async function openHealthStatementPdf(bytes,template,assignment){
  E('assignedFormsList').prepend(wrap);wrap.scrollIntoView({block:'start'});
 }
 
+async function openInfantSleepConsentPdf(bytes,template,assignment){
+ E('assignedPdfEditor')?.remove();
+ const wrap=document.createElement('div');wrap.id='assignedPdfEditor';wrap.className='message';
+ wrap.innerHTML='<h3>Infant Sleep Consent Form</h3><p>Read the original form and choose only the items you authorize. The center must review the signed form before approval.</p>';
+ const fields={};
+ const add=(label,type='text',required=false)=>{
+  const l=document.createElement('label');l.style.cssText='display:block;margin:10px 0';l.textContent=label+(required?' *':'');
+  const el=document.createElement('input');el.type=type;el.style.cssText='display:block;max-width:460px;width:100%;padding:8px';el.required=required;l.append(el);wrap.append(l);fields[label]=el;return el;
+ };
+ add('Provider/program name','text',true).value='Growing With Grace Christian Learning Center';
+ add('Infant name','text',true);
+ add('Infant date of birth','date',true);
+ const checks={};
+ for(const label of ['One infant blanket','Sleep sack','Pacifier','Security item']){
+  const l=document.createElement('label');l.style.cssText='display:block;margin:10px 0';
+  const el=document.createElement('input');el.type='checkbox';l.append(el,document.createTextNode(' '+label));wrap.append(l);checks[label]=el;
+ }
+ const security=add('Specify security item (if checked)');
+ const sw=document.createElement('label');sw.textContent='Request infant to be swaddled * ';const swaddle=document.createElement('select');
+ swaddle.innerHTML='<option value="">Choose Yes or No</option><option>Yes</option><option>No</option>';sw.append(swaddle);wrap.append(sw);
+ add('Parent/guardian printed name','text',true);
+ const consent=document.createElement('label');consent.style.cssText='display:block;margin:14px 0';const agree=document.createElement('input');agree.type='checkbox';consent.append(agree,document.createTextNode(' I have read the entire Infant Sleep Consent Form and authorize only the selected items.'));wrap.append(consent);
+ const preview=document.createElement('button');preview.textContent='Review Completed PDF';wrap.append(preview);
+ const review=document.createElement('div');wrap.append(review);
+ let pdfUrl=null;
+ const make=async(signed)=>{
+  const pdf=await PDFLib.PDFDocument.load(bytes),page=pdf.getPages()[0],size=page.getSize();
+  const X=v=>v*size.width/768,Y=v=>size.height-v*size.height/1024;
+  const font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+  const put=(value,x,y,max=280)=>{const str=String(value||'');page.drawText(str.slice(0,90),{x:X(x),y:Y(y),size:Math.min(10,size.width/65),font,color:PDFLib.rgb(0.08,0.08,0.08),maxWidth:X(max)});};
+  const tick=(yes,x,y)=>{if(yes)page.drawText('X',{x:X(x),y:Y(y),size:12,font,color:PDFLib.rgb(0,0,0)});};
+  put(fields['Provider/program name'].value,358,332,240);
+  put(fields['Infant name'].value,284,356,245);
+  put(fields['Infant date of birth'].value,177,379,300);
+  tick(checks['One infant blanket'].checked,20,402);
+  tick(swaddle.value==='Yes',256,488);tick(swaddle.value==='No',313,488);
+  tick(checks['Sleep sack'].checked,20,613);
+  tick(checks['Pacifier'].checked,20,793);
+  tick(checks['Security item'].checked,20,828);
+  if(checks['Security item'].checked)put(security.value,270,827,260);
+  put(fields['Parent/guardian printed name'].value,255,939,245);
+  put(new Date().toLocaleDateString('en-US'),446,958,90);
+  if(signed){
+   await document.fonts.load('42px "Great Vibes"');
+   if(!document.fonts.check('42px "Great Vibes"'))throw Error('Signature font unavailable. Check connection.');
+   const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=130;const ctx=canvas.getContext('2d');
+   ctx.fillStyle='#171717';ctx.font='70px "Great Vibes"';ctx.fillText(fields['Parent/guardian printed name'].value,12,85,1150);
+   const img=await pdf.embedPng(canvas.toDataURL('image/png'));
+   page.drawImage(img,{x:X(232),y:Y(960),width:X(235),height:size.height*34/1024});
+  }
+  return pdf.save();
+ };
+ const validate=()=>{
+  for(const k of ['Provider/program name','Infant name','Infant date of birth','Parent/guardian printed name'])if(!fields[k].value.trim()){alert('Please complete '+k);return false;}
+  if(!swaddle.value){alert('Choose Yes or No for swaddling.');return false;}
+  if(checks['One infant blanket'].checked&&checks['Sleep sack'].checked){alert('The original form says a blanket and sleep sack cannot be used at the same time. Select only one.');return false;}
+  if(checks['Security item'].checked&&!security.value.trim()){alert('Specify the security item.');return false;}
+  if(!agree.checked){alert('Please confirm you read the consent form.');return false;}
+  return true;
+ };
+ preview.onclick=async()=>{
+  if(!validate())return;
+  preview.disabled=true;
+  try{
+   const draft=await make(false);if(pdfUrl)URL.revokeObjectURL(pdfUrl);
+   pdfUrl=URL.createObjectURL(new Blob([draft],{type:'application/pdf'}));
+   review.replaceChildren();
+   const a=document.createElement('a');a.href=pdfUrl;a.target='_blank';a.rel='noopener';a.textContent='Open completed PDF for review';review.append(a);
+   const sign=document.createElement('button');sign.textContent='Sign and Submit';sign.style.margin='10px';review.append(sign);
+   sign.onclick=async()=>{
+    if(!validate()||!window.confirm('Have you reviewed the completed PDF and want to sign and submit it?'))return;
+    sign.disabled=true;
+    try{
+     const signed=await make(true);
+     const path=currentUser.id+'/'+assignment.id+'/'+crypto.randomUUID()+'.pdf';
+     const {error:up}=await sb.storage.from('completed-parent-forms').upload(path,new Blob([signed],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});if(up)throw up;
+     const {error:db}=await sb.from('parent_form_submissions').insert({assignment_id:assignment.id,submitted_by:currentUser.id,signer_name:fields['Parent/guardian printed name'].value.trim(),signature_consent:true,completed_pdf_path:path});if(db)throw db;
+     review.textContent='✓ Infant Sleep Consent Form submitted successfully. Awaiting administrator review.';
+     preview.disabled=true;sign.remove();
+     try{await loadAssignedForms();}catch(e){console.warn(e);}
+    }catch(e){alert('Submission failed: '+(e.message||e));sign.disabled=false;}
+   };
+  }catch(e){alert('Could not prepare PDF: '+(e.message||e));}
+  finally{preview.disabled=false;}
+ };
+ E('assignedFormsList').after(wrap);wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 async function openEditableAssignedPdf(template,assignment){
  const {data,error}=await sb.storage.from('parent-forms').createSignedUrl(template.file_path,120);
  if(error)throw error;
@@ -419,6 +507,7 @@ async function openEditableAssignedPdf(template,assignment){
  const isChildSheet=names.has('ChildName')&&names.has('DateEnrolled')&&names.has('DOB')&&names.has('Entry_9');
  const isHealth=names.has('Name_1')&&names.has('BirthDate')&&names.has('AllergyList')&&names.has('DateSigned_1');
  if(isHealth){await openHealthStatementPdf(bytes,template,assignment);return;}
+ if(/infant\\s*sleep\\s*consent/i.test(template.title||'')){await openInfantSleepConsentPdf(bytes,template,assignment);return;}
 
  if(!isChildSheet){alert('This form needs its own question mapping before it can be submitted online. The Child Information Sheet is supported first.');return;}
  E('assignedPdfEditor')?.remove();
