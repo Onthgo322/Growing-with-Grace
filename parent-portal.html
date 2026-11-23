@@ -486,7 +486,7 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
    page.drawText(str,{x,y:size.height-top,size:fontSize,font,color:PDFLib.rgb(0.08,0.08,0.08)});
   };
   const tick=(yes,x,top)=>{if(yes)page.drawText('X',{x,y:size.height-top+5,size:9,font,color:PDFLib.rgb(0,0,0)});};
-  put(fields['Provider/program name'].value,275,238,145);
+  put(fields['Provider/program name'].value,275,234,145);
   put(fields['Infant name'].value,220,259,190);
   put(fields['Infant date of birth'].value,145,278,180);
   tick(checks['One infant blanket'].checked,34,295);
@@ -503,7 +503,7 @@ async function openInfantSleepConsentPdf(bytes,template,assignment){
    const canvas=document.createElement('canvas');canvas.width=1100;canvas.height=190;const ctx=canvas.getContext('2d');
    ctx.fillStyle='#171717';ctx.font='110px "Great Vibes"';ctx.fillText(fields['Parent/guardian printed name'].value,15,125,1050);
    const img=await pdf.embedPng(canvas.toDataURL('image/png'));
-   page.drawImage(img,{x:165,y:size.height-733,width:155,height:27});
+   page.drawImage(img,{x:165,y:size.height-718,width:155,height:27});
   }
   return pdf.save();
  };
