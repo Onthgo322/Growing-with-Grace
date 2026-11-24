@@ -3574,16 +3574,18 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   if(!sb||!user){$r('reminderUpdated').textContent='Sign in to view reminders.';return;}
   busy=true;$r('reminderUpdated').textContent='Checking saved records…';
   try{
-   const [employees,history,families,assignments,submissions,templates]=await Promise.all([
-    sb.from('daycare_employees').select('id,name,cpr_expires_on,employee_classification,weekly_hours,annual_hours_override').eq('user_id',user.id),
+   const [employees,history,families,assignments,submissions,templates,checklist]=await Promise.all([
+    sb.from('daycare_employees').select('id,name,hire_date,cpr_expires_on,employee_classification,weekly_hours,annual_hours_override').eq('user_id',user.id),
     sb.from('daycare_employee_training_history').select('employee_id,course_name,completed_on,clock_hours,counts_toward_annual,expires_on').eq('user_id',user.id),
     sb.from('parent_families').select('id,display_name'),
     sb.from('parent_form_assignments').select('id,family_id,template_id'),
     sb.from('parent_form_submissions').select('assignment_id,signed_at,created_at'),
-    sb.from('parent_form_templates').select('id,title')
+    sb.from('parent_form_templates').select('id,title'),
+    sb.from('daycare_employee_training').select('employee_id,course_code,completed_on')
    ]);
    if(employees.error)throw employees.error;
    if(history.error)throw history.error;
+   if(checklist.error)throw checklist.error;
    alerts=[];const now=today(),year=now.slice(0,4),end=year+'-12-31',trainingWarn=daysUntil(end,now)<=30;
    const histories=history.data||[];
    for(const e of employees.data||[]){
@@ -3594,7 +3596,21 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
     if(!firstAid)make('firstaid',e.name,'First Aid certification',null,'No First Aid training record found. Add the course and expiration date under Employees.',now,true);
     else if(!firstAid.expires_on)make('firstaid',e.name,'First Aid expiration date',null,'First Aid was recorded, but no expiration date was entered.',now,true);
     else make('firstaid',e.name,'First Aid certification',firstAid.expires_on,'Update the training record when renewed.',now);
-    for(const h of records.filter(h=>h.expires_on&&!/first\s*[- ]?\s*aid/i.test(h.course_name||''))){
+    const rules=[
+     {code:'safe_sleep',title:'Safe Sleep',match:/safe[\s_-]*sleep/i,annual:true},
+     {code:'mandated_reporter',title:'Mandated Reporter',match:/mandat(?:ed|ory)[\s_-]*report/i,annual:true},
+     {code:'getting_started',title:'ND Getting Started – Basic Child Care',match:/getting[\s_-]*started|basic[\s_-]*child[\s_-]*care/i,annual:false}
+    ];
+    for(const rule of rules){
+     const dates=[...(checklist.data||[]).filter(c=>c.employee_id===e.id&&c.course_code===rule.code).map(c=>c.completed_on),...records.filter(h=>rule.match.test(h.course_name||'')).map(h=>h.completed_on)].filter(d=>d&&d<=now).sort();
+     const latest=dates.at(-1);
+     if(latest&&!rule.annual)continue;
+     let due=null;
+     if(latest&&rule.annual){const d=new Date(latest+'T12:00:00');const month=d.getMonth();d.setFullYear(d.getFullYear()+1);if(d.getMonth()!==month)d.setDate(0);due=iso(d);}
+     else if(!rule.annual&&e.hire_date){const d=new Date(e.hire_date+'T12:00:00');d.setDate(d.getDate()+90);due=iso(d);}
+     make('training',e.name,rule.title,due,rule.annual?(latest?'Annual renewal; last completed '+pretty(latest)+'.':'Annual training completion not recorded.'):'Required within 90 days of hire.',now,!due);
+    }
+    for(const h of records.filter(h=>h.expires_on&&!/first\s*[- ]?\s*aid/i.test(h.course_name||'')&&!rules.some(rule=>rule.match.test(h.course_name||'')))){
      make('training',e.name,h.course_name||'Training certificate',h.expires_on,'Training or certificate expiration.',now);
     }
     const required=target(e);
