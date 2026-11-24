@@ -2699,6 +2699,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    await load();document.dispatchEvent(new CustomEvent('gwg:employees-changed'));el('empStatus').textContent=wasEditing?'✓ CHANGES SAVED SUCCESSFULLY. Employee updated; training history preserved.':'✓ EMPLOYEE ADDED SUCCESSFULLY. New-hire checklist created automatically.';
   }catch(err){el('empStatus').textContent='Could not save employee: '+err.message;}finally{btn.disabled=false;}
  });
+ window.gwgOpenEmployeeFromReminder=async id=>{await load();const btn=[...el('empRows').querySelectorAll('[data-employee-edit]')].find(b=>b.dataset.employeeEdit===String(id));if(!btn)throw Error('Employee record could not be loaded.');btn.click();};
  el('empRefresh').addEventListener('click',async()=>{await load();document.dispatchEvent(new CustomEvent('gwg:employees-changed'));});
  document.querySelector('[data-tab="employees"]').addEventListener('click',()=>setTimeout(load,0));
 })();
@@ -2812,6 +2813,7 @@ selected=null;await loadAll();status.textContent='All '+count+' duplicate remova
    if(error){E('trainStatus').textContent='Could not load training: '+error.message;return;}
    history=data||[];E('trainStatus').textContent=history.length+' training record(s) loaded.';show();
  }
+ window.gwgOpenTrainingFromReminder=async id=>{await loadStaff();const select=E('trainEmployee');if(![...select.options].some(o=>o.value===String(id)))throw Error('Employee training record could not be loaded.');select.value=String(id);await loadHistory();select.scrollIntoView({block:'center'});};
  E('trainEmployee').addEventListener('change',loadHistory);
  E('trainYear').addEventListener('change',()=>{show();loadOverview();});
  E('trainRefresh').addEventListener('click',loadStaff);
@@ -3225,7 +3227,7 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   const render=(host,items,heading)=>{
    const section=document.createElement('section');section.dataset.formAssignmentSection='true';section.style.marginBottom='14px';
    const title=document.createElement('h4');title.textContent=heading+' ('+items.length+')';section.append(title);
-   for(const x of items){const p=document.createElement('p');p.style.cssText='padding:7px;border-bottom:1px solid #ddd5e6;margin:0';p.textContent=(templates.get(x.template_id)||'Form')+' · '+(families.get(x.family_id)||'Family')+(x.child_id?' · '+(children.get(x.child_id)||'Child'):'')+' · '+(['approved','rejected'].includes(x.status)?x.status:(submittedIds.has(x.id)?'submitted':x.status));section.append(p);
+   for(const x of items){const p=document.createElement('p');p.dataset.reminderAssignmentId=x.id;p.style.cssText='padding:7px;border-bottom:1px solid #ddd5e6;margin:0';p.textContent=(templates.get(x.template_id)||'Form')+' · '+(families.get(x.family_id)||'Family')+(x.child_id?' · '+(children.get(x.child_id)||'Child'):'')+' · '+(['approved','rejected'].includes(x.status)?x.status:(submittedIds.has(x.id)?'submitted':x.status));section.append(p);
     const submission=submissionByAssignment.get(x.id);
     if((host===hosts.submitted||host===hosts.history)&&submission?.completed_pdf_path){
      const btn=document.createElement('button');btn.type='button';btn.textContent='View / Print Signed PDF';btn.style.margin='6px 0 10px';
@@ -3552,10 +3554,11 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   if(e.weekly_hours===null||e.weekly_hours===undefined||e.weekly_hours==='')return null;
   const h=Number(e.weekly_hours);return h>=30?8:h>=20?6:h>=10?4:2;
  }
+ let reminderRecordId=null;
  function make(category,person,title,due,detail,now,missing=false){
   const days=due?daysUntil(due,now):null;
   if(!missing&&days!==null&&days>30)return;
-  alerts.push({category,person,title,due,detail,kind:missing?'missing':days<0?'overdue':'soon',days});
+  alerts.push({category,person,title,due,detail,recordId:reminderRecordId,kind:missing?'missing':days<0?'overdue':'soon',days});
  }
  function render(){
   const total=alerts.length,overdue=alerts.filter(x=>x.kind==='overdue').length,soon=alerts.filter(x=>x.kind==='soon').length,missing=alerts.filter(x=>x.kind==='missing').length;
@@ -3564,7 +3567,7 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   $r('dashboardReminderText').textContent=total?total+' item(s) need attention: '+overdue+' overdue/expired, '+soon+' due soon, '+missing+' missing information.':'No upcoming or overdue reminders from the records currently tracked.';
   const selected=$r('reminderCategory').value;
   const rows=alerts.filter(x=>selected==='all'||x.category===selected).sort((a,b)=>({overdue:0,soon:1,missing:2}[a.kind]-{overdue:0,soon:1,missing:2}[b.kind])||String(a.due||'').localeCompare(String(b.due||''))||a.person.localeCompare(b.person));
-  $r('reminderList').innerHTML=rows.map(x=>'<div class="reminder-alert '+x.kind+'"><strong>'+safe(x.person)+' — '+safe(x.title)+'</strong><div>'+safe(x.kind==='missing'?'Information needed':x.days<0?'Overdue by '+Math.abs(x.days)+' day(s)':x.days===0?'Due today':'Due in '+x.days+' day(s)')+' · '+safe(pretty(x.due))+'</div><div class="muted">'+safe(x.detail)+'</div></div>').join('')||'<p class="muted">No reminders in this category right now.</p>';
+  $r('reminderList').innerHTML=rows.map(x=>'<div class="reminder-alert '+x.kind+'"><strong>'+safe(x.person)+' — '+safe(x.title)+'</strong><div>'+safe(x.kind==='missing'?'Information needed':x.days<0?'Overdue by '+Math.abs(x.days)+' day(s)':x.days===0?'Due today':'Due in '+x.days+' day(s)')+' · '+safe(pretty(x.due))+'</div><div class="muted">'+safe(x.detail)+'</div><button type="button" style="margin-top:8px" data-reminder-index="'+alerts.indexOf(x)+'">'+(x.category==='forms'?'Open form record':x.category==='cpr'?'Edit employee record':'Open employee training')+'</button></div>').join('')||'<p class="muted">No reminders in this category right now.</p>';
  }
  async function refresh(){
   if(busy)return;
@@ -3584,6 +3587,7 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
    alerts=[];const now=today(),year=now.slice(0,4),end=year+'-12-31',trainingWarn=daysUntil(end,now)<=30;
    const histories=history.data||[];
    for(const e of employees.data||[]){
+    reminderRecordId=e.id;
     const records=histories.filter(h=>h.employee_id===e.id);
     make('cpr',e.name,'CPR certification',e.cpr_expires_on||null,'Update the CPR expiration date in Employees.',now,!e.cpr_expires_on);
     const firstAid=records.filter(h=>/first\s*[- ]?\s*aid/i.test(h.course_name||'')).sort((a,b)=>String(b.completed_on||'').localeCompare(String(a.completed_on||'')))[0];
@@ -3603,11 +3607,12 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
    if(!families.error&&!assignments.error&&!submissions.error&&!templates.error){
     const ids=new Set((templates.data||[]).filter(t=>/parent\s+information\s+(form|sheet)/i.test(t.title||'')).map(t=>t.id));
     const familyMap=new Map((families.data||[]).map(f=>[f.id,f.display_name||'Family']));
-    const byFamily=new Map();
+    const byFamily=new Map(),assignmentByFamily=new Map();
     const signedByAssignment=new Map();
     for(const s of submissions.data||[]){const d=String(s.signed_at||s.created_at||'').slice(0,10);if(!d)continue;const prev=signedByAssignment.get(s.assignment_id);if(!prev||d>prev)signedByAssignment.set(s.assignment_id,d);}
-    for(const a of assignments.data||[]){if(!ids.has(a.template_id))continue;const name=familyMap.get(a.family_id);if(!name||/\btest\b/i.test(name))continue;const signed=signedByAssignment.get(a.id)||'';const prev=byFamily.get(a.family_id);if(!prev||signed>prev)byFamily.set(a.family_id,signed);}
+    for(const a of assignments.data||[]){if(!ids.has(a.template_id))continue;const name=familyMap.get(a.family_id);if(!name||/\btest\b/i.test(name))continue;const signed=signedByAssignment.get(a.id)||'';const prev=byFamily.get(a.family_id);if(!byFamily.has(a.family_id)||signed>prev){byFamily.set(a.family_id,signed);assignmentByFamily.set(a.family_id,a.id);}}
     for(const [familyId,signed] of byFamily){
+     reminderRecordId=assignmentByFamily.get(familyId);
      const name=familyMap.get(familyId);
      if(!signed){make('forms',name,'Parent Information Form not recorded',null,'No completed form is recorded for this assigned family. Check paper records before following up.',now,true);continue;}
      const due=(Number(signed.slice(0,4))+1)+'-07-01';
@@ -3619,6 +3624,33 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   finally{busy=false;}
  }
  window.gwgRefreshReminders=refresh;
+ $r('reminderList').addEventListener('click',async event=>{
+  const btn=event.target.closest('[data-reminder-index]');if(!btn)return;
+  const x=alerts[Number(btn.dataset.reminderIndex)];if(!x||!x.recordId)return;
+  const section=x.category==='forms'?'parentforms':'employees';
+  const page=$r('page-'+section);
+  document.querySelectorAll('.tabpage').forEach(p=>p.classList.toggle('hidden',p!==page));
+  $r('ledgerNavigation').classList.add('hidden');
+  document.querySelectorAll('#mainNavigation .tab').forEach(b=>b.classList.toggle('primary',b.dataset.tab===section));
+  try{
+   if(x.category==='cpr')await window.gwgOpenEmployeeFromReminder(x.recordId);
+   else if(x.category!=='forms')await window.gwgOpenTrainingFromReminder(x.recordId);
+   else{
+    const {data:a,error}=await sb.from('parent_form_assignments').select('id,status').eq('id',x.recordId).single();
+    if(error)throw error;
+    const {data:subs,error:subError}=await sb.from('parent_form_submissions').select('id').eq('assignment_id',x.recordId).limit(1);
+    if(subError)throw subError;
+    const tab=['approved','rejected'].includes(a.status)?'history':subs?.length||['submitted','completed'].includes(a.status)?'submitted':'pending';
+    page.querySelector('[data-pf-tab="'+tab+'"]').click();
+    for(let attempt=0;attempt<40;attempt++){
+     const row=[...page.querySelectorAll('[data-reminder-assignment-id]')].find(el=>el.dataset.reminderAssignmentId===String(x.recordId)&&!el.closest('[data-pf-pane]')?.hidden);
+     if(row){row.style.outline='2px solid #6f4a8e';row.style.background='#f1e8fa';row.scrollIntoView({block:'center'});return;}
+     await new Promise(resolve=>setTimeout(resolve,250));
+    }
+    throw Error('The form section opened, but the assignment could not be located.');
+   }
+  }catch(e){alert(e.message||String(e));}
+ });
  $r('reminderRefresh').addEventListener('click',refresh);
  $r('reminderCategory').addEventListener('change',render);
  document.querySelector('#mainNavigation [data-tab="reminders"]').addEventListener('click',refresh);
