@@ -210,7 +210,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <div class="panel"><div class="row"><div><strong id="signedInAs">Signed in</strong><div class="muted">Cloud database connected · Auto-sync every 15 seconds</div><div class="muted" id="gwgSyncStatus"></div></div><button onclick="printTransactions()">Print Transactions</button></div></div>
 <nav class="noprint" id="mainNavigation" aria-label="Main sections">
 <button type="button" class="tab primary" id="mainLedger">Ledger</button>
-<button type="button" class="tab" data-tab="employees">Employees</button><button type="button" class="tab" data-tab="reminders">Reminders <span id="reminderNavBadge" class="reminder-badge hidden" aria-label="Alerts needing attention">0</span></button><button type="button" class="tab" data-tab="childinfo">Child Information</button><button type="button" class="tab" data-tab="immunizations">Immunizations</button><button type="button" class="tab" data-tab="parentmessages">Parent Messages</button><button type="button" class="tab" data-tab="parentforms">Parent Forms</button>
+<button type="button" class="tab" data-tab="employees">Employees</button><button type="button" class="tab" data-tab="reminders">Reminders <span id="reminderNavBadge" class="reminder-badge hidden" aria-label="Alerts needing attention">0</span></button><button type="button" class="tab" data-tab="childinfo">Child Information</button><button type="button" class="tab" data-tab="immunizations">Immunizations</button><button type="button" class="tab" data-tab="parentmessages">Parent Messages</button><button type="button" class="tab" data-tab="parentforms">Parent Forms <span id="pfMainCount" class="reminder-badge hidden" aria-label="Forms awaiting approval"></span></button>
 </nav>
 <nav class="noprint" id="ledgerNavigation" aria-label="Ledger sections">
 <button class="tab primary" data-tab="dashboard">Dashboard</button><button class="tab" data-tab="children">Children</button><button class="tab" data-tab="rates">Rates</button><button class="tab" data-tab="entry">Charges & Payments</button><button class="tab" data-tab="transfers">Transfers</button><button class="tab" data-tab="bulkimport">Bulk Ledger Entry</button><button class="tab" data-tab="reports">Reports</button><button class="tab" data-tab="invoices">Invoices</button>
@@ -234,12 +234,12 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 </section>
 <section class="panel tabpage hidden" id="page-parentforms">
 <h2>Parent Forms</h2><p class="muted">Manage forms submitted by daycare families. Contact changes require administrator review and are never applied automatically.</p>
-<div class="row noprint" id="pfTabs" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">
+<style>#pfTabs>button{flex:0 0 auto;padding:7px 10px;border:2px solid transparent;color:#342641}#pfTabs>[data-pf-tab="templates"]{background:#eee3f7}#pfTabs>[data-pf-tab="send"]{background:#e3effb}#pfTabs>[data-pf-tab="pending"]{background:#fff3d9}#pfTabs>[data-pf-tab="submitted"]{background:#f9e3e9}#pfTabs>[data-pf-tab="history"]{background:#e5f1e3}#pfTabs>button.primary{border-color:#6f4a8e}#pfSubmittedCount.pf-attention{background:#b42318;color:white;border-radius:12px;padding:1px 5px}</style><div class="row noprint" id="pfTabs" style="display:flex;flex-wrap:wrap;gap:5px;margin:7px 0">
 <button type="button" class="primary" data-pf-tab="templates">Form Templates</button>
 <button type="button" data-pf-tab="send">Send Forms</button>
-<button type="button" data-pf-tab="pending">Pending Forms</button>
-<button type="button" data-pf-tab="submitted">Submitted Forms</button>
-<button type="button" data-pf-tab="history">Approved / History</button></div>
+<button type="button" data-pf-tab="pending">Pending Forms <span id="pfPendingCount">(—)</span></button>
+<button type="button" data-pf-tab="submitted">Submitted Forms <span id="pfSubmittedCount">(—)</span></button>
+<button type="button" data-pf-tab="history">Approved / History <span id="pfHistoryCount">(—)</span></button></div>
 <div data-pf-pane="templates"><h3>Form Templates</h3>
 <div style="border:1px solid #ddd5e6;border-radius:10px;padding:14px;margin:10px 0">
 <h3>Upload Forms</h3>
@@ -3269,7 +3269,7 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   };
   render(hosts.pending,rows.filter(x=>['draft','sent','pending'].includes(x.status)&&!submittedIds.has(x.id)),'Form assignments awaiting completion');
   render(hosts.submitted,rows.filter(isSubmitted),'Submitted form assignments');
-  render(hosts.history,rows.filter(x=>['approved','rejected'].includes(x.status)),'Reviewed form assignments');
+  render(hosts.history,rows.filter(x=>['approved','rejected'].includes(x.status)),'Reviewed form assignments');window.gwgRefreshFormCounts?.();
  }
  async function loadHandbookAcknowledgements(){
   const host=document.getElementById('pfHandbookList'),notice=document.getElementById('pfHandbookStatus'),history=document.getElementById('pfHistoryList');
@@ -3859,4 +3859,13 @@ E('ciChild').onchange=load;E('ciInactive').onchange=refresh;E('ciRefresh').oncli
 document.addEventListener('click',e=>{const b=e.target.closest('#mainNavigation [data-tab="childinfo"]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();document.querySelectorAll('.tabpage').forEach(p=>p.classList.toggle('hidden',p!==page));E('ledgerNavigation').classList.add('hidden');document.querySelectorAll('#mainNavigation .tab').forEach(t=>t.classList.toggle('primary',t===b));refresh();},true);
 })();
 </script>
-</body></html>
+<script>
+(function(){
+ const E=id=>document.getElementById(id);let busy=false,rerun=false;
+ async function allRows(table,fields){let rows=[];for(let offset=0;;offset+=500){const r=await sb.from(table).select(fields).order('id').range(offset,offset+499);if(r.error)throw r.error;rows.push(...(r.data||[]));if((r.data||[]).length<500)return rows;}}
+ function count(rows,submissions,handbooks){const ids=new Set(submissions.map(x=>x.assignment_id));const closed=x=>['approved','rejected','archived'].includes(x.status);const submitted=rows.filter(x=>!closed(x)&&(ids.has(x.id)||['submitted','completed'].includes(x.status))).length;return {pending:rows.filter(x=>['draft','sent','pending'].includes(x.status)&&!ids.has(x.id)).length,submitted:submitted+handbooks.filter(x=>x.approval_status!=='approved').length,history:rows.filter(x=>['approved','rejected'].includes(x.status)).length+handbooks.filter(x=>x.approval_status==='approved').length};}
+ function show(c){E('pfPendingCount').textContent='('+c.pending+')';E('pfSubmittedCount').textContent=c.submitted?String(c.submitted):'(0)';E('pfSubmittedCount').classList.toggle('pf-attention',c.submitted>0);E('pfHistoryCount').textContent='('+c.history+')';const b=E('pfMainCount');b.textContent=c.submitted?String(c.submitted):'';b.classList.toggle('hidden',!c.submitted);b.title=c.submitted+' returned forms / handbook acknowledgments awaiting approval';}
+ async function refresh(){if(busy){rerun=true;return;}if(!sb||!user){for(const id of ['pfPendingCount','pfSubmittedCount','pfHistoryCount'])E(id).textContent='(—)';E('pfMainCount').classList.add('hidden');return;}busy=true;const uid=user.id;try{const [a,b,c]=await Promise.all([allRows('parent_form_assignments','id,status'),allRows('parent_form_submissions','id,assignment_id'),allRows('parent_handbook_acknowledgements','id,approval_status')]);if(user?.id!==uid)return;show(count(a,b,c));}catch(e){for(const id of ['pfPendingCount','pfSubmittedCount','pfHistoryCount']){E(id).textContent='(?)';E(id).title='Unable to refresh counts: '+e.message;}E('pfMainCount').textContent='!';E('pfMainCount').title='Unable to check returned forms';E('pfMainCount').classList.remove('hidden');}finally{busy=false;if(rerun){rerun=false;refresh();}}}
+ window.gwgRefreshFormCounts=refresh;document.addEventListener('click',e=>{if(e.target.closest('#mainNavigation [data-tab="parentforms"],#pfTabs'))refresh();});document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});setInterval(refresh,15000);setTimeout(refresh,1000);
+})();
+</script></body></html>
