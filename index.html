@@ -248,7 +248,7 @@ body[data-print-mode="invoice"] #page-invoices > .grid {
 <label for="pfUploadFile" style="margin-top:10px">Choose PDF or Word file</label><input id="pfUploadFile" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
 <button id="pfUploadButton" type="button" class="primary" style="margin-top:10px">Upload Form</button>
 <p id="pfUploadStatus" role="status" class="muted"></p>
-<h3>Uploaded Forms</h3><button id="pfAddBirthNotice" type="button" class="primary">Add Birth Certificate Notice to Templates</button><p id="pfBirthNoticeStatus" role="status" class="muted"></p><button id="pfReloadTemplates" type="button">Refresh Form Library</button><div id="pfUploadedList" style="margin-top:10px"></div>
+<h3>Uploaded Forms</h3><button id="pfAddBirthNotice" type="button" class="primary">Add Birth Certificate Notice to Templates</button><p id="pfBirthNoticeStatus" role="status" class="muted"></p><button id="pfReloadTemplates" type="button">Refresh Form Library</button><style>#pfUploadedList{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;align-items:stretch}#pfUploadedList>.pf-library-card{min-width:0;overflow-wrap:anywhere;display:flex;flex-direction:column;gap:5px}#pfUploadedList .pf-library-card p{font-size:11px;line-height:1.3;margin:0}#pfUploadedList .pf-library-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:auto}#pfUploadedList button{font-size:12px;padding:5px 8px;margin:0!important}@media(max-width:800px){#pfUploadedList{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:480px){#pfUploadedList{grid-template-columns:1fr}}</style><div id="pfUploadedList" style="margin-top:7px"></div>
 </div><div style="border:1px solid #ddd5e6;border-radius:10px;padding:12px"><strong>Parent Contact Information Update</strong><p>Parents can request changes to guardian names, email addresses, and phone numbers. All requests will need approval before changing a child's saved contacts.</p><p class="muted">Template setup is next. No forms have been sent yet.</p></div></div>
 <div data-pf-pane="send" hidden>
 <h3 style="margin:5px 0">Assign Forms</h3>
@@ -3357,7 +3357,7 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
   if(error){list.textContent='Could not load forms: '+error.message;return;}
   if(!data?.length){list.textContent='No uploaded forms yet.';return;}
   for(const item of data){
-   const card=document.createElement('div');card.style.cssText='border:1px solid #ddd5e6;border-radius:8px;padding:10px;margin:8px 0';
+   const card=document.createElement('div');card.className='pf-library-card';card.style.cssText='border:1px solid #ddd5e6;border-radius:7px;padding:8px;margin:0';const actions=document.createElement('div');actions.className='pf-library-actions';
    const title=document.createElement('strong');title.textContent=item.title;
    const info=document.createElement('p');info.className='muted';info.textContent=item.file_name+' · '+item.status+' · '+new Date(item.created_at).toLocaleDateString();
    const open=document.createElement('button');open.type='button';open.textContent=item.file_type==='application/pdf'?'View PDF':'Download Word File';
@@ -3370,7 +3370,7 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
     }catch(e){uploadStatus.textContent='Could not open form: '+e.message;}
     finally{open.disabled=false;}
    };
-   card.append(title,info,open);
+   card.append(title,info,actions);actions.append(open);
     if(item.status!=='published'){
      const publish=document.createElement('button');publish.type='button';publish.style.marginLeft='8px';publish.textContent='Publish Form';
      publish.onclick=async()=>{
@@ -3383,7 +3383,7 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
        await loadTemplates();
       }catch(e){uploadStatus.textContent='Could not publish form: '+(e.message||String(e));publish.disabled=false;}
      };
-     card.append(publish);
+     actions.append(publish);
     }
    if(item.file_type==='application/pdf'){
     const choose=document.createElement('button');choose.type='button';choose.style.marginLeft='8px';
@@ -3399,7 +3399,7 @@ setTimeout(()=>{if(sb&&user)updateUnread().catch(()=>{});},2000);
       await loadTemplates();
      }catch(e){uploadStatus.textContent='Could not select handbook: '+(e.message||String(e));choose.disabled=false;}
     };
-    card.append(choose);
+    actions.append(choose);
    }
    list.append(card);
   }
